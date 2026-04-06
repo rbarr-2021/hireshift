@@ -1,17 +1,12 @@
 @import "tailwindcss";
 
+/* Root theme */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,8 +14,46 @@
   }
 }
 
+/* Base styles */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-gray-50 text-gray-900 font-sans;
+}
+
+/* Smooth inputs globally */
+input {
+  @apply transition duration-200;
+}
+
+/* ✅ COMPONENT LAYER (IMPORTANT) */
+@layer components {
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-3 rounded-lg bg-gray-100 text-gray-800
+    focus:bg-white focus:outline-none focus:ring-2 focus:ring-black
+    transition-all duration-200;
+  }
+
+  /* Primary button */
+  .primary-btn {
+    @apply bg-black text-white py-3 rounded-lg
+    transition-all duration-200 ease-out
+    hover:opacity-80 hover:scale-[1.02]
+    active:scale-[0.98]
+    disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Link button */
+  .link-btn {
+    @apply text-sm text-gray-500 text-center
+    transition-all duration-200
+    hover:text-black hover:underline;
+  }
+
+  /* Toggle button */
+  .toggle-btn {
+    @apply absolute right-3 top-1/2 -translate-y-1/2
+    text-sm text-gray-500
+    transition-colors duration-200
+    hover:text-black;
+  }
 }
