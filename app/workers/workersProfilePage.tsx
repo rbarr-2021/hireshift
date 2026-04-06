@@ -1,83 +1,110 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+type WorkerProfile = {
+  user_id: string;
+  name?: string;
+  bio?: string;
+  hourly_rate?: number;
+  skills?: string[];
+  location?: string;
+  rating?: number;
+};
 
 export default function WorkerProfilePage() {
-  const params = useParams() // get [id] from URL
-  const router = useRouter()
-  const workerId = params.id as string
-
-  const [worker, setWorker] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [bookingDate, setBookingDate] = useState('')
-  const [bookingTime, setBookingTime] = useState('')
-  const [bookingNotes, setBookingNotes] = useState('')
-  const [bookingLoading, setBookingLoading] = useState(false)
-
-  // Fetch worker profile
-  const fetchWorker = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('worker_profiles')
-      .select('*')
-      .eq('user_id', workerId)
-      .single()
-
-    if (error) alert(error.message)
-    else setWorker(data)
-
-    setLoading(false)
-  }
+  const params = useParams();
+  const workerId = params.id as string;
+  const [worker, setWorker] = useState<WorkerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingNotes, setBookingNotes] = useState("");
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
-    if (workerId) fetchWorker()
-  }, [workerId])
+    let active = true;
 
-  // Booking function
+    const fetchWorker = async () => {
+      if (!workerId) {
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("worker_profiles")
+        .select("*")
+        .eq("user_id", workerId)
+        .single();
+
+      if (!active) {
+        return;
+      }
+
+      if (error) {
+        window.alert(error.message);
+      } else {
+        setWorker((data as WorkerProfile) ?? null);
+      }
+
+      setLoading(false);
+    };
+
+    void fetchWorker();
+
+    return () => {
+      active = false;
+    };
+  }, [workerId]);
+
   const handleBooking = async () => {
-    setBookingLoading(true)
+    setBookingLoading(true);
 
-    // Get current logged-in business user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
     if (userError || !user) {
-      setBookingLoading(false)
-      return alert('Please log in as a business to book this worker.')
+      setBookingLoading(false);
+      window.alert("Please log in as a business to book this worker.");
+      return;
     }
 
-    // Insert booking into bookings table
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert([{
+    const { error } = await supabase.from("bookings").insert([
+      {
         worker_id: workerId,
         business_id: user.id,
         date: bookingDate,
         time: bookingTime,
         notes: bookingNotes,
-        status: 'pending' // for admin / worker approval
-      }])
+        status: "pending",
+      },
+    ]);
 
-    setBookingLoading(false)
+    setBookingLoading(false);
 
-    if (error) alert(error.message)
-    else {
-      alert('Booking request sent!')
-      setBookingDate('')
-      setBookingTime('')
-      setBookingNotes('')
+    if (error) {
+      window.alert(error.message);
+      return;
     }
-  }
 
-  if (loading) return <p>Loading worker...</p>
-  if (!worker) return <p>Worker not found</p>
+    window.alert("Booking request sent!");
+    setBookingDate("");
+    setBookingTime("");
+    setBookingNotes("");
+  };
+
+  if (loading) return <p>Loading worker...</p>;
+  if (!worker) return <p>Worker not found</p>;
 
   return (
     <div className="p-4 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold mb-2">{worker.name}</h1>
       <p className="mb-2"><strong>Bio:</strong> {worker.bio}</p>
-      <p className="mb-2"><strong>Hourly Rate:</strong> £{worker.hourly_rate}/hr</p>
-      <p className="mb-2"><strong>Skills:</strong> {worker.skills.join(', ')}</p>
+      <p className="mb-2"><strong>Hourly Rate:</strong> GBP {worker.hourly_rate}/hr</p>
+      <p className="mb-2"><strong>Skills:</strong> {worker.skills?.join(", ")}</p>
       <p className="mb-2"><strong>Location:</strong> {worker.location}</p>
       <p className="mb-4"><strong>Rating:</strong> {worker.rating}</p>
 
@@ -86,19 +113,19 @@ export default function WorkerProfilePage() {
         <input
           type="date"
           value={bookingDate}
-          onChange={e => setBookingDate(e.target.value)}
+          onChange={(event) => setBookingDate(event.target.value)}
           className="border p-2 rounded"
         />
         <input
           type="time"
           value={bookingTime}
-          onChange={e => setBookingTime(e.target.value)}
+          onChange={(event) => setBookingTime(event.target.value)}
           className="border p-2 rounded"
         />
         <textarea
           placeholder="Notes"
           value={bookingNotes}
-          onChange={e => setBookingNotes(e.target.value)}
+          onChange={(event) => setBookingNotes(event.target.value)}
           className="border p-2 rounded"
         />
         <button
@@ -106,9 +133,9 @@ export default function WorkerProfilePage() {
           className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
           disabled={bookingLoading}
         >
-          {bookingLoading ? 'Booking...' : 'Book Now'}
+          {bookingLoading ? "Booking..." : "Book Now"}
         </button>
       </div>
     </div>
-  )
+  );
 }

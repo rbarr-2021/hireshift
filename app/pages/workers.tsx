@@ -1,99 +1,135 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type WorkerListItem = {
+  user_id: string;
+  name?: string;
+  bio?: string;
+  skills?: string[];
+  hourly_rate?: number;
+  location?: string;
+  rating?: number;
+};
+
+type WorkerFilters = {
+  name: string;
+  bio: string;
+  skills: string;
+  hourly_rate_min: string;
+  hourly_rate_max: string;
+  location: string;
+  rating_min: string;
+};
+
+const initialFilters: WorkerFilters = {
+  name: "",
+  bio: "",
+  skills: "",
+  hourly_rate_min: "",
+  hourly_rate_max: "",
+  location: "",
+  rating_min: "",
+};
 
 export default function WorkersPage() {
-  const [workers, setWorkers] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [filters, setFilters] = useState({
-    name: '',
-    bio: '',
-    skills: '',
-    hourly_rate_min: '',
-    hourly_rate_max: '',
-    location: '',
-    rating_min: ''
-  })
+  const [workers, setWorkers] = useState<WorkerListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<WorkerFilters>(initialFilters);
 
-  // Fetch workers based on filters
-  const fetchWorkers = async () => {
-    setLoading(true)
+  const fetchWorkers = async (active = true) => {
+    let query = supabase.from("worker_profiles").select("*");
 
-    let query = supabase.from('worker_profiles').select('*')
+    if (filters.name) query = query.ilike("name", `%${filters.name}%`);
+    if (filters.bio) query = query.ilike("bio", `%${filters.bio}%`);
 
-    // Name filter
-    if (filters.name)
-      query = query.ilike('name', `%${filters.name}%`)
-
-    // Bio filter
-    if (filters.bio)
-      query = query.ilike('bio', `%${filters.bio}%`)
-
-    // Skills filter (match any skill in comma-separated input)
     if (filters.skills) {
-      const skillsArray = filters.skills.split(',').map(s => s.trim().toLowerCase())
-      skillsArray.forEach(skill => {
-        query = query.contains('skills', [skill])
-      })
+      const skillsArray = filters.skills
+        .split(",")
+        .map((skill) => skill.trim().toLowerCase())
+        .filter(Boolean);
+
+      skillsArray.forEach((skill) => {
+        query = query.contains("skills", [skill]);
+      });
     }
 
-    // Hourly rate filter
-    if (filters.hourly_rate_min)
-      query = query.gte('hourly_rate', Number(filters.hourly_rate_min))
-    if (filters.hourly_rate_max)
-      query = query.lte('hourly_rate', Number(filters.hourly_rate_max))
+    if (filters.hourly_rate_min) {
+      query = query.gte("hourly_rate", Number(filters.hourly_rate_min));
+    }
 
-    // Location filter
-    if (filters.location)
-      query = query.ilike('location', `%${filters.location}%`)
+    if (filters.hourly_rate_max) {
+      query = query.lte("hourly_rate", Number(filters.hourly_rate_max));
+    }
 
-    // Rating filter
-    if (filters.rating_min)
-      query = query.gte('rating', Number(filters.rating_min))
+    if (filters.location) query = query.ilike("location", `%${filters.location}%`);
+    if (filters.rating_min) query = query.gte("rating", Number(filters.rating_min));
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
-    if (error) alert(error.message)
-    else setWorkers(data || [])
+    if (active) {
+      if (error) {
+        window.alert(error.message);
+      } else {
+        setWorkers((data as WorkerListItem[]) ?? []);
+      }
 
-    setLoading(false)
-  }
+      setLoading(false);
+    }
+  };
 
-  // Fetch on initial load
   useEffect(() => {
-    fetchWorkers()
-  }, [])
+    let active = true;
+    const query = supabase.from("worker_profiles").select("*");
+
+    void query.then(({ data, error }) => {
+      if (!active) {
+        return;
+      }
+
+      if (error) {
+        window.alert(error.message);
+      } else {
+        setWorkers((data as WorkerListItem[]) ?? []);
+      }
+
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Find Workers</h1>
 
-      {/* Filters */}
       <div className="flex flex-col md:flex-row gap-2 mb-4">
         <input
           placeholder="Name"
           value={filters.name}
-          onChange={e => setFilters({ ...filters, name: e.target.value })}
+          onChange={(event) => setFilters({ ...filters, name: event.target.value })}
           className="border p-2 rounded flex-1"
         />
         <input
           placeholder="Bio"
           value={filters.bio}
-          onChange={e => setFilters({ ...filters, bio: e.target.value })}
+          onChange={(event) => setFilters({ ...filters, bio: event.target.value })}
           className="border p-2 rounded flex-1"
         />
         <input
           placeholder="Skills (comma separated)"
           value={filters.skills}
-          onChange={e => setFilters({ ...filters, skills: e.target.value })}
+          onChange={(event) => setFilters({ ...filters, skills: event.target.value })}
           className="border p-2 rounded flex-1"
         />
         <input
           placeholder="Location"
           value={filters.location}
-          onChange={e => setFilters({ ...filters, location: e.target.value })}
+          onChange={(event) => setFilters({ ...filters, location: event.target.value })}
           className="border p-2 rounded flex-1"
         />
       </div>
@@ -103,39 +139,42 @@ export default function WorkersPage() {
           type="number"
           placeholder="Min Rate"
           value={filters.hourly_rate_min}
-          onChange={e => setFilters({ ...filters, hourly_rate_min: e.target.value })}
+          onChange={(event) =>
+            setFilters({ ...filters, hourly_rate_min: event.target.value })
+          }
           className="border p-2 rounded"
         />
         <input
           type="number"
           placeholder="Max Rate"
           value={filters.hourly_rate_max}
-          onChange={e => setFilters({ ...filters, hourly_rate_max: e.target.value })}
+          onChange={(event) =>
+            setFilters({ ...filters, hourly_rate_max: event.target.value })
+          }
           className="border p-2 rounded"
         />
         <input
           type="number"
           placeholder="Min Rating"
           value={filters.rating_min}
-          onChange={e => setFilters({ ...filters, rating_min: e.target.value })}
+          onChange={(event) => setFilters({ ...filters, rating_min: event.target.value })}
           className="border p-2 rounded"
         />
         <button
-          onClick={fetchWorkers}
+          onClick={() => void fetchWorkers()}
           className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
         >
           Search
         </button>
       </div>
 
-      {/* Workers List */}
       {loading ? (
         <p>Loading...</p>
       ) : workers.length === 0 ? (
         <p>No workers found.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {workers.map(worker => (
+          {workers.map((worker) => (
             <Link
               key={worker.user_id}
               href={`/workers/${worker.user_id}`}
@@ -143,8 +182,8 @@ export default function WorkersPage() {
             >
               <h2 className="font-bold">{worker.name}</h2>
               <p>{worker.bio}</p>
-              <p>Skills: {worker.skills.join(', ')}</p>
-              <p>Rate: £{worker.hourly_rate}/hr</p>
+              <p>Skills: {worker.skills?.join(", ")}</p>
+              <p>Rate: GBP {worker.hourly_rate}/hr</p>
               <p>Location: {worker.location}</p>
               <p>Rating: {worker.rating}</p>
             </Link>
@@ -152,5 +191,5 @@ export default function WorkersPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

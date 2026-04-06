@@ -1,59 +1,55 @@
 @import "tailwindcss";
 
-/* Root theme */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f5f4;
+  --foreground: #1c1917;
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--background);
 }
 
-/* Base styles */
 body {
-  @apply bg-gray-50 text-gray-900 font-sans;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 30%),
+    linear-gradient(180deg, #fafaf9 0%, #f5f5f4 100%);
+  color: var(--foreground);
 }
 
-/* Smooth inputs globally */
-input {
-  @apply transition duration-200;
+input,
+textarea,
+select,
+button {
+  transition: all 180ms ease;
 }
 
-/* ✅ COMPONENT LAYER (IMPORTANT) */
 @layer components {
-  /* Inputs */
   .input {
-    @apply w-full px-4 py-3 rounded-lg bg-gray-100 text-gray-800
-    focus:bg-white focus:outline-none focus:ring-2 focus:ring-black
-    transition-all duration-200;
+    @apply w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-stone-900 outline-none;
   }
 
-  /* Primary button */
+  .input:focus {
+    @apply border-stone-900 bg-white ring-2 ring-stone-900/10;
+  }
+
   .primary-btn {
-    @apply bg-black text-white py-3 rounded-lg
-    transition-all duration-200 ease-out
-    hover:opacity-80 hover:scale-[1.02]
-    active:scale-[0.98]
-    disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply rounded-2xl bg-stone-900 py-3 font-medium text-white;
   }
 
-  /* Link button */
+  .primary-btn:hover {
+    @apply bg-stone-800;
+  }
+
+  .primary-btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
   .link-btn {
-    @apply text-sm text-gray-500 text-center
-    transition-all duration-200
-    hover:text-black hover:underline;
+    @apply text-center text-sm text-stone-500 hover:text-stone-900 hover:underline;
   }
 
-  /* Toggle button */
   .toggle-btn {
-    @apply absolute right-3 top-1/2 -translate-y-1/2
-    text-sm text-gray-500
-    transition-colors duration-200
-    hover:text-black;
+    @apply absolute right-4 top-1/2 -translate-y-1/2 text-sm text-stone-500 hover:text-stone-900;
   }
 }
