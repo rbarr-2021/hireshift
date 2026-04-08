@@ -85,6 +85,15 @@ begin
   ) then
     alter table public.users add primary key (id);
   end if;
+
+  if exists (
+    select 1
+    from pg_constraint
+    where conname = 'users_email_key'
+      and conrelid = 'public.users'::regclass
+  ) then
+    alter table public.users drop constraint users_email_key;
+  end if;
 end $$;
 
 create table if not exists public.worker_profiles (
@@ -456,13 +465,39 @@ create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
+declare
+  metadata jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  next_display_name text := nullif(
+    coalesce(
+      metadata->>'display_name',
+      metadata->>'full_name',
+      metadata->>'name'
+    ),
+    ''
+  );
+  next_phone text := nullif(metadata->>'phone', '');
 begin
-  insert into public.users (id, email)
-  values (new.id, new.email)
+  insert into public.users (
+    id,
+    email,
+    display_name,
+    phone,
+    onboarding_complete
+  )
+  values (
+    new.id,
+    new.email,
+    next_display_name,
+    next_phone,
+    false
+  )
   on conflict (id) do update
-    set email = excluded.email;
+    set email = excluded.email,
+        display_name = coalesce(public.users.display_name, excluded.display_name),
+        phone = coalesce(public.users.phone, excluded.phone),
+        updated_at = timezone('utc'::text, now());
   return new;
 end;
 $$;
