@@ -347,6 +347,13 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       }
 
       const path = `${userId}/${documentType}-${Date.now()}-${sanitiseFileName(file.name)}`;
+      console.info("[worker-profile-save] storage upload", {
+        stage: "worker-document-storage",
+        bucket: "worker-documents",
+        path,
+        authUserId: userId,
+        documentType,
+      });
       const { error } = await supabase.storage
         .from("worker-documents")
         .upload(path, file, { upsert: true });
@@ -428,6 +435,12 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
       if (photoFile) {
         const filePath = `${user.id}/profile-${Date.now()}-${sanitiseFileName(photoFile.name)}`;
+        console.info("[worker-profile-save] storage upload", {
+          stage: "worker-profile-assets",
+          bucket: "worker-profile-assets",
+          path: filePath,
+          authUserId: user.id,
+        });
         const { error: uploadError } = await supabase.storage
           .from("worker-profile-assets")
           .upload(filePath, photoFile, { upsert: true });

@@ -114,6 +114,15 @@ with check (
   and split_part(name, '/', 1) = auth.uid()::text
 );
 
+drop policy if exists "Workers can read own profile assets" on storage.objects;
+create policy "Workers can read own profile assets"
+on storage.objects for select
+using (
+  bucket_id = 'worker-profile-assets'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
 drop policy if exists "Workers can delete profile assets" on storage.objects;
 create policy "Workers can delete profile assets"
 on storage.objects for delete
