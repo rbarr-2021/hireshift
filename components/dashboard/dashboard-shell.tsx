@@ -13,7 +13,8 @@ const workerLinks = [
 
 const businessLinks = [
   { href: "/dashboard/business", label: "Overview" },
-  { href: "/profile/setup/business", label: "Business Setup" },
+  { href: "/dashboard/business/profile", label: "Manage Profile" },
+  { href: "/dashboard/business/discover", label: "Discover Workers" },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {

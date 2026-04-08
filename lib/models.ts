@@ -128,6 +128,24 @@ export type WorkerDocumentRecord = {
   updated_at: string;
 };
 
+export type ReviewRecord = {
+  id: string;
+  booking_id: string;
+  reviewer_user_id: string;
+  reviewee_user_id: string;
+  punctuality_rating: number;
+  skill_rating: number;
+  attitude_rating: number;
+  reliability_rating: number;
+  comment: string | null;
+  created_at: string;
+};
+
+export type ReviewAggregate = {
+  averageRating: number | null;
+  reviewCount: number;
+};
+
 export type BusinessProfileRecord = {
   user_id: string;
   business_name: string;
@@ -141,4 +159,14 @@ export type BusinessProfileRecord = {
   verification_status: ApprovalStatus;
   created_at: string;
   updated_at: string;
+};
+
+export type WorkerDiscoveryFilters = {
+  role: HospitalityRole | "";
+  skills: string[];
+  availableDay: number | "";
+  maxHourlyRate: string;
+  location: string;
+  minRating: string;
+  minTravelRadius: string;
 };
