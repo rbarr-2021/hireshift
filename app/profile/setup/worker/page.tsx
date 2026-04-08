@@ -3,7 +3,7 @@ import { WorkerProfileForm } from "@/components/worker/worker-profile-form";
 
 export default function WorkerSetupPage() {
   return (
-    <AuthGuard>
+    <AuthGuard allowedRoles={["worker"]}>
       <WorkerProfileForm mode="onboarding" />
     </AuthGuard>
   );

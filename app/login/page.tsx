@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { UserRecord } from "@/lib/models";
+import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -14,12 +14,36 @@ export default function Login() {
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
 
+  useEffect(() => {
+    let active = true;
+
+    const redirectIfSignedIn = async () => {
+      const resolved = await resolveAuthState();
+
+      if (!active || !resolved?.appUser?.role) {
+        return;
+      }
+
+      router.replace(
+        resolved.appUser.onboarding_complete
+          ? getRoleHome(resolved.appUser.role)
+          : getRoleSetupPath(resolved.appUser.role),
+      );
+    };
+
+    void redirectIfSignedIn();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setMessage(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -30,31 +54,28 @@ export default function Login() {
       return;
     }
 
-    const { data: appUser } = await supabase
-      .from("users")
-      .select("role, onboarding_complete")
-      .eq("id", data.user.id)
-      .maybeSingle<UserRecord>();
+    const resolved = await resolveAuthState();
 
     setLoading(false);
 
-    if (!appUser?.role) {
+    if (!resolved?.appUser) {
+      await supabase.auth.signOut();
+      setMessage("Your account record could not be found. Please sign in again.");
+      router.push("/login");
+      return;
+    }
+
+    if (!resolved.appUser.role) {
       router.push("/role-select");
       return;
     }
 
-    if (!appUser.onboarding_complete) {
-      router.push(
-        appUser.role === "worker"
-          ? "/profile/setup/worker"
-          : "/profile/setup/business",
-      );
+    if (!resolved.appUser.onboarding_complete) {
+      router.push(getRoleSetupPath(resolved.appUser.role));
       return;
     }
 
-    router.push(
-      appUser.role === "worker" ? "/dashboard/worker" : "/dashboard/business",
-    );
+    router.push(getRoleHome(resolved.appUser.role));
   };
 
   const handleResetPassword = async () => {

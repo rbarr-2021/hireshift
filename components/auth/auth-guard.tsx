@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { UserRecord } from "@/lib/models";
+import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
+import type { UserRole } from "@/lib/models";
 
 type AuthGuardProps = {
   children: React.ReactNode;
   requireOnboarding?: boolean;
+  allowedRoles?: UserRole[];
 };
 
 export function AuthGuard({
   children,
   requireOnboarding = false,
+  allowedRoles,
 }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -22,44 +25,37 @@ export function AuthGuard({
     let active = true;
 
     const checkSession = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const resolved = await resolveAuthState();
 
       if (!active) {
         return;
       }
 
-      if (!user) {
+      if (!resolved) {
         router.replace("/login");
         return;
       }
 
-      if (!requireOnboarding) {
-        setIsReady(true);
+      const { appUser } = resolved;
+
+      if (!appUser) {
+        await supabase.auth.signOut();
+        router.replace("/login");
         return;
       }
 
-      const { data: appUser } = await supabase
-        .from("users")
-        .select("role, onboarding_complete")
-        .eq("id", user.id)
-        .maybeSingle<UserRecord>();
-
-      if (!active) {
-        return;
-      }
-
-      if (!appUser?.role) {
+      if (!appUser.role) {
         router.replace("/role-select");
         return;
       }
 
-      if (!appUser.onboarding_complete) {
-        const onboardingPath =
-          appUser.role === "worker"
-            ? "/profile/setup/worker"
-            : "/profile/setup/business";
+      if (allowedRoles && !allowedRoles.includes(appUser.role)) {
+        router.replace(getRoleHome(appUser.role));
+        return;
+      }
+
+      if (requireOnboarding && !appUser.onboarding_complete) {
+        const onboardingPath = getRoleSetupPath(appUser.role);
 
         if (pathname !== onboardingPath) {
           router.replace(onboardingPath);
@@ -84,7 +80,7 @@ export function AuthGuard({
       active = false;
       subscription.unsubscribe();
     };
-  }, [pathname, requireOnboarding, router]);
+  }, [allowedRoles, pathname, requireOnboarding, router]);
 
   if (!isReady) {
     return (
@@ -97,7 +93,7 @@ export function AuthGuard({
             Loading your workspace
           </h1>
           <p className="mt-3 text-sm text-stone-600">
-            Checking your session and getting the right dashboard ready.
+            Checking your session, role, and access rules.
           </p>
         </div>
       </div>

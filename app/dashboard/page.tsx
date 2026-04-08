@@ -2,46 +2,33 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import type { UserRecord } from "@/lib/models";
+import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
 
 export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
     const routeUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const resolved = await resolveAuthState();
 
-      if (!user) {
+      if (!resolved) {
         router.replace("/login");
         return;
       }
 
-      const { data } = await supabase
-        .from("users")
-        .select("role, onboarding_complete")
-        .eq("id", user.id)
-        .maybeSingle<UserRecord>();
+      const { appUser } = resolved;
 
-      if (!data?.role) {
+      if (!appUser?.role) {
         router.replace("/role-select");
         return;
       }
 
-      if (!data.onboarding_complete) {
-        router.replace(
-          data.role === "worker"
-            ? "/profile/setup/worker"
-            : "/profile/setup/business",
-        );
+      if (!appUser.onboarding_complete) {
+        router.replace(getRoleSetupPath(appUser.role));
         return;
       }
 
-      router.replace(
-        data.role === "worker" ? "/dashboard/worker" : "/dashboard/business",
-      );
+      router.replace(getRoleHome(appUser.role));
     };
 
     void routeUser();

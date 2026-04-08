@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
 
 export default function Signup() {
   const router = useRouter();
@@ -13,6 +14,30 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const redirectIfSignedIn = async () => {
+      const resolved = await resolveAuthState();
+
+      if (!active || !resolved?.appUser?.role) {
+        return;
+      }
+
+      router.replace(
+        resolved.appUser.onboarding_complete
+          ? getRoleHome(resolved.appUser.role)
+          : getRoleSetupPath(resolved.appUser.role),
+      );
+    };
+
+    void redirectIfSignedIn();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const getStrength = (value: string) => {
     if (value.length < 8) {
@@ -37,6 +62,15 @@ export default function Signup() {
       return;
     }
 
+    const resolved = await resolveAuthState();
+
+    if (resolved?.authUser) {
+      setMessage(
+        "You already have an active session. Sign out first or use a private window before creating another account.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     const { data, error } = await supabase.auth.signUp({
@@ -50,11 +84,13 @@ export default function Signup() {
     setLoading(false);
 
     if (error) {
-      setMessage(
-        error.message.includes("rate limit")
+      const nextMessage = error.message.includes("Database error saving new user")
+        ? "Signup is reaching Supabase Auth, but the database trigger that creates the app user record is failing. This is separate from the client session guard and points to backend schema or trigger setup."
+        : error.message.includes("rate limit")
           ? "Too many attempts. Please wait a moment and try again."
-          : error.message,
-      );
+          : error.message;
+
+      setMessage(nextMessage);
       return;
     }
 
