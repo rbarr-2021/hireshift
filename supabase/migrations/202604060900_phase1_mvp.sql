@@ -57,7 +57,7 @@ $$;
 create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique,
-  role public.user_role,
+  role public.user_role not null default 'worker',
   display_name text,
   phone text,
   onboarding_complete boolean not null default false,
@@ -74,6 +74,16 @@ alter table if exists public.users
   add column if not exists onboarding_complete boolean not null default false,
   add column if not exists created_at timestamptz not null default timezone('utc'::text, now()),
   add column if not exists updated_at timestamptz not null default timezone('utc'::text, now());
+
+alter table if exists public.users
+  alter column role set default 'worker';
+
+update public.users
+set role = 'worker'
+where role is null;
+
+alter table if exists public.users
+  alter column role set not null;
 
 do $$
 begin
@@ -482,6 +492,7 @@ begin
   insert into public.users (
     id,
     email,
+    role,
     display_name,
     phone,
     onboarding_complete
@@ -489,12 +500,14 @@ begin
   values (
     new.id,
     new.email,
+    'worker',
     next_display_name,
     next_phone,
     false
   )
   on conflict (id) do update
     set email = excluded.email,
+        role = coalesce(public.users.role, excluded.role),
         display_name = coalesce(public.users.display_name, excluded.display_name),
         phone = coalesce(public.users.phone, excluded.phone),
         updated_at = timezone('utc'::text, now());
