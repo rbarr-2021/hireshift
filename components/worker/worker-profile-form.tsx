@@ -33,6 +33,14 @@ type AvailabilityDayState = {
 
 type AvailabilityState = Record<number, AvailabilityDayState>;
 type DocumentFileState = Partial<Record<DocumentType, File | null>>;
+type WorkerSaveStage =
+  | "auth"
+  | "users"
+  | "worker_profiles"
+  | "worker-profile-assets"
+  | "worker_availability_slots"
+  | "worker_documents"
+  | "worker-document-storage";
 
 const EMPTY_WORK_HISTORY: WorkHistoryItem = {
   venue: "",
@@ -90,6 +98,14 @@ function buildAvailabilityState(
 function normaliseWorkHistory(value: WorkHistoryItem[] | null | undefined) {
   const base = value && value.length > 0 ? value : [EMPTY_WORK_HISTORY];
   return [...base, EMPTY_WORK_HISTORY].slice(0, 3);
+}
+
+function createWorkerSaveError(stage: WorkerSaveStage, error: unknown) {
+  const detail =
+    error instanceof Error ? error.message : "Unknown worker profile save error.";
+  const nextError = new Error(`Save failed at ${stage}: ${detail}`);
+  console.error("[worker-profile-save]", { stage, detail, error });
+  return nextError;
 }
 
 export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
@@ -336,7 +352,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         .upload(path, file, { upsert: true });
 
       if (error) {
-        throw error;
+        throw createWorkerSaveError("worker-document-storage", error);
       }
 
       return {
@@ -356,7 +372,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         .upsert(nextDocuments, { onConflict: "worker_id,document_type" });
 
       if (error) {
-        throw error;
+        throw createWorkerSaveError("worker_documents", error);
       }
     }
   };
@@ -374,12 +390,37 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
     try {
       const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (!session || !user) {
+        console.error("[worker-profile-save]", {
+          stage: "auth",
+          sessionPresent: Boolean(session),
+          userPresent: Boolean(user),
+        });
+        setMessage("Your session is no longer valid. Please log in again.");
         router.replace("/login");
         return;
+      }
+
+      const { data: appUser, error: appUserError } = await supabase
+        .from("users")
+        .select("id, role, onboarding_complete")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (appUserError) {
+        throw createWorkerSaveError("users", appUserError);
+      }
+
+      if (!appUser) {
+        throw new Error(
+          "Save failed at users: authenticated Supabase user is missing a matching public.users row.",
+        );
       }
 
       let nextPhotoUrl = photoUrl;
@@ -392,7 +433,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           .upload(filePath, photoFile, { upsert: true });
 
         if (uploadError) {
-          throw uploadError;
+          throw createWorkerSaveError("worker-profile-assets", uploadError);
         }
 
         nextPhotoPath = filePath;
@@ -414,6 +455,36 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         end_time: availability[day.key].end,
       }));
 
+      const workerProfilePayload = {
+        user_id: user.id,
+        job_role: jobRole,
+        bio: bio.trim(),
+        skills,
+        hourly_rate_gbp: hourlyRate ? Number(hourlyRate) : null,
+        daily_rate_gbp: dailyRate ? Number(dailyRate) : null,
+        years_experience: Number(yearsExperience),
+        city: city.trim(),
+        postcode: postcode.trim() || null,
+        travel_radius_miles: Number(travelRadius),
+        availability_summary: availabilitySummary.trim() || null,
+        profile_photo_url: nextPhotoUrl,
+        profile_photo_path: nextPhotoPath,
+        work_history: historyPayload,
+      };
+
+      console.info("[worker-profile-save] payload", {
+        authUserId: user.id,
+        appUserId: appUser.id,
+        userUpdate: {
+          id: user.id,
+          role: "worker",
+          onboarding_complete: true,
+        },
+        workerProfilePayload,
+        availabilityPayload,
+        documentTypes: DOCUMENT_TYPES.filter((documentType) => documents[documentType]),
+      });
+
       const [{ error: userError }, { error: profileError }] = await Promise.all([
         supabase
           .from("users")
@@ -423,26 +494,17 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             onboarding_complete: true,
           })
           .eq("id", user.id),
-        supabase.from("worker_profiles").upsert({
-          user_id: user.id,
-          job_role: jobRole,
-          bio: bio.trim(),
-          skills,
-          hourly_rate_gbp: hourlyRate ? Number(hourlyRate) : null,
-          daily_rate_gbp: dailyRate ? Number(dailyRate) : null,
-          years_experience: Number(yearsExperience),
-          city: city.trim(),
-          postcode: postcode.trim() || null,
-          travel_radius_miles: Number(travelRadius),
-          availability_summary: availabilitySummary.trim() || null,
-          profile_photo_url: nextPhotoUrl,
-          profile_photo_path: nextPhotoPath,
-          work_history: historyPayload,
-        }),
+        supabase
+          .from("worker_profiles")
+          .upsert(workerProfilePayload, { onConflict: "user_id" }),
       ]);
 
-      if (userError || profileError) {
-        throw userError ?? profileError;
+      if (userError) {
+        throw createWorkerSaveError("users", userError);
+      }
+
+      if (profileError) {
+        throw createWorkerSaveError("worker_profiles", profileError);
       }
 
       const { error: deleteAvailabilityError } = await supabase
@@ -451,7 +513,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         .eq("worker_id", user.id);
 
       if (deleteAvailabilityError) {
-        throw deleteAvailabilityError;
+        throw createWorkerSaveError(
+          "worker_availability_slots",
+          deleteAvailabilityError,
+        );
       }
 
       if (availabilityPayload.length > 0) {
@@ -460,7 +525,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           .insert(availabilityPayload);
 
         if (insertAvailabilityError) {
-          throw insertAvailabilityError;
+          throw createWorkerSaveError(
+            "worker_availability_slots",
+            insertAvailabilityError,
+          );
         }
       }
 
