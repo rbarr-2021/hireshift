@@ -526,6 +526,17 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         documentTypes: DOCUMENT_TYPES.filter((documentType) => documents[documentType]),
       });
 
+      const { data: existingWorkerProfile, error: existingWorkerProfileError } =
+        await supabase
+          .from("worker_profiles")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+      if (existingWorkerProfileError) {
+        throw createWorkerSaveError("worker_profiles", existingWorkerProfileError);
+      }
+
       const [{ error: userError }, { error: profileError }] = await Promise.all([
         supabase
           .from("users")
@@ -535,9 +546,12 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             onboarding_complete: true,
           })
           .eq("id", user.id),
-        supabase
-          .from("worker_profiles")
-          .upsert(workerProfilePayload, { onConflict: "user_id" }),
+        existingWorkerProfile
+          ? supabase
+              .from("worker_profiles")
+              .update(workerProfilePayload)
+              .eq("user_id", user.id)
+          : supabase.from("worker_profiles").insert(workerProfilePayload),
       ]);
 
       if (userError) {

@@ -188,6 +188,21 @@ begin
   if not exists (
     select 1
     from pg_constraint
+    where conname = 'worker_profiles_pkey'
+      and conrelid = 'public.worker_profiles'::regclass
+  ) and not exists (
+    select user_id
+    from public.worker_profiles
+    group by user_id
+    having count(*) > 1
+  ) then
+    alter table public.worker_profiles
+      add constraint worker_profiles_pkey primary key (user_id);
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
     where conname = 'worker_profiles_user_id_fkey'
       and conrelid = 'public.worker_profiles'::regclass
   ) then
