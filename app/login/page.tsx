@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
+import {
+  getResetPasswordRedirectUrl,
+  getRoleHome,
+  getRoleSetupPath,
+  resolveAuthState,
+} from "@/lib/auth-client";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -87,9 +92,9 @@ export default function Login() {
     setResetLoading(true);
     setMessage(null);
 
- const { error } = await supabase.auth.resetPasswordForEmail(email, {
-  redirectTo: `${window.location.origin}/reset-password`,
-});
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: getResetPasswordRedirectUrl(),
+    });
 
     setResetLoading(false);
 

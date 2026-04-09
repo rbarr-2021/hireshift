@@ -44,3 +44,21 @@ export function getRoleHome(role: UserRole) {
 export function getRoleSetupPath(role: UserRole) {
   return role === "worker" ? "/profile/setup/worker" : "/profile/setup/business";
 }
+
+export function getAppBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return "http://localhost:3000";
+}
+
+export function getResetPasswordRedirectUrl() {
+  return `${getAppBaseUrl()}/reset-password`;
+}
