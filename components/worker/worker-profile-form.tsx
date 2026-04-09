@@ -42,6 +42,13 @@ type WorkerSaveStage =
   | "worker_documents"
   | "worker-document-storage";
 
+type SupabaseLikeError = {
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string;
+};
+
 const EMPTY_WORK_HISTORY: WorkHistoryItem = {
   venue: "",
   role: "",
@@ -100,9 +107,30 @@ function normaliseWorkHistory(value: WorkHistoryItem[] | null | undefined) {
   return [...base, EMPTY_WORK_HISTORY].slice(0, 3);
 }
 
+function formatSupabaseError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const candidate = error as SupabaseLikeError;
+    const parts = [
+      candidate.message,
+      candidate.details ?? undefined,
+      candidate.hint ?? undefined,
+      candidate.code ? `code: ${candidate.code}` : undefined,
+    ].filter(Boolean);
+
+    if (parts.length > 0) {
+      return parts.join(" | ");
+    }
+  }
+
+  return "Unknown worker profile save error.";
+}
+
 function createWorkerSaveError(stage: WorkerSaveStage, error: unknown) {
-  const detail =
-    error instanceof Error ? error.message : "Unknown worker profile save error.";
+  const detail = formatSupabaseError(error);
   const nextError = new Error(`Save failed at ${stage}: ${detail}`);
   console.error("[worker-profile-save]", { stage, detail, error });
   return nextError;
@@ -517,6 +545,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       }
 
       if (profileError) {
+        console.error("[worker-profile-save] worker_profiles failure", {
+          authUserId: user.id,
+          payload: workerProfilePayload,
+          error: profileError,
+        });
         throw createWorkerSaveError("worker_profiles", profileError);
       }
 

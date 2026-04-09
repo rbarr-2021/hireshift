@@ -13,6 +13,7 @@ begin
 end $$;
 
 alter table public.worker_profiles
+  alter column hourly_rate_gbp drop not null,
   add column if not exists daily_rate_gbp numeric(10,2) check (daily_rate_gbp is null or daily_rate_gbp >= 0),
   add column if not exists postcode text,
   add column if not exists profile_photo_url text,
