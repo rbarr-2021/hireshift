@@ -19,6 +19,7 @@ import {
 } from "@/lib/business-discovery";
 
 const initialFilters: WorkerDiscoveryFilters = {
+  query: "",
   role: "",
   skills: [],
   availableDay: "",
@@ -36,6 +37,7 @@ export default function BusinessWorkerDiscoveryPage() {
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
   const [filters, setFilters] = useState<WorkerDiscoveryFilters>(initialFilters);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -49,6 +51,15 @@ export default function BusinessWorkerDiscoveryPage() {
       ]);
 
       if (!active) {
+        return;
+      }
+
+      const firstError =
+        workersResult.error ?? availabilityResult.error ?? reviewsResult.error;
+
+      if (firstError) {
+        setErrorMessage(firstError.message);
+        setLoading(false);
         return;
       }
 
@@ -103,6 +114,12 @@ export default function BusinessWorkerDiscoveryPage() {
 
   const hasInvalidRate =
     Boolean(filters.maxHourlyRate) && Number(filters.maxHourlyRate) < 0;
+  const hasInvalidRating =
+    Boolean(filters.minRating) &&
+    (Number(filters.minRating) < 1 || Number(filters.minRating) > 5);
+  const hasInvalidTravelRadius =
+    Boolean(filters.minTravelRadius) && Number(filters.minTravelRadius) < 0;
+  const filtersAreInvalid = hasInvalidRate || hasInvalidRating || hasInvalidTravelRadius;
 
   return (
     <div className="space-y-8">
@@ -132,6 +149,21 @@ export default function BusinessWorkerDiscoveryPage() {
         <aside className="rounded-3xl bg-stone-100 p-5">
           <h2 className="text-lg font-semibold text-stone-900">Filters</h2>
           <div className="mt-5 space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-stone-700">
+                Search workers
+              </label>
+              <input
+                value={filters.query}
+                onChange={(event) => {
+                  setPage(1);
+                  setFilters((current) => ({ ...current, query: event.target.value }));
+                }}
+                className="input"
+                placeholder="Chef, cocktail, Manchester..."
+              />
+            </div>
+
             <div>
               <label className="mb-2 block text-sm font-medium text-stone-700">Role</label>
               <select
@@ -297,6 +329,12 @@ export default function BusinessWorkerDiscoveryPage() {
           <div className="rounded-3xl bg-stone-100 p-4 text-sm text-stone-600">
             {hasInvalidRate
               ? "Max hourly rate must be zero or more."
+              : hasInvalidRating
+                ? "Minimum rating must be between 1 and 5."
+                : hasInvalidTravelRadius
+                  ? "Minimum travel radius must be zero or more."
+                  : errorMessage
+                    ? `We could not load worker discovery right now: ${errorMessage}`
               : `Showing workers available on ${selectedWeekdayLabel}. Location uses city matching, and distance uses each worker's stated travel radius.`}
           </div>
 
@@ -304,11 +342,23 @@ export default function BusinessWorkerDiscoveryPage() {
             <div className="rounded-3xl bg-stone-100 p-8 text-center text-stone-600">
               Loading workers...
             </div>
+          ) : errorMessage ? (
+            <div className="rounded-3xl bg-stone-100 p-8 text-center">
+              <h2 className="text-xl font-semibold text-stone-900">Discovery is temporarily unavailable</h2>
+              <p className="mt-3 text-sm text-stone-600">{errorMessage}</p>
+            </div>
+          ) : filtersAreInvalid ? (
+            <div className="rounded-3xl bg-stone-100 p-8 text-center">
+              <h2 className="text-xl font-semibold text-stone-900">Fix the highlighted filters</h2>
+              <p className="mt-3 text-sm text-stone-600">
+                Adjust the invalid filter values above to view matching workers.
+              </p>
+            </div>
           ) : paginatedResults.length === 0 ? (
             <div className="rounded-3xl bg-stone-100 p-8 text-center">
               <h2 className="text-xl font-semibold text-stone-900">No workers match those filters</h2>
               <p className="mt-3 text-sm text-stone-600">
-                Try broadening the role, skills, or location filters.
+                Try broadening the search, role, skills, or location filters.
               </p>
             </div>
           ) : (
@@ -335,7 +385,7 @@ export default function BusinessWorkerDiscoveryPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-xl font-semibold text-stone-900">{worker.job_role}</p>
                         <p className="mt-1 text-sm text-stone-600">
-                          {worker.city} • {worker.travel_radius_miles} mile radius
+                          {worker.city} | {worker.travel_radius_miles} mile radius
                         </p>
                         <p className="mt-2 text-sm text-stone-600">
                           {aggregate.averageRating !== null
@@ -361,7 +411,7 @@ export default function BusinessWorkerDiscoveryPage() {
                       <p>
                         <span className="font-medium">Rates:</span>{" "}
                         {worker.hourly_rate_gbp ? `GBP ${worker.hourly_rate_gbp}/hr` : "No hourly rate"}
-                        {worker.daily_rate_gbp ? ` • GBP ${worker.daily_rate_gbp}/day` : ""}
+                        {worker.daily_rate_gbp ? ` | GBP ${worker.daily_rate_gbp}/day` : ""}
                       </p>
                       <p>
                         <span className="font-medium">Experience:</span>{" "}

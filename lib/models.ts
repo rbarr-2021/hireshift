@@ -162,6 +162,7 @@ export type BusinessProfileRecord = {
 };
 
 export type WorkerDiscoveryFilters = {
+  query: string;
   role: HospitalityRole | "";
   skills: string[];
   availableDay: number | "";

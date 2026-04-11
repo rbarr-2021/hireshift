@@ -128,7 +128,7 @@ export default function WorkerPublicProfilePage() {
                 </h1>
                 <p className="mt-2 text-sm text-stone-600">{profile.job_role}</p>
                 <p className="mt-2 text-sm text-stone-600">
-                  {profile.city} • {profile.travel_radius_miles} mile travel radius
+                  {profile.city} | {profile.travel_radius_miles} mile travel radius
                 </p>
                 <p className="mt-3 text-sm text-stone-600">
                   {aggregate.averageRating !== null
@@ -185,7 +185,7 @@ export default function WorkerPublicProfilePage() {
                     <div key={`${entry.venue}-${index}`} className="rounded-2xl bg-stone-100 p-4">
                       <p className="font-medium text-stone-900">{entry.role || "Previous role"}</p>
                       <p className="mt-1 text-sm text-stone-600">
-                        {entry.venue || "Venue"} • {[entry.startYear, entry.endYear].filter(Boolean).join(" - ")}
+                        {entry.venue || "Venue"} | {[entry.startYear, entry.endYear].filter(Boolean).join(" - ")}
                       </p>
                       {entry.summary ? (
                         <p className="mt-2 text-sm leading-6 text-stone-600">{entry.summary}</p>

@@ -58,6 +58,24 @@ export function matchesWorkerFilters(input: {
 }) {
   const { profile, filters, aggregate, availabilitySlots } = input;
 
+  if (filters.query) {
+    const query = filters.query.toLowerCase().trim();
+    const searchableContent = [
+      profile.job_role,
+      profile.bio ?? "",
+      profile.city,
+      profile.postcode ?? "",
+      profile.availability_summary ?? "",
+      ...profile.skills,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (!searchableContent.includes(query)) {
+      return false;
+    }
+  }
+
   if (filters.role && profile.job_role !== filters.role) {
     return false;
   }

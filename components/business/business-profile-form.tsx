@@ -15,6 +15,35 @@ type BusinessProfileFormProps = {
   mode: "onboarding" | "manage";
 };
 
+type SupabaseLikeError = {
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string;
+};
+
+function formatSupabaseError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const candidate = error as SupabaseLikeError;
+    const parts = [
+      candidate.message,
+      candidate.details ?? undefined,
+      candidate.hint ?? undefined,
+      candidate.code ? `code: ${candidate.code}` : undefined,
+    ].filter(Boolean);
+
+    if (parts.length > 0) {
+      return parts.join(" | ");
+    }
+  }
+
+  return "Unable to save your business profile.";
+}
+
 function statusStyles(status: BusinessProfileRecord["verification_status"] | "pending") {
   if (status === "verified") return "bg-emerald-100 text-emerald-900";
   if (status === "rejected") return "bg-red-100 text-red-900";
@@ -146,6 +175,28 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         return;
       }
 
+      const { data: existingProfile, error: existingProfileError } = await supabase
+        .from("business_profiles")
+        .select("user_id")
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+
+      if (existingProfileError) {
+        throw new Error(formatSupabaseError(existingProfileError));
+      }
+
+      const businessProfilePayload = {
+        user_id: authUser.id,
+        business_name: businessName.trim(),
+        sector,
+        contact_name: contactName.trim(),
+        phone: phone.trim() || null,
+        address_line_1: addressLine1.trim(),
+        city: city.trim(),
+        postcode: postcode.trim() || null,
+        description: description.trim(),
+      };
+
       const [{ error: userError }, { error: profileError }] = await Promise.all([
         supabase
           .from("users")
@@ -156,21 +207,16 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             onboarding_complete: true,
           })
           .eq("id", authUser.id),
-        supabase.from("business_profiles").upsert({
-          user_id: authUser.id,
-          business_name: businessName.trim(),
-          sector,
-          contact_name: contactName.trim(),
-          phone: phone.trim() || null,
-          address_line_1: addressLine1.trim(),
-          city: city.trim(),
-          postcode: postcode.trim() || null,
-          description: description.trim(),
-        }),
+        existingProfile
+          ? supabase
+              .from("business_profiles")
+              .update(businessProfilePayload)
+              .eq("user_id", authUser.id)
+          : supabase.from("business_profiles").insert(businessProfilePayload),
       ]);
 
       if (userError || profileError) {
-        throw userError ?? profileError;
+        throw new Error(formatSupabaseError(userError ?? profileError));
       }
 
       setMessage(
@@ -186,9 +232,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       }
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to save your business profile.",
+        error instanceof Error ? error.message : "Unable to save your business profile.",
       );
     } finally {
       setSaving(false);
