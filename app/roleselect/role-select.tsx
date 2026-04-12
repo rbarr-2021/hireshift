@@ -8,6 +8,31 @@ import { useToast } from "@/components/ui/toast-provider";
 import { getRoleHome, getRoleSetupPath, hasSelectedRole } from "@/lib/auth-client";
 import type { UserRecord, UserRole } from "@/lib/models";
 
+function formatRoleSelectError(error: unknown) {
+  if (error instanceof Error) {
+    if (
+      error.message.includes("role_selected") &&
+      error.message.toLowerCase().includes("schema cache")
+    ) {
+      return {
+        title: "Database update required",
+        message:
+          "Your database is missing the role selection field. Run the latest Supabase migration, then try again.",
+      };
+    }
+
+    return {
+      title: "Role selection unavailable",
+      message: error.message,
+    };
+  }
+
+  return {
+    title: "Role selection unavailable",
+    message: "We could not load your role selection right now.",
+  };
+}
+
 export default function RoleSelect() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(false);
@@ -70,15 +95,12 @@ export default function RoleSelect() {
 
         setRole(data.role_selected ? data.role : null);
       } catch (error) {
-        const nextMessage =
-          error instanceof Error
-            ? error.message
-            : "We could not load your role selection right now.";
+        const nextError = formatRoleSelectError(error);
         if (active) {
-          setMessage(nextMessage);
+          setMessage(nextError.message);
           showToast({
-            title: "Role selection unavailable",
-            description: nextMessage,
+            title: nextError.title,
+            description: nextError.message,
             tone: "error",
           });
         }
@@ -125,8 +147,9 @@ export default function RoleSelect() {
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
-      showToast({ title: "Role save failed", description: error.message, tone: "error" });
+      const nextError = formatRoleSelectError(error);
+      setMessage(nextError.message);
+      showToast({ title: nextError.title, description: nextError.message, tone: "error" });
       return;
     }
 
