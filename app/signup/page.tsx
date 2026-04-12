@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
@@ -79,7 +79,6 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const signupAttemptRef = useRef(0);
 
   useEffect(() => {
     if (cooldownSeconds <= 0) {
@@ -140,13 +139,6 @@ export default function Signup() {
 
   const handleSignup = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.info("[signup] submit fired", {
-      hasEmail: Boolean(email.trim()),
-      hasPassword: Boolean(password),
-      hasConfirmPassword: Boolean(confirmPassword),
-      cooldownSeconds,
-      loading,
-    });
     setMessage(null);
 
     if (loading || cooldownSeconds > 0) {
@@ -155,9 +147,6 @@ export default function Signup() {
 
     if (password !== confirmPassword) {
       setMessage("Passwords do not match.");
-      console.warn("[signup] validation failed", {
-        reason: "password_mismatch",
-      });
       showToast({
         title: "Passwords do not match",
         description: "Please make sure both password fields match before continuing.",
@@ -175,9 +164,6 @@ export default function Signup() {
         setMessage(
           "You already have an active session. Sign out first or use a private window before creating another account.",
         );
-        console.warn("[signup] blocked because session already exists", {
-          authUserId: resolved.authUser.id,
-        });
         showToast({
           title: "Already signed in",
           description: "Sign out first or use a private window before creating another account.",
@@ -185,16 +171,6 @@ export default function Signup() {
         });
         return;
       }
-
-      signupAttemptRef.current += 1;
-      const attemptId = signupAttemptRef.current;
-
-      console.info("[signup] starting signUp request", {
-        attemptId,
-        email,
-        passwordLength: password.length,
-        confirmPasswordLength: confirmPassword.length,
-      });
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -205,12 +181,6 @@ export default function Signup() {
       });
 
       if (error) {
-        console.error("[signup] signUp failed", {
-          attemptId,
-          email,
-          error,
-        });
-
         const formattedError = formatSupabaseError(error);
         const isRateLimited = formattedError.toLowerCase().includes("rate limit");
         const nextMessage = isRateLimited
@@ -231,13 +201,6 @@ export default function Signup() {
         return;
       }
 
-      console.info("[signup] signUp response", {
-        attemptId,
-        userId: data.user?.id ?? null,
-        emailConfirmedAt: data.user?.email_confirmed_at ?? null,
-        sessionPresent: Boolean(data.session),
-      });
-
       if (data.session && data.user) {
         setSessionHintCookie();
         const { data: appUser, error: appUserError } = await waitForAppUserRow(
@@ -245,11 +208,6 @@ export default function Signup() {
         );
 
         if (appUserError) {
-          console.error("[signup] app user lookup failed after signup", {
-            attemptId,
-            userId: data.user.id,
-            error: appUserError,
-          });
           setMessage(`Signup created your auth account, but loading your app profile failed: ${formatSupabaseError(appUserError)}`);
           showToast({
             title: "Account needs attention",
@@ -260,12 +218,6 @@ export default function Signup() {
         }
 
         if (!appUser) {
-          console.error("[signup] missing public.users row after signup", {
-            attemptId,
-            userId: data.user.id,
-            email: data.user.email,
-            sessionPresent: Boolean(data.session),
-          });
           await supabase.auth.signOut();
           setMessage(
             "Signup created your auth account, but the matching app user record was not available yet. Please try logging in once, and if this persists check the auth trigger and remove any orphaned public.users rows for deleted auth users.",
@@ -296,22 +248,9 @@ export default function Signup() {
         description: "Verify your email, then log in to continue onboarding.",
         tone: "success",
       });
-      console.info("[signup] verification required after account creation", {
-        attemptId,
-        userId: data.user?.id ?? null,
-        note: "If app-user mismatches persist, investigate orphaned public.users rows outside the user-facing flow.",
-      });
-      console.info("[signup] completed without immediate session", {
-        attemptId,
-        userId: data.user?.id ?? null,
-      });
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : "Unexpected signup error. Please try again.";
-      console.error("[signup] caught exception", {
-        email,
-        error,
-      });
       clearSessionHintCookie();
       setMessage(nextMessage);
       showToast({

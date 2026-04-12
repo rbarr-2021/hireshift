@@ -31,7 +31,7 @@ export default function RoleSelect() {
         }
 
         if (!user) {
-          router.replace("/login");
+          router.replace("/login?message=verified-login");
           return;
         }
 
@@ -74,7 +74,6 @@ export default function RoleSelect() {
           error instanceof Error
             ? error.message
             : "We could not load your role selection right now.";
-        console.error("[role-select] failed to load role state", { error });
         if (active) {
           setMessage(nextMessage);
           showToast({

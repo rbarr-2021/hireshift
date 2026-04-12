@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
@@ -22,6 +22,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -53,30 +54,28 @@ export default function Login() {
     };
   }, [router]);
 
+  useEffect(() => {
+    const nextMessage = searchParams.get("message");
+
+    if (nextMessage === "verified-login") {
+      setMessage("Your email has been verified. Please log in to continue.");
+      return;
+    }
+
+    if (nextMessage === "session-required") {
+      setMessage("Please log in to continue.");
+    }
+  }, [searchParams]);
+
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.info("[login] submit fired", {
-      hasEmail: Boolean(email.trim()),
-      hasPassword: Boolean(password),
-    });
     setLoading(true);
     setMessage(null);
 
     try {
-      console.info("[login] calling signInWithPassword", {
-        email,
-        passwordLength: password.length,
-      });
-
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
-
-      console.info("[login] Supabase response", {
-        userId: data.user?.id ?? null,
-        sessionPresent: Boolean(data.session),
-        error: error ?? null,
       });
 
       if (error) {
@@ -89,13 +88,6 @@ export default function Login() {
       setSessionHintCookie();
 
       const resolved = await resolveAuthState();
-      console.info("[login] resolved auth state", {
-        authUserId: resolved?.authUser?.id ?? null,
-        appUserId: resolved?.appUser?.id ?? null,
-        role: resolved?.appUser?.role ?? null,
-        roleSelected: resolved?.appUser?.role_selected ?? null,
-        onboardingComplete: resolved?.appUser?.onboarding_complete ?? null,
-      });
 
       if (!resolved?.appUser) {
         await supabase.auth.signOut();
@@ -138,10 +130,6 @@ export default function Login() {
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : "Unexpected login error. Please try again.";
-      console.error("[login] caught exception", {
-        email,
-        error,
-      });
       clearSessionHintCookie();
       setMessage(nextMessage);
       showToast({

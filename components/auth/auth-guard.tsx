@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { registerAuthListener, supabase } from "@/lib/supabase";
 import {
@@ -28,13 +28,26 @@ export function AuthGuard({
   const [isReady, setIsReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const redirectToLogin = useCallback(
+    (reason: "verified-login" | "session-required") => {
+      const next = new URLSearchParams({
+        message: reason,
+      });
+      router.replace(`/login?${next.toString()}`);
+    },
+    [router],
+  );
+
   useEffect(() => {
     let active = true;
     const timeout = window.setTimeout(() => {
       if (active) {
-        setErrorMessage(
-          "We could not confirm your session in time. Please refresh or sign in again.",
-        );
+        if (pathname === "/role-select") {
+          redirectToLogin("verified-login");
+          return;
+        }
+
+        redirectToLogin("session-required");
       }
     }, 7000);
 
@@ -47,7 +60,7 @@ export function AuthGuard({
         }
 
         if (!resolved) {
-          router.replace("/login");
+          redirectToLogin(pathname === "/role-select" ? "verified-login" : "session-required");
           return;
         }
 
@@ -56,7 +69,7 @@ export function AuthGuard({
         if (!appUser) {
           await supabase.auth.signOut();
           clearSessionHintCookie();
-          router.replace("/login");
+          redirectToLogin(pathname === "/role-select" ? "verified-login" : "session-required");
           return;
         }
 
@@ -85,22 +98,20 @@ export function AuthGuard({
         }
 
         setIsReady(true);
-      } catch (error) {
-        const nextMessage =
-          error instanceof Error
+    } catch (error) {
+      const nextMessage =
+        error instanceof Error
             ? error.message
             : "Unexpected auth guard error. Please sign in again.";
-        console.error("[auth-guard] failed to resolve access", {
-          pathname,
-          error,
-        });
         clearSessionHintCookie();
-        setErrorMessage(nextMessage);
         await supabase.auth.signOut();
-        if (pathname !== "/login") {
-          router.replace("/login");
+        if (pathname === "/role-select") {
+          redirectToLogin("verified-login");
           return;
         }
+
+        setErrorMessage(nextMessage);
+        redirectToLogin("session-required");
       }
     };
 
@@ -118,7 +129,7 @@ export function AuthGuard({
       window.clearTimeout(timeout);
       unsubscribeAuthListener();
     };
-  }, [allowedRoles, pathname, requireOnboarding, router]);
+  }, [allowedRoles, pathname, redirectToLogin, requireOnboarding, router]);
 
   if (errorMessage) {
     return (
