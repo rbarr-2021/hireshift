@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -73,6 +73,22 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const signupAttemptRef = useRef(0);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCooldownSeconds((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [cooldownSeconds]);
 
   useEffect(() => {
     let active = true;
@@ -116,87 +132,110 @@ export default function Signup() {
     event.preventDefault();
     setMessage(null);
 
+    if (loading || cooldownSeconds > 0) {
+      return;
+    }
+
     if (password !== confirmPassword) {
       setMessage("Passwords do not match.");
       return;
     }
 
-    const resolved = await resolveAuthState();
-
-    if (resolved?.authUser) {
-      setMessage(
-        "You already have an active session. Sign out first or use a private window before creating another account.",
-      );
-      return;
-    }
-
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${getAppBaseUrl()}/login`,
-      },
-    });
+    try {
+      const resolved = await resolveAuthState();
 
-    setLoading(false);
-
-    if (error) {
-      console.error("[signup] signUp failed", {
-        email,
-        error,
-      });
-
-      const formattedError = formatSupabaseError(error);
-      const nextMessage = formattedError.toLowerCase().includes("rate limit")
-        ? "Too many attempts. Please wait a moment and try again."
-        : formattedError;
-
-      setMessage(nextMessage);
-      return;
-    }
-
-    console.info("[signup] signUp response", {
-      userId: data.user?.id ?? null,
-      emailConfirmedAt: data.user?.email_confirmed_at ?? null,
-      sessionPresent: Boolean(data.session),
-    });
-
-    if (data.session && data.user) {
-      const { data: appUser, error: appUserError } = await waitForAppUserRow(
-        data.user.id,
-      );
-
-      if (appUserError) {
-        console.error("[signup] app user lookup failed after signup", {
-          userId: data.user.id,
-          error: appUserError,
-        });
-        setMessage(`Signup created your auth account, but loading your app profile failed: ${formatSupabaseError(appUserError)}`);
-        return;
-      }
-
-      if (!appUser) {
-        console.error("[signup] missing public.users row after signup", {
-          userId: data.user.id,
-          email: data.user.email,
-          sessionPresent: Boolean(data.session),
-        });
-        await supabase.auth.signOut();
+      if (resolved?.authUser) {
         setMessage(
-          "Signup created your auth account, but the matching app user record was not available yet. Please try logging in once, and if this persists check the auth trigger and remove any orphaned public.users rows for deleted auth users.",
+          "You already have an active session. Sign out first or use a private window before creating another account.",
         );
         return;
       }
 
-      router.push("/role-select");
-      return;
-    }
+      signupAttemptRef.current += 1;
+      const attemptId = signupAttemptRef.current;
 
-    setMessage(
-      "Account created. Check your email to verify your address, then log in. If you already have orphaned rows in public.users from deleted auth accounts, clean those up first to avoid misleading state.",
-    );
+      console.info("[signup] starting signUp request", {
+        attemptId,
+        email,
+      });
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${getAppBaseUrl()}/login`,
+        },
+      });
+
+      if (error) {
+        console.error("[signup] signUp failed", {
+          attemptId,
+          email,
+          error,
+        });
+
+        const formattedError = formatSupabaseError(error);
+        const isRateLimited = formattedError.toLowerCase().includes("rate limit");
+        const nextMessage = isRateLimited
+          ? "Too many attempts. Please wait a moment and try again."
+          : formattedError;
+
+        if (isRateLimited) {
+          setCooldownSeconds(30);
+        }
+
+        setMessage(nextMessage);
+        return;
+      }
+
+      console.info("[signup] signUp response", {
+        attemptId,
+        userId: data.user?.id ?? null,
+        emailConfirmedAt: data.user?.email_confirmed_at ?? null,
+        sessionPresent: Boolean(data.session),
+      });
+
+      if (data.session && data.user) {
+        const { data: appUser, error: appUserError } = await waitForAppUserRow(
+          data.user.id,
+        );
+
+        if (appUserError) {
+          console.error("[signup] app user lookup failed after signup", {
+            attemptId,
+            userId: data.user.id,
+            error: appUserError,
+          });
+          setMessage(`Signup created your auth account, but loading your app profile failed: ${formatSupabaseError(appUserError)}`);
+          return;
+        }
+
+        if (!appUser) {
+          console.error("[signup] missing public.users row after signup", {
+            attemptId,
+            userId: data.user.id,
+            email: data.user.email,
+            sessionPresent: Boolean(data.session),
+          });
+          await supabase.auth.signOut();
+          setMessage(
+            "Signup created your auth account, but the matching app user record was not available yet. Please try logging in once, and if this persists check the auth trigger and remove any orphaned public.users rows for deleted auth users.",
+          );
+          return;
+        }
+
+        router.push("/role-select");
+        return;
+      }
+
+      setMessage(
+        "Account created. Check your email to verify your address, then log in. If you already have orphaned rows in public.users from deleted auth accounts, clean those up first to avoid misleading state.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isValid =
@@ -282,10 +321,14 @@ export default function Signup() {
 
           <button
             type="submit"
-            disabled={loading || !isValid}
+            disabled={loading || cooldownSeconds > 0 || !isValid}
             className="primary-btn w-full"
           >
-            {loading ? "Creating account..." : "Create account"}
+            {loading
+              ? "Creating account..."
+              : cooldownSeconds > 0
+                ? `Try again in ${cooldownSeconds}s`
+                : "Create account"}
           </button>
         </div>
 
