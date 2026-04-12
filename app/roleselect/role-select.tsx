@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
+import { getRoleHome, getRoleSetupPath, hasSelectedRole } from "@/lib/auth-client";
 import type { UserRecord, UserRole } from "@/lib/models";
 
 export default function RoleSelect() {
@@ -27,11 +28,18 @@ export default function RoleSelect() {
 
       const { data } = await supabase
         .from("users")
-        .select("role")
+        .select("role,role_selected,onboarding_complete")
         .eq("id", user.id)
         .maybeSingle<UserRecord>();
 
-      setRole(data?.role ?? null);
+      if (hasSelectedRole(data ?? null) && data?.role) {
+        router.replace(
+          data.onboarding_complete ? getRoleHome(data.role) : getRoleSetupPath(data.role),
+        );
+        return;
+      }
+
+      setRole(data?.role_selected ? data.role : null);
     };
 
     void loadExistingRole();
@@ -60,7 +68,7 @@ export default function RoleSelect() {
 
     const { error } = await supabase
       .from("users")
-      .update({ role, onboarding_complete: false })
+      .update({ role, role_selected: true, onboarding_complete: false })
       .eq("id", user.id);
 
     setLoading(false);
@@ -87,10 +95,10 @@ export default function RoleSelect() {
       <div className="panel w-full max-w-3xl p-8">
         <OnboardingProgress role={role} step="role" />
         <p className="section-label">
-          Role selection
+          Choose your path
         </p>
         <h1 className="mt-4 text-3xl font-semibold text-stone-900">
-          Which side of HireShift are you on?
+          Are you looking for work or hiring staff?
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
           Your choice shapes the rest of onboarding and the dashboard experience.

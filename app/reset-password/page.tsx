@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
+import { clearSessionHintCookie } from "@/lib/session-hint";
 
 function extractRecoveryTokens() {
   if (typeof window === "undefined") {
@@ -178,6 +179,7 @@ export default function ResetPasswordPage() {
       tone: "success",
     });
     await supabase.auth.signOut();
+    clearSessionHintCookie();
     setTimeout(() => {
       router.replace("/login");
     }, 1200);

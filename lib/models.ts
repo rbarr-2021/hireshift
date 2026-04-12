@@ -72,6 +72,7 @@ export type UserRecord = {
   id: string;
   email: string | null;
   role: UserRole | null;
+  role_selected: boolean;
   display_name: string | null;
   phone: string | null;
   onboarding_complete: boolean;

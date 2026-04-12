@@ -10,8 +10,10 @@ import {
   getResetPasswordRedirectUrl,
   getRoleHome,
   getRoleSetupPath,
+  hasSelectedRole,
   resolveAuthState,
 } from "@/lib/auth-client";
+import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -28,7 +30,12 @@ export default function Login() {
     const redirectIfSignedIn = async () => {
       const resolved = await resolveAuthState();
 
-      if (!active || !resolved?.appUser?.role) {
+      if (!active || !resolved?.appUser) {
+        return;
+      }
+
+      if (!hasSelectedRole(resolved.appUser)) {
+        router.replace("/role-select");
         return;
       }
 
@@ -59,9 +66,12 @@ export default function Login() {
     if (error) {
       setMessage(error.message);
       showToast({ title: "Login failed", description: error.message, tone: "error" });
+      clearSessionHintCookie();
       setLoading(false);
       return;
     }
+
+    setSessionHintCookie();
 
     const resolved = await resolveAuthState();
 
@@ -79,7 +89,7 @@ export default function Login() {
       return;
     }
 
-    if (!resolved.appUser.role) {
+    if (!hasSelectedRole(resolved.appUser)) {
       router.push("/role-select");
       return;
     }

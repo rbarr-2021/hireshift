@@ -10,8 +10,10 @@ import {
   getAppBaseUrl,
   getRoleHome,
   getRoleSetupPath,
+  hasSelectedRole,
   resolveAuthState,
 } from "@/lib/auth-client";
+import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
 
 type SupabaseLikeError = {
@@ -99,7 +101,12 @@ export default function Signup() {
     const redirectIfSignedIn = async () => {
       const resolved = await resolveAuthState();
 
-      if (!active || !resolved?.appUser?.role) {
+      if (!active || !resolved?.appUser) {
+        return;
+      }
+
+      if (!hasSelectedRole(resolved.appUser)) {
+        router.replace("/role-select");
         return;
       }
 
@@ -195,6 +202,7 @@ export default function Signup() {
           description: nextMessage,
           tone: "error",
         });
+        clearSessionHintCookie();
         return;
       }
 
@@ -206,6 +214,7 @@ export default function Signup() {
       });
 
       if (data.session && data.user) {
+        setSessionHintCookie();
         const { data: appUser, error: appUserError } = await waitForAppUserRow(
           data.user.id,
         );
@@ -246,7 +255,7 @@ export default function Signup() {
 
         showToast({
           title: "Account created",
-          description: "Next up: choose your role and finish onboarding.",
+          description: "Next up: choose whether you're looking for work or hiring staff.",
           tone: "success",
         });
         router.push("/role-select");
@@ -256,6 +265,7 @@ export default function Signup() {
       setMessage(
         "Account created. Check your email to verify your address, then log in. If you already have orphaned rows in public.users from deleted auth accounts, clean those up first to avoid misleading state.",
       );
+      clearSessionHintCookie();
       showToast({
         title: "Check your inbox",
         description: "Verify your email, then log in to continue onboarding.",

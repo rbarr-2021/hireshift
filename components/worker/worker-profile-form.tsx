@@ -546,6 +546,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           .update({
             display_name: fullName.trim(),
             role: "worker",
+            role_selected: true,
             onboarding_complete: true,
           })
           .eq("id", user.id),

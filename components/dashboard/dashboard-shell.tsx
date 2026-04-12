@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
 
 const workerLinks = [
@@ -58,6 +59,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const handleSignOut = async () => {
     setBusy(true);
     await supabase.auth.signOut();
+    clearSessionHintCookie();
     router.replace("/login");
   };
 

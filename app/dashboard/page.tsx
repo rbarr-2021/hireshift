@@ -2,7 +2,12 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
+import {
+  getRoleHome,
+  getRoleSetupPath,
+  hasSelectedRole,
+  resolveAuthState,
+} from "@/lib/auth-client";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,7 +23,7 @@ export default function DashboardPage() {
 
       const { appUser } = resolved;
 
-      if (!appUser?.role) {
+      if (!hasSelectedRole(appUser)) {
         router.replace("/role-select");
         return;
       }

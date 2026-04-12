@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord, UserRole } from "@/lib/models";
 
 export type ResolvedAuthState = {
@@ -12,8 +13,11 @@ export async function resolveAuthState(): Promise<ResolvedAuthState | null> {
   } = await supabase.auth.getSession();
 
   if (!session) {
+    clearSessionHintCookie();
     return null;
   }
+
+  setSessionHintCookie();
 
   const {
     data: { user },
@@ -22,6 +26,7 @@ export async function resolveAuthState(): Promise<ResolvedAuthState | null> {
 
   if (error || !user) {
     await supabase.auth.signOut();
+    clearSessionHintCookie();
     return null;
   }
 
@@ -35,6 +40,12 @@ export async function resolveAuthState(): Promise<ResolvedAuthState | null> {
     authUser: user,
     appUser: appUser ?? null,
   };
+}
+
+export function hasSelectedRole(
+  appUser: UserRecord | null | undefined,
+): appUser is UserRecord & { role: UserRole; role_selected: true } {
+  return Boolean(appUser?.role && appUser.role_selected);
 }
 
 export function getRoleHome(role: UserRole) {

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getRoleHome, getRoleSetupPath, resolveAuthState } from "@/lib/auth-client";
+import {
+  getRoleHome,
+  getRoleSetupPath,
+  hasSelectedRole,
+  resolveAuthState,
+} from "@/lib/auth-client";
+import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRole } from "@/lib/models";
 
 type AuthGuardProps = {
@@ -40,11 +46,12 @@ export function AuthGuard({
 
       if (!appUser) {
         await supabase.auth.signOut();
+        clearSessionHintCookie();
         router.replace("/login");
         return;
       }
 
-      if (!appUser.role) {
+      if (!hasSelectedRole(appUser)) {
         router.replace("/role-select");
         return;
       }
@@ -72,6 +79,7 @@ export function AuthGuard({
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
+        clearSessionHintCookie();
         router.replace("/login");
       }
     });

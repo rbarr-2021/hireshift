@@ -207,6 +207,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             display_name: contactName.trim(),
             phone: phone.trim() || null,
             role: "business",
+            role_selected: true,
             onboarding_complete: true,
           })
           .eq("id", authUser.id),
