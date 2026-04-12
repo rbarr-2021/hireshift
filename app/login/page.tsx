@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
@@ -22,36 +23,34 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const { loading: authLoading, appUser } = useAuthState();
   const { showToast } = useToast();
 
   useEffect(() => {
-    let active = true;
+    if (authLoading || !appUser) {
+      return;
+    }
 
-    const redirectIfSignedIn = async () => {
-      const resolved = await resolveAuthState();
+    console.info("[auth] redirect decision", {
+      reason: hasSelectedRole(appUser)
+        ? appUser.onboarding_complete
+          ? "login-to-dashboard"
+          : "login-to-onboarding"
+        : "login-to-role-select",
+      pathname: "/login",
+    });
 
-      if (!active || !resolved?.appUser) {
-        return;
-      }
-
-      if (!hasSelectedRole(resolved.appUser)) {
+    if (!hasSelectedRole(appUser)) {
         router.replace("/role-select");
         return;
-      }
+    }
 
-      router.replace(
-        resolved.appUser.onboarding_complete
-          ? getRoleHome(resolved.appUser.role)
-          : getRoleSetupPath(resolved.appUser.role),
-      );
-    };
-
-    void redirectIfSignedIn();
-
-    return () => {
-      active = false;
-    };
-  }, [router]);
+    router.replace(
+      appUser.onboarding_complete
+        ? getRoleHome(appUser.role)
+        : getRoleSetupPath(appUser.role),
+    );
+  }, [appUser, authLoading, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -187,6 +186,12 @@ export default function Login() {
           you left off.
         </p>
 
+        {authLoading ? (
+          <p className="info-banner mt-6">
+            Restoring your session securely...
+          </p>
+        ) : null}
+
         <form onSubmit={handleLogin} className="mt-8 space-y-4">
           <input
             type="email"
@@ -204,7 +209,7 @@ export default function Login() {
             className="input"
             required
           />
-          <button type="submit" className="primary-btn w-full" disabled={loading}>
+          <button type="submit" className="primary-btn w-full" disabled={loading || authLoading}>
             {loading ? "Logging in..." : "Log in"}
           </button>
         </form>

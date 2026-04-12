@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import { registerAuthListener, supabase } from "@/lib/supabase";
 import {
   getRoleHome,
@@ -25,6 +26,7 @@ export function AuthGuard({
 }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { loading: authLoading } = useAuthState();
   const [isReady, setIsReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -39,9 +41,17 @@ export function AuthGuard({
   );
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     let active = true;
     const timeout = window.setTimeout(() => {
       if (active) {
+        console.info("[auth] redirect decision", {
+          reason: pathname === "/role-select" ? "verified-login" : "session-required",
+          pathname,
+        });
         if (pathname === "/role-select") {
           redirectToLogin("verified-login");
           return;
@@ -60,6 +70,10 @@ export function AuthGuard({
         }
 
         if (!resolved) {
+          console.info("[auth] redirect decision", {
+            reason: pathname === "/role-select" ? "verified-login" : "session-required",
+            pathname,
+          });
           redirectToLogin(pathname === "/role-select" ? "verified-login" : "session-required");
           return;
         }
@@ -69,6 +83,10 @@ export function AuthGuard({
         if (!appUser) {
           await supabase.auth.signOut();
           clearSessionHintCookie();
+          console.info("[auth] redirect decision", {
+            reason: pathname === "/role-select" ? "verified-login" : "session-required",
+            pathname,
+          });
           redirectToLogin(pathname === "/role-select" ? "verified-login" : "session-required");
           return;
         }
@@ -79,11 +97,20 @@ export function AuthGuard({
             return;
           }
 
+          console.info("[auth] redirect decision", {
+            reason: "missing-role-selection",
+            pathname,
+          });
           router.replace("/role-select");
           return;
         }
 
         if (allowedRoles && !allowedRoles.includes(appUser.role)) {
+          console.info("[auth] redirect decision", {
+            reason: "role-mismatch",
+            pathname,
+            target: getRoleHome(appUser.role),
+          });
           router.replace(getRoleHome(appUser.role));
           return;
         }
@@ -92,6 +119,11 @@ export function AuthGuard({
           const onboardingPath = getRoleSetupPath(appUser.role);
 
           if (pathname !== onboardingPath) {
+            console.info("[auth] redirect decision", {
+              reason: "onboarding-required",
+              pathname,
+              target: onboardingPath,
+            });
             router.replace(onboardingPath);
             return;
           }
@@ -106,11 +138,19 @@ export function AuthGuard({
         clearSessionHintCookie();
         await supabase.auth.signOut();
         if (pathname === "/role-select") {
+          console.info("[auth] redirect decision", {
+            reason: "verified-login",
+            pathname,
+          });
           redirectToLogin("verified-login");
           return;
         }
 
         setErrorMessage(nextMessage);
+        console.info("[auth] redirect decision", {
+          reason: "session-required",
+          pathname,
+        });
         redirectToLogin("session-required");
       }
     };
@@ -129,7 +169,7 @@ export function AuthGuard({
       window.clearTimeout(timeout);
       unsubscribeAuthListener();
     };
-  }, [allowedRoles, pathname, redirectToLogin, requireOnboarding, router]);
+  }, [allowedRoles, authLoading, pathname, redirectToLogin, requireOnboarding, router]);
 
   if (errorMessage) {
     return (
@@ -154,7 +194,7 @@ export function AuthGuard({
     );
   }
 
-  if (!isReady) {
+  if (authLoading || !isReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
         <div className="panel w-full max-w-md p-5 text-center sm:p-8">
