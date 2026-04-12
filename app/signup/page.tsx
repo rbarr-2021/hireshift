@@ -140,6 +140,13 @@ export default function Signup() {
 
   const handleSignup = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.info("[signup] submit fired", {
+      hasEmail: Boolean(email.trim()),
+      hasPassword: Boolean(password),
+      hasConfirmPassword: Boolean(confirmPassword),
+      cooldownSeconds,
+      loading,
+    });
     setMessage(null);
 
     if (loading || cooldownSeconds > 0) {
@@ -148,6 +155,14 @@ export default function Signup() {
 
     if (password !== confirmPassword) {
       setMessage("Passwords do not match.");
+      console.warn("[signup] validation failed", {
+        reason: "password_mismatch",
+      });
+      showToast({
+        title: "Passwords do not match",
+        description: "Please make sure both password fields match before continuing.",
+        tone: "error",
+      });
       return;
     }
 
@@ -160,6 +175,14 @@ export default function Signup() {
         setMessage(
           "You already have an active session. Sign out first or use a private window before creating another account.",
         );
+        console.warn("[signup] blocked because session already exists", {
+          authUserId: resolved.authUser.id,
+        });
+        showToast({
+          title: "Already signed in",
+          description: "Sign out first or use a private window before creating another account.",
+          tone: "error",
+        });
         return;
       }
 
@@ -169,6 +192,8 @@ export default function Signup() {
       console.info("[signup] starting signUp request", {
         attemptId,
         email,
+        passwordLength: password.length,
+        confirmPasswordLength: confirmPassword.length,
       });
 
       const { data, error } = await supabase.auth.signUp({
@@ -270,6 +295,24 @@ export default function Signup() {
         title: "Check your inbox",
         description: "Verify your email, then log in to continue onboarding.",
         tone: "success",
+      });
+      console.info("[signup] completed without immediate session", {
+        attemptId,
+        userId: data.user?.id ?? null,
+      });
+    } catch (error) {
+      const nextMessage =
+        error instanceof Error ? error.message : "Unexpected signup error. Please try again.";
+      console.error("[signup] caught exception", {
+        email,
+        error,
+      });
+      clearSessionHintCookie();
+      setMessage(nextMessage);
+      showToast({
+        title: "Unexpected signup error",
+        description: nextMessage,
+        tone: "error",
       });
     } finally {
       setLoading(false);

@@ -55,52 +55,103 @@ export default function Login() {
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.info("[login] submit fired", {
+      hasEmail: Boolean(email.trim()),
+      hasPassword: Boolean(password),
+    });
     setLoading(true);
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      console.info("[login] calling signInWithPassword", {
+        email,
+        passwordLength: password.length,
+      });
 
-    if (error) {
-      setMessage(error.message);
-      showToast({ title: "Login failed", description: error.message, tone: "error" });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      console.info("[login] Supabase response", {
+        userId: data.user?.id ?? null,
+        sessionPresent: Boolean(data.session),
+        error: error ?? null,
+      });
+
+      if (error) {
+        setMessage(error.message);
+        showToast({ title: "Login failed", description: error.message, tone: "error" });
+        clearSessionHintCookie();
+        return;
+      }
+
+      setSessionHintCookie();
+
+      const resolved = await resolveAuthState();
+      console.info("[login] resolved auth state", {
+        authUserId: resolved?.authUser?.id ?? null,
+        appUserId: resolved?.appUser?.id ?? null,
+        role: resolved?.appUser?.role ?? null,
+        roleSelected: resolved?.appUser?.role_selected ?? null,
+        onboardingComplete: resolved?.appUser?.onboarding_complete ?? null,
+      });
+
+      if (!resolved?.appUser) {
+        await supabase.auth.signOut();
+        clearSessionHintCookie();
+        setMessage("Your account record could not be found. Please sign in again.");
+        showToast({
+          title: "Account unavailable",
+          description: "We could not find your matching app profile.",
+          tone: "error",
+        });
+        router.push("/login");
+        return;
+      }
+
+      if (!hasSelectedRole(resolved.appUser)) {
+        setMessage("Login successful. Choose whether you are looking for work or hiring staff.");
+        showToast({
+          title: "Choose your role",
+          description: "Tell KruVo whether you are joining as a worker or a business.",
+          tone: "success",
+        });
+        router.push("/role-select");
+        return;
+      }
+
+      if (!resolved.appUser.onboarding_complete) {
+        setMessage("Login successful. Continue your onboarding to unlock your dashboard.");
+        showToast({
+          title: "Continue onboarding",
+          description: "Finish your setup to reach your dashboard.",
+          tone: "success",
+        });
+        router.push(getRoleSetupPath(resolved.appUser.role));
+        return;
+      }
+
+      setMessage("Login successful. Redirecting to your dashboard.");
+      router.push(getRoleHome(resolved.appUser.role));
+      showToast({ title: "Welcome back", description: "You're signed in and ready to go.", tone: "success" });
+    } catch (error) {
+      const nextMessage =
+        error instanceof Error ? error.message : "Unexpected login error. Please try again.";
+      console.error("[login] caught exception", {
+        email,
+        error,
+      });
       clearSessionHintCookie();
-      setLoading(false);
-      return;
-    }
-
-    setSessionHintCookie();
-
-    const resolved = await resolveAuthState();
-
-    setLoading(false);
-
-    if (!resolved?.appUser) {
-      await supabase.auth.signOut();
-      setMessage("Your account record could not be found. Please sign in again.");
+      setMessage(nextMessage);
       showToast({
-        title: "Account unavailable",
-        description: "We could not find your matching app profile.",
+        title: "Unexpected login error",
+        description: nextMessage,
         tone: "error",
       });
-      router.push("/login");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    if (!hasSelectedRole(resolved.appUser)) {
-      router.push("/role-select");
-      return;
-    }
-
-    if (!resolved.appUser.onboarding_complete) {
-      router.push(getRoleSetupPath(resolved.appUser.role));
-      return;
-    }
-
-    router.push(getRoleHome(resolved.appUser.role));
-    showToast({ title: "Welcome back", description: "You're signed in and ready to go.", tone: "success" });
   };
 
   const handleResetPassword = async () => {
