@@ -26,51 +26,82 @@ export function AuthGuard({
   const router = useRouter();
   const pathname = usePathname();
   const [isReady, setIsReady] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
+    const timeout = window.setTimeout(() => {
+      if (active) {
+        setErrorMessage(
+          "We could not confirm your session in time. Please refresh or sign in again.",
+        );
+      }
+    }, 7000);
 
     const checkSession = async () => {
-      const resolved = await resolveAuthState();
+      try {
+        const resolved = await resolveAuthState();
 
-      if (!active) {
-        return;
-      }
+        if (!active) {
+          return;
+        }
 
-      if (!resolved) {
-        router.replace("/login");
-        return;
-      }
+        if (!resolved) {
+          router.replace("/login");
+          return;
+        }
 
-      const { appUser } = resolved;
+        const { appUser } = resolved;
 
-      if (!appUser) {
-        await supabase.auth.signOut();
+        if (!appUser) {
+          await supabase.auth.signOut();
+          clearSessionHintCookie();
+          router.replace("/login");
+          return;
+        }
+
+        if (!hasSelectedRole(appUser)) {
+          if (pathname === "/role-select") {
+            setIsReady(true);
+            return;
+          }
+
+          router.replace("/role-select");
+          return;
+        }
+
+        if (allowedRoles && !allowedRoles.includes(appUser.role)) {
+          router.replace(getRoleHome(appUser.role));
+          return;
+        }
+
+        if (requireOnboarding && !appUser.onboarding_complete) {
+          const onboardingPath = getRoleSetupPath(appUser.role);
+
+          if (pathname !== onboardingPath) {
+            router.replace(onboardingPath);
+            return;
+          }
+        }
+
+        setIsReady(true);
+      } catch (error) {
+        const nextMessage =
+          error instanceof Error
+            ? error.message
+            : "Unexpected auth guard error. Please sign in again.";
+        console.error("[auth-guard] failed to resolve access", {
+          pathname,
+          error,
+        });
         clearSessionHintCookie();
-        router.replace("/login");
-        return;
-      }
-
-      if (!hasSelectedRole(appUser)) {
-        router.replace("/role-select");
-        return;
-      }
-
-      if (allowedRoles && !allowedRoles.includes(appUser.role)) {
-        router.replace(getRoleHome(appUser.role));
-        return;
-      }
-
-      if (requireOnboarding && !appUser.onboarding_complete) {
-        const onboardingPath = getRoleSetupPath(appUser.role);
-
-        if (pathname !== onboardingPath) {
-          router.replace(onboardingPath);
+        setErrorMessage(nextMessage);
+        await supabase.auth.signOut();
+        if (pathname !== "/login") {
+          router.replace("/login");
           return;
         }
       }
-
-      setIsReady(true);
     };
 
     void checkSession();
@@ -84,9 +115,33 @@ export function AuthGuard({
 
     return () => {
       active = false;
+      window.clearTimeout(timeout);
       unsubscribeAuthListener();
     };
   }, [allowedRoles, pathname, requireOnboarding, router]);
+
+  if (errorMessage) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black px-6">
+        <div className="panel w-full max-w-md p-8 text-center">
+          <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
+            KruVo
+          </p>
+          <h1 className="mt-4 text-2xl font-semibold text-stone-900">
+            We hit a session problem
+          </h1>
+          <p className="info-banner mt-4">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={() => router.replace("/login")}
+            className="primary-btn mt-6 w-full"
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!isReady) {
     return (

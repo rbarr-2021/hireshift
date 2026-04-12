@@ -288,13 +288,18 @@ export default function Signup() {
       }
 
       setMessage(
-        "Account created. Check your email to verify your address, then log in. If you already have orphaned rows in public.users from deleted auth accounts, clean those up first to avoid misleading state.",
+        "Account created. Check your email to verify your address, then log in.",
       );
       clearSessionHintCookie();
       showToast({
         title: "Check your inbox",
         description: "Verify your email, then log in to continue onboarding.",
         tone: "success",
+      });
+      console.info("[signup] verification required after account creation", {
+        attemptId,
+        userId: data.user?.id ?? null,
+        note: "If app-user mismatches persist, investigate orphaned public.users rows outside the user-facing flow.",
       });
       console.info("[signup] completed without immediate session", {
         attemptId,

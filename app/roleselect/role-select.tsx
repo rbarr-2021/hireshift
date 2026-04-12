@@ -11,39 +11,91 @@ import type { UserRecord, UserRole } from "@/lib/models";
 export default function RoleSelect() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
   const { showToast } = useToast();
 
   useEffect(() => {
+    let active = true;
+
     const loadExistingRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.replace("/login");
-        return;
+        if (authError) {
+          throw authError;
+        }
+
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("users")
+          .select("role,role_selected,onboarding_complete")
+          .eq("id", user.id)
+          .maybeSingle<UserRecord>();
+
+        if (error) {
+          throw error;
+        }
+
+        if (!active) {
+          return;
+        }
+
+        if (!data) {
+          setMessage(
+            "We could not find your account record yet. Please log in again in a moment.",
+          );
+          showToast({
+            title: "Account record unavailable",
+            description: "Please log in again once your account finishes syncing.",
+            tone: "error",
+          });
+          return;
+        }
+
+        if (hasSelectedRole(data) && data.role) {
+          router.replace(
+            data.onboarding_complete ? getRoleHome(data.role) : getRoleSetupPath(data.role),
+          );
+          return;
+        }
+
+        setRole(data.role_selected ? data.role : null);
+      } catch (error) {
+        const nextMessage =
+          error instanceof Error
+            ? error.message
+            : "We could not load your role selection right now.";
+        console.error("[role-select] failed to load role state", { error });
+        if (active) {
+          setMessage(nextMessage);
+          showToast({
+            title: "Role selection unavailable",
+            description: nextMessage,
+            tone: "error",
+          });
+        }
+      } finally {
+        if (active) {
+          setBootstrapping(false);
+        }
       }
-
-      const { data } = await supabase
-        .from("users")
-        .select("role,role_selected,onboarding_complete")
-        .eq("id", user.id)
-        .maybeSingle<UserRecord>();
-
-      if (hasSelectedRole(data ?? null) && data?.role) {
-        router.replace(
-          data.onboarding_complete ? getRoleHome(data.role) : getRoleSetupPath(data.role),
-        );
-        return;
-      }
-
-      setRole(data?.role_selected ? data.role : null);
     };
 
     void loadExistingRole();
-  }, [router]);
+
+    return () => {
+      active = false;
+    };
+  }, [router, showToast]);
 
   const handleContinue = async () => {
     if (!role) {
@@ -149,9 +201,13 @@ export default function RoleSelect() {
           type="button"
           onClick={handleContinue}
           className="primary-btn mt-8 w-full md:w-auto md:px-8"
-          disabled={loading || !role}
+          disabled={bootstrapping || loading || !role}
         >
-          {loading ? "Saving role..." : "Continue to onboarding"}
+          {bootstrapping
+            ? "Loading role step..."
+            : loading
+              ? "Saving role..."
+              : "Continue to onboarding"}
         </button>
       </div>
     </div>
