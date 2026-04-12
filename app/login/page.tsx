@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
@@ -22,7 +22,6 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -55,6 +54,11 @@ export default function Login() {
   }, [router]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
     const nextMessage = searchParams.get("message");
 
     if (nextMessage === "verified-login") {
@@ -65,7 +69,7 @@ export default function Login() {
     if (nextMessage === "session-required") {
       setMessage("Please log in to continue.");
     }
-  }, [searchParams]);
+  }, []);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
