@@ -1,16 +1,42 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site/site-header";
 
-const highlights = [
-  "Direct staffing bookings with no recruiter overhead",
-  "Worker and business onboarding tailored to each side",
-  "Profile, availability, and trust signals built for fast hiring",
+const howItWorks = [
+  {
+    title: "Choose your side",
+    body: "Join as a business hiring staff or a worker looking for shifts.",
+  },
+  {
+    title: "Create your profile",
+    body: "Add the essentials so the marketplace can match the right people fast.",
+  },
+  {
+    title: "Move with confidence",
+    body: "Use clear profiles, trust signals, and guided next steps to keep momentum.",
+  },
 ];
 
-const metrics = [
-  { label: "Response-first UX", value: "Mobile" },
-  { label: "Role-aware flows", value: "2-sided" },
-  { label: "Marketplace readiness", value: "MVP+" },
+const audienceCards = [
+  {
+    label: "For businesses",
+    title: "Find reliable hospitality staff faster",
+    body: "Discover workers by role, skills, rates, and availability without recruiter friction.",
+    cta: "Find Staff",
+    href: "/signup",
+  },
+  {
+    label: "For workers",
+    title: "Get discovered for the shifts you want",
+    body: "Build a strong profile, show your availability, and get ready for real hiring demand.",
+    cta: "Find Work",
+    href: "/signup",
+  },
+];
+
+const trustSignals = [
+  "Role-based onboarding",
+  "Verified account flow",
+  "Availability-first profiles",
 ];
 
 export default function HomePage() {
@@ -18,64 +44,101 @@ export default function HomePage() {
     <>
       <SiteHeader />
       <main className="public-shell pt-8">
-        <section className="public-section grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_420px]">
-          <div className="panel overflow-hidden px-8 py-10 lg:px-12 lg:py-14">
-            <div className="status-badge status-badge--rating">
-              KruVo marketplace for premium hospitality crews
-            </div>
-            <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-tight text-stone-900 lg:text-6xl">
-              Book trusted hospitality crew with speed, clarity, and neon-clean confidence.
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-stone-600">
-              KruVo helps restaurants, bars, hotels, and event teams discover
-              skilled workers, review availability, and move toward booking
-              without noise, recruiter churn, or bloated workflows.
-            </p>
+        <section className="public-section">
+          <div className="panel px-8 py-12 lg:px-14 lg:py-16">
+            <div className="mx-auto max-w-4xl text-center">
+              <p className="section-label">KruVo</p>
+              <h1 className="mt-6 text-4xl font-semibold leading-tight text-stone-900 lg:text-6xl">
+                Hospitality staffing, simplified.
+              </h1>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-stone-600 lg:text-lg">
+                KruVo helps businesses find staff and helps workers find opportunities
+                through a cleaner, faster hospitality marketplace.
+              </p>
 
-            <div className="mt-10 flex flex-wrap gap-3">
-              <Link href="/signup" className="primary-btn px-6">
-                Start on KruVo
-              </Link>
-              <Link href="/login" className="secondary-btn px-6">
-                Log in
-              </Link>
-              <Link href="/dashboard" className="secondary-btn px-6">
-                Open dashboard
-              </Link>
-            </div>
-
-            <div className="mt-10 grid gap-3 md:grid-cols-3">
-              {metrics.map((metric) => (
-                <div key={metric.label} className="panel-soft p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-                    {metric.label}
-                  </p>
-                  <p className="mt-3 text-2xl font-semibold text-stone-900">
-                    {metric.value}
-                  </p>
-                </div>
-              ))}
+              <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link href="/signup" className="primary-btn px-8">
+                  Find Staff
+                </Link>
+                <Link href="/signup" className="secondary-btn px-8">
+                  Find Work
+                </Link>
+              </div>
             </div>
           </div>
+        </section>
 
-          <aside className="panel px-6 py-8 lg:px-8">
-            <p className="section-label">Why KruVo</p>
-            <div className="mt-6 space-y-4">
-              {highlights.map((item, index) => (
-                <div key={item} className="panel-soft p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-                    0{index + 1}
-                  </p>
-                  <p className="mt-3 text-sm leading-7 text-stone-600">{item}</p>
-                </div>
+        <section className="public-section mt-8">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {howItWorks.map((item, index) => (
+              <div key={item.title} className="panel-soft p-6">
+                <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                  Step {index + 1}
+                </p>
+                <h2 className="mt-3 text-xl font-semibold text-stone-900">
+                  {item.title}
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-stone-600">{item.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="public-section mt-8">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {audienceCards.map((card) => (
+              <div key={card.label} className="panel-soft p-7">
+                <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                  {card.label}
+                </p>
+                <h2 className="mt-4 text-2xl font-semibold text-stone-900">
+                  {card.title}
+                </h2>
+                <p className="mt-4 text-sm leading-7 text-stone-600">{card.body}</p>
+                <Link href={card.href} className="primary-btn mt-6 inline-flex px-6">
+                  {card.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="public-section mt-8">
+          <div className="panel-soft p-7">
+            <p className="section-label">Why it feels trusted</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              {trustSignals.map((signal) => (
+                <span key={signal} className="status-badge status-badge--rating">
+                  {signal}
+                </span>
               ))}
             </div>
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-600">
+              The MVP focuses on the essentials: clear onboarding, structured profiles,
+              and the trust signals both sides need before booking starts.
+            </p>
+          </div>
+        </section>
 
-            <div className="info-banner mt-6">
-              Businesses get cleaner discovery and stronger trust signals.
-              Workers get a sharper profile, better visibility, and a clearer next step.
+        <section className="public-section mt-8">
+          <div className="panel px-8 py-10 text-center">
+            <p className="section-label">Ready to start</p>
+            <h2 className="mt-4 text-3xl font-semibold text-stone-900">
+              Join KruVo and choose your path.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-stone-600">
+              Whether you need staff or want work, the next step is the same:
+              create your account and complete the right setup.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/signup" className="primary-btn px-8">
+                Create account
+              </Link>
+              <Link href="/login" className="secondary-btn px-8">
+                Log in
+              </Link>
             </div>
-          </aside>
+          </div>
         </section>
       </main>
     </>
