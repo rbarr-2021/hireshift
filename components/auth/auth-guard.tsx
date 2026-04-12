@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { registerAuthListener, supabase } from "@/lib/supabase";
 import {
   getRoleHome,
   getRoleSetupPath,
@@ -75,9 +75,7 @@ export function AuthGuard({
 
     void checkSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    const unsubscribeAuthListener = registerAuthListener("auth-guard", (event) => {
       if (event === "SIGNED_OUT") {
         clearSessionHintCookie();
         router.replace("/login");
@@ -86,7 +84,7 @@ export function AuthGuard({
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      unsubscribeAuthListener();
     };
   }, [allowedRoles, pathname, requireOnboarding, router]);
 

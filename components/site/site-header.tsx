@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { registerAuthListener, supabase } from "@/lib/supabase";
 import { getRoleHome, getRoleSetupPath, hasSelectedRole, resolveAuthState } from "@/lib/auth-client";
 import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
@@ -32,9 +32,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
 
     void loadUser();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event) => {
+    const unsubscribeAuthListener = registerAuthListener("site-header", async (event) => {
       if (event === "SIGNED_OUT") {
         clearSessionHintCookie();
         if (active) {
@@ -51,7 +49,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      unsubscribeAuthListener();
     };
   }, []);
 

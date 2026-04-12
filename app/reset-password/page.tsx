@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { registerAuthListener, supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
 import { clearSessionHintCookie } from "@/lib/session-hint";
@@ -55,7 +55,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      const unsubscribeAuthListener = registerAuthListener("reset-password", (event) => {
         if (!active) {
           return;
         }
@@ -134,7 +134,7 @@ export default function ResetPasswordPage() {
       }
 
       return () => {
-        listener.subscription.unsubscribe();
+        unsubscribeAuthListener();
       };
     };
 
