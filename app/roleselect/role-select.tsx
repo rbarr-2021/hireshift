@@ -8,29 +8,124 @@ import { useToast } from "@/components/ui/toast-provider";
 import { getRoleHome, getRoleSetupPath, hasSelectedRole } from "@/lib/auth-client";
 import type { UserRecord, UserRole } from "@/lib/models";
 
-function formatRoleSelectError(error: unknown) {
+type SupabaseLikeError = {
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string;
+};
+
+function formatSupabaseError(error: unknown) {
   if (error instanceof Error) {
-    if (
-      error.message.includes("role_selected") &&
-      error.message.toLowerCase().includes("schema cache")
-    ) {
+    return {
+      message: error.message,
+      code: undefined,
+    };
+  }
+
+  if (error && typeof error === "object") {
+    const candidate = error as SupabaseLikeError;
+    const parts = [
+      candidate.message,
+      candidate.details ?? undefined,
+      candidate.hint ?? undefined,
+      candidate.code ? `code: ${candidate.code}` : undefined,
+    ].filter(Boolean);
+
+    if (parts.length > 0) {
       return {
-        title: "Database update required",
-        message:
-          "Your database is missing the role selection field. Run the latest Supabase migration, then try again.",
+        message: parts.join(" | "),
+        code: candidate.code,
       };
     }
+  }
 
+  return {
+    message: "We could not load your role selection right now.",
+    code: undefined,
+  };
+}
+
+function formatRoleSelectError(error: unknown) {
+  const nextError = formatSupabaseError(error);
+
+  if (
+    nextError.message.includes("role_selected") &&
+    nextError.message.toLowerCase().includes("schema cache")
+  ) {
     return {
-      title: "Role selection unavailable",
-      message: error.message,
+      title: "Database update required",
+      message:
+        "Your database is missing the role selection field. Run the latest Supabase migration, then try again.",
     };
   }
 
   return {
     title: "Role selection unavailable",
-    message: "We could not load your role selection right now.",
+    message: nextError.message,
   };
+}
+
+async function getOrCreateAppUserRow(authUser: { id: string; email?: string | null }) {
+  const selectResult = await supabase
+    .from("users")
+    .select("id, email, role, role_selected, onboarding_complete")
+    .eq("id", authUser.id)
+    .maybeSingle<UserRecord>();
+
+  if (selectResult.error) {
+    console.error("[role-select] users select failed", {
+      userId: authUser.id,
+      error: selectResult.error,
+    });
+    throw selectResult.error;
+  }
+
+  if (selectResult.data) {
+    console.info("[role-select] users row loaded", {
+      userId: authUser.id,
+      role: selectResult.data.role,
+      roleSelected: selectResult.data.role_selected,
+      onboardingComplete: selectResult.data.onboarding_complete,
+    });
+    return selectResult.data;
+  }
+
+  console.warn("[role-select] users row missing, attempting recovery", {
+    userId: authUser.id,
+    email: authUser.email ?? null,
+  });
+
+  const recoveryPayload = {
+    id: authUser.id,
+    email: authUser.email ?? null,
+    role: "worker" as const,
+    role_selected: false,
+    onboarding_complete: false,
+  };
+
+  const insertResult = await supabase
+    .from("users")
+    .insert(recoveryPayload)
+    .select("id, email, role, role_selected, onboarding_complete")
+    .single<UserRecord>();
+
+  if (insertResult.error) {
+    console.error("[role-select] users recovery insert failed", {
+      userId: authUser.id,
+      payload: recoveryPayload,
+      error: insertResult.error,
+    });
+    throw insertResult.error;
+  }
+
+  console.info("[role-select] users row recovered", {
+    userId: authUser.id,
+    role: insertResult.data.role,
+    roleSelected: insertResult.data.role_selected,
+  });
+
+  return insertResult.data;
 }
 
 export default function RoleSelect() {
@@ -60,29 +155,9 @@ export default function RoleSelect() {
           return;
         }
 
-        const { data, error } = await supabase
-          .from("users")
-          .select("role,role_selected,onboarding_complete")
-          .eq("id", user.id)
-          .maybeSingle<UserRecord>();
-
-        if (error) {
-          throw error;
-        }
+        const data = await getOrCreateAppUserRow(user);
 
         if (!active) {
-          return;
-        }
-
-        if (!data) {
-          setMessage(
-            "We could not find your account record yet. Please log in again in a moment.",
-          );
-          showToast({
-            title: "Account record unavailable",
-            description: "Please log in again once your account finishes syncing.",
-            tone: "error",
-          });
           return;
         }
 
@@ -136,6 +211,14 @@ export default function RoleSelect() {
     if (userError || !user) {
       setLoading(false);
       setMessage(userError?.message || "You need to log in before continuing.");
+      console.error("[role-select] auth user unavailable during save", {
+        error: userError,
+      });
+      showToast({
+        title: "Login required",
+        description: userError?.message || "You need to log in before continuing.",
+        tone: "error",
+      });
       return;
     }
 
@@ -147,6 +230,11 @@ export default function RoleSelect() {
     setLoading(false);
 
     if (error) {
+      console.error("[role-select] users update failed", {
+        userId: user.id,
+        payload: { role, role_selected: true, onboarding_complete: false },
+        error,
+      });
       const nextError = formatRoleSelectError(error);
       setMessage(nextError.message);
       showToast({ title: nextError.title, description: nextError.message, tone: "error" });
