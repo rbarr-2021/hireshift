@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   HOSPITALITY_ROLES,
   HOSPITALITY_SKILLS,
@@ -30,15 +31,70 @@ const initialFilters: WorkerDiscoveryFilters = {
 };
 
 const PAGE_SIZE = 9;
+const DISCOVERY_STORAGE_KEY = "kruvo-business-discovery-filters";
+const RECENT_SEARCHES_STORAGE_KEY = "kruvo-business-recent-searches";
 
 export default function BusinessWorkerDiscoveryPage() {
   const [workers, setWorkers] = useState<WorkerProfileRecord[]>([]);
   const [availabilitySlots, setAvailabilitySlots] = useState<WorkerAvailabilitySlotRecord[]>([]);
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
-  const [filters, setFilters] = useState<WorkerDiscoveryFilters>(initialFilters);
+  const [filters, setFilters] = useState<WorkerDiscoveryFilters>(() => {
+    if (typeof window === "undefined") {
+      return initialFilters;
+    }
+
+    const savedFilters = window.localStorage.getItem(DISCOVERY_STORAGE_KEY);
+
+    if (!savedFilters) {
+      return initialFilters;
+    }
+
+    try {
+      return { ...initialFilters, ...JSON.parse(savedFilters) };
+    } catch {
+      return initialFilters;
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    const savedRecentSearches = window.localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
+
+    if (!savedRecentSearches) {
+      return [];
+    }
+
+    try {
+      return JSON.parse(savedRecentSearches);
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(DISCOVERY_STORAGE_KEY, JSON.stringify(filters));
+  }, [filters]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      RECENT_SEARCHES_STORAGE_KEY,
+      JSON.stringify(recentSearches),
+    );
+  }, [recentSearches]);
 
   useEffect(() => {
     let active = true;
@@ -121,11 +177,28 @@ export default function BusinessWorkerDiscoveryPage() {
     Boolean(filters.minTravelRadius) && Number(filters.minTravelRadius) < 0;
   const filtersAreInvalid = hasInvalidRate || hasInvalidRating || hasInvalidTravelRadius;
 
+  useEffect(() => {
+    const query = filters.query.trim();
+
+    if (!query) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setRecentSearches((current) => {
+        const next = [query, ...current.filter((item) => item !== query)].slice(0, 5);
+        return next;
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [filters.query]);
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+          <p className="section-label">
             Worker Discovery
           </p>
           <h1 className="mt-3 text-3xl font-semibold text-stone-900">
@@ -137,7 +210,7 @@ export default function BusinessWorkerDiscoveryPage() {
             in this phase.
           </p>
         </div>
-        <div className="rounded-2xl bg-stone-100 px-4 py-3">
+        <div className="panel-soft px-4 py-3">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Results</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">
             {discoveryResults.length}
@@ -146,7 +219,7 @@ export default function BusinessWorkerDiscoveryPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-3xl bg-stone-100 p-5">
+        <aside className={`${showFilters ? "block" : "hidden"} panel-soft p-5 lg:block`}>
           <h2 className="text-lg font-semibold text-stone-900">Filters</h2>
           <div className="mt-5 space-y-4">
             <div>
@@ -162,6 +235,23 @@ export default function BusinessWorkerDiscoveryPage() {
                 className="input"
                 placeholder="Chef, cocktail, Manchester..."
               />
+              {recentSearches.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {recentSearches.map((search) => (
+                    <button
+                      key={search}
+                      type="button"
+                      onClick={() => {
+                        setPage(1);
+                        setFilters((current) => ({ ...current, query: search }));
+                      }}
+                      className="status-badge status-badge--rating"
+                    >
+                      {search}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div>
@@ -318,7 +408,7 @@ export default function BusinessWorkerDiscoveryPage() {
                 setFilters(initialFilters);
                 setPage(1);
               }}
-              className="w-full rounded-2xl border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 transition hover:bg-white"
+              className="secondary-btn w-full"
             >
               Reset filters
             </button>
@@ -326,7 +416,8 @@ export default function BusinessWorkerDiscoveryPage() {
         </aside>
 
         <section className="space-y-4">
-          <div className="rounded-3xl bg-stone-100 p-4 text-sm text-stone-600">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="info-banner flex-1">
             {hasInvalidRate
               ? "Max hourly rate must be zero or more."
               : hasInvalidRating
@@ -336,26 +427,50 @@ export default function BusinessWorkerDiscoveryPage() {
                   : errorMessage
                     ? `We could not load worker discovery right now: ${errorMessage}`
               : `Showing workers available on ${selectedWeekdayLabel}. Location uses city matching, and distance uses each worker's stated travel radius.`}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((current) => !current)}
+              className="secondary-btn lg:hidden"
+            >
+              {showFilters ? "Hide filters" : "Show filters"}
+            </button>
           </div>
 
           {loading ? (
-            <div className="rounded-3xl bg-stone-100 p-8 text-center text-stone-600">
-              Loading workers...
+            <div className="grid gap-4 xl:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="panel-soft p-5">
+                  <div className="flex gap-4">
+                    <Skeleton className="h-20 w-20 rounded-3xl" />
+                    <div className="flex-1">
+                      <Skeleton className="h-6 w-40" />
+                      <Skeleton className="mt-3 h-4 w-48" />
+                      <Skeleton className="mt-3 h-4 w-44" />
+                    </div>
+                  </div>
+                  <Skeleton className="mt-5 h-16 w-full" />
+                  <div className="mt-5 flex gap-3">
+                    <Skeleton className="h-11 w-32" />
+                    <Skeleton className="h-11 w-28" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : errorMessage ? (
-            <div className="rounded-3xl bg-stone-100 p-8 text-center">
+            <div className="panel-soft p-8 text-center">
               <h2 className="text-xl font-semibold text-stone-900">Discovery is temporarily unavailable</h2>
               <p className="mt-3 text-sm text-stone-600">{errorMessage}</p>
             </div>
           ) : filtersAreInvalid ? (
-            <div className="rounded-3xl bg-stone-100 p-8 text-center">
+            <div className="panel-soft p-8 text-center">
               <h2 className="text-xl font-semibold text-stone-900">Fix the highlighted filters</h2>
               <p className="mt-3 text-sm text-stone-600">
                 Adjust the invalid filter values above to view matching workers.
               </p>
             </div>
           ) : paginatedResults.length === 0 ? (
-            <div className="rounded-3xl bg-stone-100 p-8 text-center">
+            <div className="panel-soft p-8 text-center">
               <h2 className="text-xl font-semibold text-stone-900">No workers match those filters</h2>
               <p className="mt-3 text-sm text-stone-600">
                 Try broadening the search, role, skills, or location filters.
@@ -365,7 +480,7 @@ export default function BusinessWorkerDiscoveryPage() {
             <>
               <div className="grid gap-4 xl:grid-cols-2">
                 {paginatedResults.map(({ worker, aggregate, workerAvailability }) => (
-                  <article key={worker.user_id} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
+                  <article key={worker.user_id} className="panel-soft p-5">
                     <div className="flex gap-4">
                       <div className="relative h-20 w-20 overflow-hidden rounded-3xl bg-stone-100">
                         {worker.profile_photo_url ? (
@@ -426,13 +541,13 @@ export default function BusinessWorkerDiscoveryPage() {
                     <div className="mt-5 flex flex-wrap gap-3">
                       <Link
                         href={`/workers/${worker.user_id}`}
-                        className="rounded-2xl border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                        className="secondary-btn px-4"
                       >
                         View profile
                       </Link>
                       <Link
                         href={`/dashboard/business/bookings/new?worker=${worker.user_id}`}
-                        className="rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-stone-800"
+                        className="primary-btn px-4"
                       >
                         Book now
                       </Link>
@@ -446,7 +561,7 @@ export default function BusinessWorkerDiscoveryPage() {
                   <button
                     type="button"
                     onClick={() => setPage((current) => current + 1)}
-                    className="rounded-2xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                    className="secondary-btn px-6"
                   >
                     Load more workers
                   </button>

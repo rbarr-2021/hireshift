@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { SiteHeader } from "@/components/site/site-header";
+import { useToast } from "@/components/ui/toast-provider";
 
 function extractRecoveryTokens() {
   if (typeof window === "undefined") {
@@ -34,6 +36,7 @@ function extractRecoveryTokens() {
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -164,10 +167,16 @@ export default function ResetPasswordPage() {
 
     if (error) {
       setMessage(error.message);
+      showToast({ title: "Password update failed", description: error.message, tone: "error" });
       return;
     }
 
     setMessage("Your password has been updated. You can now log in with the new password.");
+    showToast({
+      title: "Password updated",
+      description: "You can now log in with your new password.",
+      tone: "success",
+    });
     await supabase.auth.signOut();
     setTimeout(() => {
       router.replace("/login");
@@ -175,10 +184,12 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-10">
-      <div className="w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
-          HireShift
+    <>
+      <SiteHeader compact />
+    <div className="public-shell flex items-center justify-center py-10">
+      <div className="panel w-full max-w-md p-8">
+        <p className="section-label">
+          Secure recovery
         </p>
         <h1 className="mt-4 text-3xl font-semibold text-stone-900">
           Reset password
@@ -218,13 +229,13 @@ export default function ResetPasswordPage() {
         </form>
 
         {message ? (
-          <p className="mt-4 rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+          <p className="info-banner mt-4">
             {message}
           </p>
         ) : null}
 
         {!ready && !message ? (
-          <p className="mt-4 rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+          <p className="info-banner mt-4">
             Verifying your recovery link...
           </p>
         ) : null}
@@ -237,5 +248,6 @@ export default function ResetPasswordPage() {
         </p>
       </div>
     </div>
+    </>
   );
 }

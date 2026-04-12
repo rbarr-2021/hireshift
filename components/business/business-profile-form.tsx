@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
+import { useToast } from "@/components/ui/toast-provider";
 import {
   BUSINESS_SECTORS,
   type BusinessProfileRecord,
@@ -52,6 +54,7 @@ function statusStyles(status: BusinessProfileRecord["verification_status"] | "pe
 
 export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [user, setUser] = useState<UserRecord | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [sector, setSector] = useState<BusinessSector | "">(BUSINESS_SECTORS[0]);
@@ -219,6 +222,15 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         throw new Error(formatSupabaseError(userError ?? profileError));
       }
 
+      showToast({
+        title: mode === "onboarding" ? "Business profile ready" : "Business profile saved",
+        description:
+          mode === "onboarding"
+            ? "You can now move into business discovery."
+            : "Your venue details are live and updated.",
+        tone: "success",
+      });
+
       setMessage(
         mode === "onboarding"
           ? "Business profile completed."
@@ -231,20 +243,28 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         router.refresh();
       }
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Unable to save your business profile.",
-      );
+      const nextMessage =
+        error instanceof Error ? error.message : "Unable to save your business profile.";
+      setMessage(nextMessage);
+      showToast({
+        title: "Business profile error",
+        description: nextMessage,
+        tone: "error",
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-stone-100 px-4 py-10">
-      <div className="mx-auto max-w-4xl rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm">
+    <div className="min-h-screen bg-black px-4 py-10">
+      <div className="panel mx-auto max-w-4xl p-8">
+        {mode === "onboarding" ? (
+          <OnboardingProgress role="business" step="profile" />
+        ) : null}
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+            <p className="section-label">
               {mode === "onboarding" ? "Business onboarding" : "Business profile"}
             </p>
             <h1 className="mt-4 text-3xl font-semibold text-stone-900">
@@ -258,13 +278,13 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl bg-stone-100 px-4 py-3">
+            <div className="panel-soft px-4 py-3">
               <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
                 Profile completion
               </p>
               <p className="mt-2 text-2xl font-semibold text-stone-900">{completion}%</p>
             </div>
-            <div className="rounded-2xl bg-stone-100 px-4 py-3">
+            <div className="panel-soft px-4 py-3">
               <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
                 Approval status
               </p>
@@ -351,7 +371,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
           </div>
 
           {message ? (
-            <p className="md:col-span-2 rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+            <p className="info-banner md:col-span-2">
               {message}
             </p>
           ) : null}
@@ -368,7 +388,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/business")}
-                className="rounded-2xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                className="secondary-btn px-6"
               >
                 Back to dashboard
               </button>

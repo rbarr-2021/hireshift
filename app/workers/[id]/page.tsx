@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   WEEK_DAYS,
   type ReviewRecord,
@@ -78,8 +79,16 @@ export default function WorkerPublicProfilePage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="rounded-3xl bg-stone-100 p-8 text-center text-stone-600">
-          Loading worker profile...
+        <div className="panel p-8">
+          <div className="flex gap-5">
+            <Skeleton className="h-28 w-28 rounded-[2rem]" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="mt-4 h-10 w-60" />
+              <Skeleton className="mt-3 h-4 w-40" />
+              <Skeleton className="mt-3 h-4 w-52" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -88,7 +97,7 @@ export default function WorkerPublicProfilePage() {
   if (!profile) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="rounded-3xl bg-stone-100 p-8 text-center">
+        <div className="panel-soft p-8 text-center">
           <h1 className="text-2xl font-semibold text-stone-900">Worker not found</h1>
           <p className="mt-3 text-sm text-stone-600">
             This worker profile is unavailable or has not been completed yet.
@@ -99,9 +108,9 @@ export default function WorkerPublicProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-100 px-4 py-10">
+    <div className="min-h-screen bg-black px-4 py-10">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm">
+        <div className="panel p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-5">
               <div className="relative h-28 w-28 overflow-hidden rounded-[2rem] bg-stone-100">
@@ -135,18 +144,24 @@ export default function WorkerPublicProfilePage() {
                     ? `${aggregate.averageRating}/5 average rating from ${aggregate.reviewCount} review${aggregate.reviewCount === 1 ? "" : "s"}`
                     : "No reviews yet"}
                 </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="status-badge status-badge--rating">Ratings and reviews</span>
+                  <span className={`status-badge ${profile.verification_status === "verified" ? "status-badge--ready" : ""}`}>
+                    {profile.verification_status}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
                 href={`/dashboard/business/bookings/new?worker=${profile.user_id}`}
-                className="rounded-2xl bg-stone-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-stone-800"
+                className="primary-btn px-6"
               >
                 Book now
               </Link>
               <Link
                 href="/dashboard/business/discover"
-                className="rounded-2xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                className="secondary-btn px-6"
               >
                 Back to discovery
               </Link>
@@ -156,14 +171,14 @@ export default function WorkerPublicProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-6">
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">About</h2>
               <p className="mt-4 text-sm leading-7 text-stone-600">
                 {profile.bio || "No bio provided."}
               </p>
             </div>
 
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">Skills</h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {profile.skills.map((skill) => (
@@ -174,7 +189,7 @@ export default function WorkerPublicProfilePage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">Experience</h2>
               <div className="mt-4 space-y-4">
                 <p className="text-sm text-stone-600">
@@ -182,7 +197,7 @@ export default function WorkerPublicProfilePage() {
                 </p>
                 {profile.work_history?.length ? (
                   profile.work_history.map((entry, index) => (
-                    <div key={`${entry.venue}-${index}`} className="rounded-2xl bg-stone-100 p-4">
+                    <div key={`${entry.venue}-${index}`} className="panel-soft p-4">
                       <p className="font-medium text-stone-900">{entry.role || "Previous role"}</p>
                       <p className="mt-1 text-sm text-stone-600">
                         {entry.venue || "Venue"} | {[entry.startYear, entry.endYear].filter(Boolean).join(" - ")}
@@ -200,7 +215,7 @@ export default function WorkerPublicProfilePage() {
           </section>
 
           <aside className="space-y-6">
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">Rates</h2>
               <div className="mt-4 space-y-3 text-sm text-stone-700">
                 <p>Hourly: {profile.hourly_rate_gbp ? `GBP ${profile.hourly_rate_gbp}` : "Not set"}</p>
@@ -208,7 +223,7 @@ export default function WorkerPublicProfilePage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">Availability</h2>
               <div className="mt-4 space-y-3 text-sm text-stone-700">
                 {groupedAvailability.length > 0 ? (
@@ -226,14 +241,14 @@ export default function WorkerPublicProfilePage() {
                   <p className="text-stone-600">No structured availability added yet.</p>
                 )}
                 {profile.availability_summary ? (
-                  <p className="rounded-2xl bg-stone-100 p-3 text-stone-600">
+                  <p className="panel-soft p-3 text-stone-600">
                     {profile.availability_summary}
                   </p>
                 ) : null}
               </div>
             </div>
 
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">Trust signals</h2>
               <div className="mt-4 space-y-3 text-sm text-stone-700">
                 <p>Approval status: {profile.verification_status}</p>

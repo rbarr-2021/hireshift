@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type WorkerAvailabilitySlotRecord,
   type WorkerDocumentRecord,
@@ -19,6 +20,7 @@ export default function WorkerDashboardPage() {
   const [profile, setProfile] = useState<WorkerProfileRecord | null>(null);
   const [availabilitySlots, setAvailabilitySlots] = useState<WorkerAvailabilitySlotRecord[]>([]);
   const [documents, setDocuments] = useState<WorkerDocumentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +51,7 @@ export default function WorkerDashboardPage() {
       setProfile(profileResult.data ?? null);
       setAvailabilitySlots((availabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? []);
       setDocuments((documentsResult.data as WorkerDocumentRecord[] | null) ?? []);
+      setLoading(false);
     };
 
     void loadDashboard();
@@ -78,11 +81,43 @@ export default function WorkerDashboardPage() {
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [availabilitySlots.length, profile]);
 
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="grid gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="panel-soft p-5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="mt-4 h-10 w-20" />
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="panel-soft p-6">
+            <Skeleton className="h-6 w-48" />
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index}>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-3 h-5 w-32" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="panel-soft p-6">
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="mt-4 h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+          <p className="section-label">
             Worker Dashboard
           </p>
           <h1 className="mt-3 text-3xl font-semibold text-stone-900">
@@ -95,35 +130,35 @@ export default function WorkerDashboardPage() {
         </div>
         <Link
           href="/dashboard/worker/profile"
-          className="rounded-2xl bg-stone-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-stone-800"
+          className="primary-btn px-6"
         >
           Edit worker profile
         </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Completion</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{completion}%</p>
         </section>
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Approval</p>
           <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusStyles(profile?.verification_status ?? "pending")}`}>
             {profile?.verification_status ?? "pending"}
           </span>
         </section>
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Availability slots</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{availabilitySlots.length}</p>
         </section>
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Documents</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{documents.length}</p>
         </section>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-3xl bg-stone-100 p-6">
+        <section className="panel-soft p-6">
           <h2 className="text-xl font-semibold text-stone-900">Profile snapshot</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
@@ -152,13 +187,12 @@ export default function WorkerDashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl bg-stone-100 p-6">
+        <section className="panel-soft p-6">
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
-          <ul className="mt-4 space-y-3 text-sm text-stone-600">
-            <li>Upload a profile photo if you have not added one yet.</li>
-            <li>Add at least one supporting document for trust and compliance.</li>
-            <li>Keep your weekly availability current before search and booking launch.</li>
-          </ul>
+          <div className="info-banner mt-4">
+            Upload a strong profile photo, keep availability fresh, and add supporting
+            documents to look trusted and booking-ready.
+          </div>
         </section>
       </div>
     </div>

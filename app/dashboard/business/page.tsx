@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { BusinessProfileRecord, WorkerProfileRecord } from "@/lib/models";
 import { calculateBusinessProfileCompletion } from "@/lib/business-discovery";
 
@@ -15,6 +16,7 @@ function statusStyles(status: string) {
 export default function BusinessDashboardPage() {
   const [profile, setProfile] = useState<BusinessProfileRecord | null>(null);
   const [workerCount, setWorkerCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -43,6 +45,7 @@ export default function BusinessDashboardPage() {
 
       setProfile(profileResult.data ?? null);
       setWorkerCount(((workersResult.data as Pick<WorkerProfileRecord, "user_id">[] | null) ?? []).length);
+      setLoading(false);
     };
 
     void loadDashboard();
@@ -57,11 +60,43 @@ export default function BusinessDashboardPage() {
     [profile],
   );
 
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="grid gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="panel-soft p-5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="mt-4 h-10 w-24" />
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="panel-soft p-6">
+            <Skeleton className="h-6 w-52" />
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index}>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-3 h-5 w-36" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="panel-soft p-6">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="mt-4 h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+          <p className="section-label">
             Business Dashboard
           </p>
           <h1 className="mt-3 text-3xl font-semibold text-stone-900">
@@ -75,13 +110,13 @@ export default function BusinessDashboardPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/dashboard/business/profile"
-            className="rounded-2xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+            className="secondary-btn px-6"
           >
             Edit profile
           </Link>
           <Link
             href="/dashboard/business/discover"
-            className="rounded-2xl bg-stone-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-stone-800"
+            className="primary-btn px-6"
           >
             Discover workers
           </Link>
@@ -89,21 +124,21 @@ export default function BusinessDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Profile completion</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{completion}%</p>
         </section>
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Approval status</p>
           <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusStyles(profile?.verification_status ?? "pending")}`}>
             {profile?.verification_status ?? "pending"}
           </span>
         </section>
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Workers discoverable</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{workerCount}</p>
         </section>
-        <section className="rounded-3xl bg-stone-100 p-5">
+        <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Business sector</p>
           <p className="mt-2 text-xl font-semibold text-stone-900">
             {profile?.sector ?? "Not set"}
@@ -112,7 +147,7 @@ export default function BusinessDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-3xl bg-stone-100 p-6">
+        <section className="panel-soft p-6">
           <h2 className="text-xl font-semibold text-stone-900">Business profile snapshot</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
@@ -144,13 +179,12 @@ export default function BusinessDashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl bg-stone-100 p-6">
+        <section className="panel-soft p-6">
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-stone-600">
-            <li>Complete your business profile so workers understand your venue.</li>
-            <li>Use discovery to shortlist workers by role, skills, and availability.</li>
-            <li>Open a worker detail page to review rates, background, and availability before booking.</li>
-          </ul>
+          <div className="info-banner mt-4">
+            Complete your venue profile, shortlist workers with discovery, and use
+            trust signals before you move into booking.
+          </div>
         </section>
       </div>
     </div>

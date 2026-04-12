@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { SiteHeader } from "@/components/site/site-header";
+import { useToast } from "@/components/ui/toast-provider";
 import {
   getAppBaseUrl,
   getRoleHome,
@@ -67,6 +69,7 @@ async function waitForAppUserRow(userId: string, attempts = 3, delayMs = 250) {
 
 export default function Signup() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -187,6 +190,11 @@ export default function Signup() {
         }
 
         setMessage(nextMessage);
+        showToast({
+          title: isRateLimited ? "Rate limited" : "Signup failed",
+          description: nextMessage,
+          tone: "error",
+        });
         return;
       }
 
@@ -209,6 +217,11 @@ export default function Signup() {
             error: appUserError,
           });
           setMessage(`Signup created your auth account, but loading your app profile failed: ${formatSupabaseError(appUserError)}`);
+          showToast({
+            title: "Account needs attention",
+            description: "Your auth user was created, but the app profile lookup failed.",
+            tone: "error",
+          });
           return;
         }
 
@@ -223,9 +236,19 @@ export default function Signup() {
           setMessage(
             "Signup created your auth account, but the matching app user record was not available yet. Please try logging in once, and if this persists check the auth trigger and remove any orphaned public.users rows for deleted auth users.",
           );
+          showToast({
+            title: "Profile still syncing",
+            description: "Try logging in once or check the app-user trigger if this persists.",
+            tone: "info",
+          });
           return;
         }
 
+        showToast({
+          title: "Account created",
+          description: "Next up: choose your role and finish onboarding.",
+          tone: "success",
+        });
         router.push("/role-select");
         return;
       }
@@ -233,6 +256,11 @@ export default function Signup() {
       setMessage(
         "Account created. Check your email to verify your address, then log in. If you already have orphaned rows in public.users from deleted auth accounts, clean those up first to avoid misleading state.",
       );
+      showToast({
+        title: "Check your inbox",
+        description: "Verify your email, then log in to continue onboarding.",
+        tone: "success",
+      });
     } finally {
       setLoading(false);
     }
@@ -244,13 +272,15 @@ export default function Signup() {
     password === confirmPassword;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-10">
+    <>
+      <SiteHeader compact />
+    <div className="public-shell flex items-center justify-center py-10">
       <form
         onSubmit={handleSignup}
-        className="w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm"
+        className="panel w-full max-w-md p-8"
       >
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
-          HireShift
+        <p className="section-label">
+          Join KruVo
         </p>
         <h1 className="mt-4 text-3xl font-semibold text-stone-900">
           Create your account
@@ -261,7 +291,7 @@ export default function Signup() {
         </p>
 
         {message ? (
-          <p className="mt-6 rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+          <p className="info-banner mt-6">
             {message}
           </p>
         ) : null}
@@ -340,5 +370,6 @@ export default function Signup() {
         </p>
       </form>
     </div>
+    </>
   );
 }

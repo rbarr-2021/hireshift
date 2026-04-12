@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { SiteHeader } from "@/components/site/site-header";
+import { useToast } from "@/components/ui/toast-provider";
 import {
   getResetPasswordRedirectUrl,
   getRoleHome,
@@ -18,6 +20,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const { showToast } = useToast();
 
   useEffect(() => {
     let active = true;
@@ -55,6 +58,7 @@ export default function Login() {
 
     if (error) {
       setMessage(error.message);
+      showToast({ title: "Login failed", description: error.message, tone: "error" });
       setLoading(false);
       return;
     }
@@ -66,6 +70,11 @@ export default function Login() {
     if (!resolved?.appUser) {
       await supabase.auth.signOut();
       setMessage("Your account record could not be found. Please sign in again.");
+      showToast({
+        title: "Account unavailable",
+        description: "We could not find your matching app profile.",
+        tone: "error",
+      });
       router.push("/login");
       return;
     }
@@ -81,6 +90,7 @@ export default function Login() {
     }
 
     router.push(getRoleHome(resolved.appUser.role));
+    showToast({ title: "Welcome back", description: "You're signed in and ready to go.", tone: "success" });
   };
 
   const handleResetPassword = async () => {
@@ -101,13 +111,22 @@ export default function Login() {
     setMessage(
       error ? error.message : "Password reset instructions have been sent to your email.",
     );
+    showToast({
+      title: error ? "Reset email failed" : "Reset email sent",
+      description: error
+        ? error.message
+        : "Check your inbox for the secure recovery link.",
+      tone: error ? "error" : "success",
+    });
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-10">
-      <div className="w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
-          HireShift
+    <>
+      <SiteHeader compact />
+      <div className="public-shell flex items-center justify-center py-10">
+      <div className="panel w-full max-w-md p-8">
+        <p className="section-label">
+          KruVo access
         </p>
         <h1 className="mt-4 text-3xl font-semibold text-stone-900">Log in</h1>
         <p className="mt-3 text-sm leading-6 text-stone-600">
@@ -138,7 +157,7 @@ export default function Login() {
         </form>
 
         {message ? (
-          <p className="mt-4 rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+          <p className="info-banner mt-4">
             {message}
           </p>
         ) : null}
@@ -153,12 +172,13 @@ export default function Login() {
         </button>
 
         <p className="mt-6 text-center text-sm text-stone-500">
-          New to HireShift?{" "}
+          New to KruVo?{" "}
           <Link href="/signup" className="font-medium text-stone-900 underline">
             Create an account
           </Link>
         </p>
       </div>
     </div>
+    </>
   );
 }

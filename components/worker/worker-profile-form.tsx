@@ -4,6 +4,8 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
+import { useToast } from "@/components/ui/toast-provider";
 import {
   APPROVAL_STATUSES,
   DOCUMENT_LABELS,
@@ -138,6 +140,7 @@ function createWorkerSaveError(stage: WorkerSaveStage, error: unknown) {
 
 export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [fullName, setFullName] = useState("");
   const [jobRole, setJobRole] = useState<HospitalityRole>(HOSPITALITY_ROLES[0]);
   const [bio, setBio] = useState("");
@@ -594,6 +597,15 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
       await saveDocuments(user.id);
 
+      showToast({
+        title: mode === "onboarding" ? "Worker profile ready" : "Worker profile saved",
+        description:
+          mode === "onboarding"
+            ? "Your profile is ready for discovery and future bookings."
+            : "Your profile details have been updated successfully.",
+        tone: "success",
+      });
+
       setMessage(
         mode === "onboarding"
           ? "Worker profile completed."
@@ -609,17 +621,25 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       const nextMessage =
         error instanceof Error ? error.message : "Unable to save your worker profile.";
       setMessage(nextMessage);
+      showToast({
+        title: "Worker profile error",
+        description: nextMessage,
+        tone: "error",
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-      <div className="min-h-screen bg-stone-100 px-4 py-10">
-        <div className="mx-auto max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm lg:p-8">
+      <div className="min-h-screen bg-black px-4 py-10">
+        <div className="panel mx-auto max-w-6xl p-6 lg:p-8">
+          {mode === "onboarding" ? (
+            <OnboardingProgress role="worker" step="profile" />
+          ) : null}
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+              <p className="section-label">
                 {mode === "onboarding" ? "Worker onboarding" : "Worker profile"}
               </p>
               <h1 className="mt-4 text-3xl font-semibold text-stone-900">
@@ -634,13 +654,13 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[280px]">
-              <div className="rounded-2xl bg-stone-100 px-4 py-3">
+              <div className="panel-soft px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
                   Profile completion
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-stone-900">{completion}%</p>
               </div>
-              <div className="rounded-2xl bg-stone-100 px-4 py-3">
+              <div className="panel-soft px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
                   Approval status
                 </p>
@@ -984,7 +1004,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             </section>
 
             {message ? (
-              <p className="rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+              <p className="info-banner">
                 {message}
               </p>
             ) : null}
@@ -994,22 +1014,22 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
               </button>
               {mode === "manage" ? (
-                <button type="button" onClick={() => router.push("/dashboard/worker")} className="rounded-2xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100">
+                <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn px-6">
                   Back to dashboard
                 </button>
               ) : null}
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-3xl bg-stone-100 p-5">
+              <div className="panel-soft p-5">
                 <p className="text-sm font-medium text-stone-500">Availability days</p>
                 <p className="mt-2 text-2xl font-semibold text-stone-900">{selectedAvailabilityCount}</p>
               </div>
-              <div className="rounded-3xl bg-stone-100 p-5">
+              <div className="panel-soft p-5">
                 <p className="text-sm font-medium text-stone-500">Uploaded documents</p>
                 <p className="mt-2 text-2xl font-semibold text-stone-900">{uploadedDocumentCount}</p>
               </div>
-              <div className="rounded-3xl bg-stone-100 p-5">
+              <div className="panel-soft p-5">
                 <p className="text-sm font-medium text-stone-500">Status options</p>
                 <p className="mt-2 text-sm leading-6 text-stone-600">
                   {APPROVAL_STATUSES.map(approvalLabel).join(", ")}

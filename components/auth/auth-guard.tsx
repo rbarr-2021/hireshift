@@ -84,10 +84,10 @@ export function AuthGuard({
 
   if (!isReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-100 px-6">
-        <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-sm">
+      <div className="flex min-h-screen items-center justify-center bg-black px-6">
+        <div className="panel w-full max-w-md p-8 text-center">
           <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-            HireShift
+            KruVo
           </p>
           <h1 className="mt-4 text-2xl font-semibold text-stone-900">
             Loading your workspace

@@ -62,13 +62,21 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-900">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-4 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-6">
-        <aside className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-          <Link href="/" className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
-            HireShift
+    <div className="min-h-screen bg-black text-stone-900">
+      <div className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-4 pb-24 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-6 lg:pb-4">
+        <aside className="panel sticky top-4 h-fit p-6">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-stone-100 text-lg font-semibold text-stone-900">
+              K
+            </span>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+                KruVo
+              </p>
+              <p className="text-sm text-stone-600">Crew operating system</p>
+            </div>
           </Link>
-          <div className="mt-8 rounded-2xl bg-stone-100 p-4">
+          <div className="mt-8 panel-soft p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
               Account
             </p>
@@ -78,6 +86,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <p className="mt-1 text-sm capitalize text-stone-600">
               {user?.role || "Choose role"}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="status-badge status-badge--rating">Live profile</span>
+              <span className="status-badge status-badge--ready">
+                {user?.role === "business" ? "Ready to book" : "Ready for discovery"}
+              </span>
+            </div>
           </div>
           <nav className="mt-8 space-y-2">
             {links.map((link) => {
@@ -90,7 +104,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   className={`block rounded-2xl px-4 py-3 text-sm font-medium transition ${
                     active
                       ? "bg-stone-900 text-white"
-                      : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                      : "panel-soft text-stone-700 hover:bg-stone-200"
                   }`}
                 >
                   {link.label}
@@ -102,15 +116,33 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={handleSignOut}
             disabled={busy}
-            className="mt-8 w-full rounded-2xl border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="secondary-btn mt-8 w-full disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? "Signing out..." : "Sign out"}
           </button>
         </aside>
-        <main className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:p-8">
+        <main className="panel p-6 lg:p-8">
           {children}
         </main>
       </div>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/5 bg-black/88 px-4 py-3 backdrop-blur-xl lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center justify-around gap-2">
+          {links.map((link) => {
+            const active = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex-1 rounded-2xl px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] ${
+                  active ? "bg-stone-900 text-black" : "panel-soft text-stone-600"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
+import { useToast } from "@/components/ui/toast-provider";
 import type { UserRecord, UserRole } from "@/lib/models";
 
 export default function RoleSelect() {
@@ -10,6 +12,7 @@ export default function RoleSelect() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const loadExistingRole = async () => {
@@ -37,6 +40,7 @@ export default function RoleSelect() {
   const handleContinue = async () => {
     if (!role) {
       setMessage("Choose whether you're joining as a worker or a business.");
+      showToast({ title: "Choose a role", description: "Pick worker or business before continuing.", tone: "info" });
       return;
     }
 
@@ -63,8 +67,15 @@ export default function RoleSelect() {
 
     if (error) {
       setMessage(error.message);
+      showToast({ title: "Role save failed", description: error.message, tone: "error" });
       return;
     }
+
+    showToast({
+      title: "Role selected",
+      description: role === "business" ? "Business onboarding is ready." : "Worker onboarding is ready.",
+      tone: "success",
+    });
 
     router.push(
       role === "business" ? "/profile/setup/business" : "/profile/setup/worker",
@@ -72,9 +83,10 @@ export default function RoleSelect() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-10">
-      <div className="w-full max-w-3xl rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+    <div className="flex min-h-screen items-center justify-center bg-black px-4 py-10">
+      <div className="panel w-full max-w-3xl p-8">
+        <OnboardingProgress role={role} step="role" />
+        <p className="section-label">
           Role selection
         </p>
         <h1 className="mt-4 text-3xl font-semibold text-stone-900">
@@ -120,7 +132,7 @@ export default function RoleSelect() {
         </div>
 
         {message ? (
-          <p className="mt-6 rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+          <p className="info-banner mt-6">
             {message}
           </p>
         ) : null}
