@@ -27,6 +27,7 @@
 html {
   background: var(--bg-app);
   color: var(--text-primary);
+  overflow-x: hidden;
 }
 
 body {
@@ -36,10 +37,17 @@ body {
     radial-gradient(circle at top right, rgba(166, 255, 52, 0.08), transparent 22%),
     linear-gradient(180deg, #02060d 0%, #000000 40%, #020912 100%);
   color: var(--text-primary);
+  overflow-x: hidden;
 }
 
 * {
   border-color: var(--border-subtle);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 ::selection {
@@ -153,7 +161,7 @@ select:focus-visible {
 
 @layer components {
   .input {
-    @apply w-full rounded-2xl border px-4 py-3 outline-none;
+    @apply w-full min-w-0 rounded-2xl border px-4 py-3 outline-none;
     border-color: var(--border-subtle);
     background: rgba(4, 14, 26, 0.92);
     color: var(--text-primary);
@@ -173,7 +181,7 @@ select:focus-visible {
   }
 
   .primary-btn {
-    @apply rounded-2xl py-3 font-semibold;
+    @apply inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 text-center font-semibold;
     background: linear-gradient(135deg, var(--brand-primary), var(--brand-rating));
     color: #03111a;
     box-shadow: 0 12px 32px rgba(0, 167, 255, 0.28);
@@ -191,7 +199,7 @@ select:focus-visible {
   }
 
   .secondary-btn {
-    @apply rounded-2xl border px-4 py-3 text-sm font-medium;
+    @apply inline-flex min-h-12 items-center justify-center rounded-2xl border px-4 py-3 text-center text-sm font-medium;
     border-color: var(--border-subtle);
     background: rgba(7, 17, 31, 0.82);
     color: var(--text-primary);
@@ -203,7 +211,7 @@ select:focus-visible {
   }
 
   .link-btn {
-    @apply text-center text-sm;
+    @apply inline-flex min-h-11 items-center justify-center text-center text-sm;
     color: var(--brand-rating);
   }
 
@@ -222,28 +230,28 @@ select:focus-visible {
   }
 
   .public-shell {
-    @apply min-h-screen px-4 pb-10 lg:px-6;
+    @apply min-h-screen overflow-x-hidden px-3 pb-8 sm:px-4 lg:px-6;
   }
 
   .public-section {
-    @apply mx-auto w-full max-w-7xl;
+    @apply mx-auto w-full min-w-0 max-w-7xl;
   }
 
   .panel {
-    @apply rounded-[2rem] border;
+    @apply w-full min-w-0 rounded-[1.5rem] border sm:rounded-[2rem];
     background: linear-gradient(180deg, rgba(10, 22, 38, 0.96), rgba(6, 14, 26, 0.96));
     border-color: var(--border-subtle);
     box-shadow: var(--shadow-soft);
   }
 
   .panel-soft {
-    @apply rounded-3xl border;
+    @apply w-full min-w-0 rounded-[1.5rem] border sm:rounded-3xl;
     background: rgba(12, 23, 38, 0.82);
     border-color: rgba(16, 215, 255, 0.12);
   }
 
   .section-label {
-    @apply text-sm font-semibold uppercase tracking-[0.32em];
+    @apply text-xs font-semibold uppercase tracking-[0.28em] sm:text-sm sm:tracking-[0.32em];
     color: var(--brand-primary);
   }
 
@@ -271,5 +279,17 @@ select:focus-visible {
     background: rgba(16, 31, 52, 0.82);
     border-color: rgba(16, 215, 255, 0.14);
     color: var(--text-secondary);
+  }
+
+  .mobile-sticky-bar {
+    @apply fixed inset-x-3 z-40 rounded-[1.4rem] border p-3 shadow-sm backdrop-blur-xl sm:inset-x-4;
+    background: rgba(4, 12, 22, 0.94);
+    border-color: rgba(16, 215, 255, 0.16);
+  }
+
+  .mobile-empty-state {
+    @apply rounded-[1.5rem] border px-5 py-8 text-center sm:rounded-3xl sm:px-8;
+    background: rgba(12, 23, 38, 0.82);
+    border-color: rgba(16, 215, 255, 0.12);
   }
 }

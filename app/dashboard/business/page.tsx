@@ -63,7 +63,7 @@ export default function BusinessDashboardPage() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="panel-soft p-5">
               <Skeleton className="h-4 w-28" />
@@ -72,7 +72,7 @@ export default function BusinessDashboardPage() {
           ))}
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="panel-soft p-6">
+          <div className="panel-soft p-5 sm:p-6">
             <Skeleton className="h-6 w-52" />
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {Array.from({ length: 4 }).map((_, index) => (
@@ -83,7 +83,7 @@ export default function BusinessDashboardPage() {
               ))}
             </div>
           </div>
-          <div className="panel-soft p-6">
+          <div className="panel-soft p-5 sm:p-6">
             <Skeleton className="h-6 w-32" />
             <Skeleton className="mt-4 h-24 w-full" />
           </div>
@@ -99,7 +99,7 @@ export default function BusinessDashboardPage() {
           <p className="section-label">
             Business Dashboard
           </p>
-          <h1 className="mt-3 text-3xl font-semibold text-stone-900">
+          <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             Discover hospitality workers and manage your venue profile
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
@@ -107,23 +107,23 @@ export default function BusinessDashboardPage() {
             you shortlist staff by role, skills, availability, price, and area.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Link
             href="/dashboard/business/profile"
-            className="secondary-btn px-6"
+            className="secondary-btn w-full px-6 sm:w-auto"
           >
             Edit profile
           </Link>
           <Link
             href="/dashboard/business/discover"
-            className="primary-btn px-6"
+            className="primary-btn w-full px-6 sm:w-auto"
           >
             Discover workers
           </Link>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Profile completion</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{completion}%</p>
@@ -147,9 +147,9 @@ export default function BusinessDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="panel-soft p-6">
+        <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Business profile snapshot</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-sm text-stone-500">Business name</p>
               <p className="mt-1 font-medium text-stone-900">
@@ -179,7 +179,7 @@ export default function BusinessDashboardPage() {
           </div>
         </section>
 
-        <section className="panel-soft p-6">
+        <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
           <div className="info-banner mt-4">
             Complete your venue profile, shortlist workers with discovery, and use

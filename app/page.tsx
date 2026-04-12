@@ -43,24 +43,24 @@ export default function HomePage() {
   return (
     <>
       <SiteHeader />
-      <main className="public-shell pt-8">
+      <main className="public-shell pt-6 sm:pt-8">
         <section className="public-section">
-          <div className="panel px-8 py-12 lg:px-14 lg:py-16">
+          <div className="panel px-5 py-10 sm:px-8 sm:py-12 lg:px-14 lg:py-16">
             <div className="mx-auto max-w-4xl text-center">
               <p className="section-label">KruVo</p>
-              <h1 className="mt-6 text-4xl font-semibold leading-tight text-stone-900 lg:text-6xl">
+              <h1 className="mt-5 text-3xl font-semibold leading-tight text-stone-900 sm:text-4xl lg:text-6xl">
                 Hospitality staffing, simplified.
               </h1>
-              <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-stone-600 lg:text-lg">
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base sm:leading-8 lg:text-lg">
                 KruVo helps businesses find staff and helps workers find opportunities
                 through a cleaner, faster hospitality marketplace.
               </p>
 
-              <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href="/signup" className="primary-btn px-8">
+              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link href="/signup" className="primary-btn w-full px-8 sm:w-auto">
                   Find Staff
                 </Link>
-                <Link href="/signup" className="secondary-btn px-8">
+                <Link href="/signup" className="secondary-btn w-full px-8 sm:w-auto">
                   Find Work
                 </Link>
               </div>
@@ -87,7 +87,7 @@ export default function HomePage() {
         <section className="public-section mt-8">
           <div className="grid gap-4 lg:grid-cols-2">
             {audienceCards.map((card) => (
-              <div key={card.label} className="panel-soft p-7">
+              <div key={card.label} className="panel-soft p-5 sm:p-7">
                 <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
                   {card.label}
                 </p>
@@ -95,7 +95,7 @@ export default function HomePage() {
                   {card.title}
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-stone-600">{card.body}</p>
-                <Link href={card.href} className="primary-btn mt-6 inline-flex px-6">
+                <Link href={card.href} className="primary-btn mt-6 w-full px-6 sm:inline-flex sm:w-auto">
                   {card.cta}
                 </Link>
               </div>
@@ -121,9 +121,9 @@ export default function HomePage() {
         </section>
 
         <section className="public-section mt-8">
-          <div className="panel px-8 py-10 text-center">
+          <div className="panel px-5 py-8 text-center sm:px-8 sm:py-10">
             <p className="section-label">Ready to start</p>
-            <h2 className="mt-4 text-3xl font-semibold text-stone-900">
+            <h2 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
               Join KruVo and choose your path.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-stone-600">
@@ -131,10 +131,10 @@ export default function HomePage() {
               create your account and complete the right setup.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/signup" className="primary-btn px-8">
+              <Link href="/signup" className="primary-btn w-full px-8 sm:w-auto">
                 Create account
               </Link>
-              <Link href="/login" className="secondary-btn px-8">
+              <Link href="/login" className="secondary-btn w-full px-8 sm:w-auto">
                 Log in
               </Link>
             </div>

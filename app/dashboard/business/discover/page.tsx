@@ -201,7 +201,7 @@ export default function BusinessWorkerDiscoveryPage() {
           <p className="section-label">
             Worker Discovery
           </p>
-          <h1 className="mt-3 text-3xl font-semibold text-stone-900">
+          <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             Search and shortlist hospitality workers
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
@@ -218,8 +218,8 @@ export default function BusinessWorkerDiscoveryPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className={`${showFilters ? "block" : "hidden"} panel-soft p-5 lg:block`}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)]">
+        <aside className="hidden panel-soft p-5 lg:block">
           <h2 className="text-lg font-semibold text-stone-900">Filters</h2>
           <div className="mt-5 space-y-4">
             <div>
@@ -416,8 +416,8 @@ export default function BusinessWorkerDiscoveryPage() {
         </aside>
 
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="info-banner flex-1">
+          <div className="sticky top-[4.75rem] z-20 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="info-banner w-full flex-1">
             {hasInvalidRate
               ? "Max hourly rate must be zero or more."
               : hasInvalidRating
@@ -431,17 +431,213 @@ export default function BusinessWorkerDiscoveryPage() {
             <button
               type="button"
               onClick={() => setShowFilters((current) => !current)}
-              className="secondary-btn lg:hidden"
+              className="secondary-btn w-full lg:hidden"
             >
               {showFilters ? "Hide filters" : "Show filters"}
             </button>
           </div>
 
+          {showFilters ? (
+            <div className="fixed inset-0 z-40 bg-black/60 px-3 py-4 backdrop-blur-sm lg:hidden">
+              <div className="mx-auto flex h-full max-w-md flex-col rounded-[1.75rem] border border-white/10 bg-[#07111f] p-4 shadow-2xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="section-label">Filters</p>
+                    <h2 className="mt-2 text-xl font-semibold text-stone-900">Refine workers</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="secondary-btn min-w-[88px] px-3"
+                  >
+                    Done
+                  </button>
+                </div>
+                <div className="mt-5 flex-1 space-y-4 overflow-y-auto pr-1">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">
+                      Search workers
+                    </label>
+                    <input
+                      value={filters.query}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({ ...current, query: event.target.value }));
+                      }}
+                      className="input"
+                      placeholder="Chef, cocktail, Manchester..."
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">Role</label>
+                    <select
+                      value={filters.role}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({
+                          ...current,
+                          role: event.target.value as WorkerDiscoveryFilters["role"],
+                        }));
+                      }}
+                      className="input"
+                    >
+                      <option value="">Any role</option>
+                      {HOSPITALITY_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-sm font-medium text-stone-700">Skills</p>
+                    <div className="grid gap-2">
+                      {HOSPITALITY_SKILLS.slice(0, 8).map((skill) => {
+                        const checked = filters.skills.includes(skill);
+                        return (
+                          <label key={skill} className="flex items-center gap-2 text-sm text-stone-700">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => {
+                                setPage(1);
+                                setFilters((current) => ({
+                                  ...current,
+                                  skills: event.target.checked
+                                    ? [...current.skills, skill]
+                                    : current.skills.filter((item) => item !== skill),
+                                }));
+                              }}
+                            />
+                            {skill}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">
+                      Availability day
+                    </label>
+                    <select
+                      value={filters.availableDay}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({
+                          ...current,
+                          availableDay:
+                            event.target.value === "" ? "" : Number(event.target.value),
+                        }));
+                      }}
+                      className="input"
+                    >
+                      <option value="">Any day</option>
+                      {WEEK_DAYS.map((day) => (
+                        <option key={day.key} value={day.key}>
+                          {day.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">
+                      Max hourly rate (GBP)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={filters.maxHourlyRate}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({
+                          ...current,
+                          maxHourlyRate: event.target.value,
+                        }));
+                      }}
+                      className="input"
+                      placeholder="25"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">
+                      Location
+                    </label>
+                    <input
+                      value={filters.location}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({ ...current, location: event.target.value }));
+                      }}
+                      className="input"
+                      placeholder="Manchester"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">
+                      Minimum rating
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      step="0.5"
+                      value={filters.minRating}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({ ...current, minRating: event.target.value }));
+                      }}
+                      className="input"
+                      placeholder="4"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-stone-700">
+                      Minimum travel radius (miles)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={filters.minTravelRadius}
+                      onChange={(event) => {
+                        setPage(1);
+                        setFilters((current) => ({
+                          ...current,
+                          minTravelRadius: event.target.value,
+                        }));
+                      }}
+                      className="input"
+                      placeholder="10"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilters(initialFilters);
+                      setPage(1);
+                    }}
+                    className="secondary-btn flex-1"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="primary-btn flex-1"
+                  >
+                    Show results
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="grid gap-4 xl:grid-cols-2">
               {Array.from({ length: 4 }).map((_, index) => (
                 <div key={index} className="panel-soft p-5">
-                  <div className="flex gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row">
                     <Skeleton className="h-20 w-20 rounded-3xl" />
                     <div className="flex-1">
                       <Skeleton className="h-6 w-40" />
@@ -450,27 +646,27 @@ export default function BusinessWorkerDiscoveryPage() {
                     </div>
                   </div>
                   <Skeleton className="mt-5 h-16 w-full" />
-                  <div className="mt-5 flex gap-3">
-                    <Skeleton className="h-11 w-32" />
-                    <Skeleton className="h-11 w-28" />
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                    <Skeleton className="h-11 w-full sm:w-32" />
+                    <Skeleton className="h-11 w-full sm:w-28" />
                   </div>
                 </div>
               ))}
             </div>
           ) : errorMessage ? (
-            <div className="panel-soft p-8 text-center">
+            <div className="mobile-empty-state">
               <h2 className="text-xl font-semibold text-stone-900">Discovery is temporarily unavailable</h2>
               <p className="mt-3 text-sm text-stone-600">{errorMessage}</p>
             </div>
           ) : filtersAreInvalid ? (
-            <div className="panel-soft p-8 text-center">
+            <div className="mobile-empty-state">
               <h2 className="text-xl font-semibold text-stone-900">Fix the highlighted filters</h2>
               <p className="mt-3 text-sm text-stone-600">
                 Adjust the invalid filter values above to view matching workers.
               </p>
             </div>
           ) : paginatedResults.length === 0 ? (
-            <div className="panel-soft p-8 text-center">
+            <div className="mobile-empty-state">
               <h2 className="text-xl font-semibold text-stone-900">No workers match those filters</h2>
               <p className="mt-3 text-sm text-stone-600">
                 Try broadening the search, role, skills, or location filters.
@@ -481,8 +677,8 @@ export default function BusinessWorkerDiscoveryPage() {
               <div className="grid gap-4 xl:grid-cols-2">
                 {paginatedResults.map(({ worker, aggregate, workerAvailability }) => (
                   <article key={worker.user_id} className="panel-soft p-5">
-                    <div className="flex gap-4">
-                      <div className="relative h-20 w-20 overflow-hidden rounded-3xl bg-stone-100">
+                    <div className="flex flex-col gap-4 sm:flex-row">
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-3xl bg-stone-100">
                         {worker.profile_photo_url ? (
                           <Image
                             src={worker.profile_photo_url}
@@ -538,16 +734,16 @@ export default function BusinessWorkerDiscoveryPage() {
                       </p>
                     </div>
 
-                    <div className="mt-5 flex flex-wrap gap-3">
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                       <Link
                         href={`/workers/${worker.user_id}`}
-                        className="secondary-btn px-4"
+                        className="secondary-btn w-full px-4 sm:w-auto"
                       >
                         View profile
                       </Link>
                       <Link
                         href={`/dashboard/business/bookings/new?worker=${worker.user_id}`}
-                        className="primary-btn px-4"
+                        className="primary-btn w-full px-4 sm:w-auto"
                       >
                         Book now
                       </Link>

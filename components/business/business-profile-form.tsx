@@ -258,17 +258,17 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-black px-4 py-10">
-      <div className="panel mx-auto max-w-4xl p-8">
+    <div className="min-h-screen bg-black px-4 py-10 pb-28">
+      <div className="panel mx-auto max-w-4xl p-5 sm:p-8">
         {mode === "onboarding" ? (
           <OnboardingProgress role="business" step="profile" />
         ) : null}
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="section-label">
               {mode === "onboarding" ? "Business onboarding" : "Business profile"}
             </p>
-            <h1 className="mt-4 text-3xl font-semibold text-stone-900">
+            <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
               {mode === "onboarding"
                 ? "Set up your business profile"
                 : "Manage your business profile"}
@@ -377,8 +377,8 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             </p>
           ) : null}
 
-          <div className="md:col-span-2 flex flex-wrap gap-3">
-            <button type="submit" className="primary-btn px-8" disabled={loading || saving}>
+          <div className="md:col-span-2 hidden gap-3 sm:flex sm:flex-row sm:flex-wrap">
+            <button type="submit" className="primary-btn w-full px-8 sm:w-auto" disabled={loading || saving}>
               {saving
                 ? "Saving business profile..."
                 : mode === "onboarding"
@@ -389,13 +389,36 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/business")}
-                className="secondary-btn px-6"
+                className="secondary-btn w-full px-6 sm:w-auto"
               >
                 Back to dashboard
               </button>
             ) : null}
           </div>
         </form>
+      </div>
+      <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
+        <div className="flex flex-col gap-3">
+          <button type="button" onClick={() => {
+            const form = document.querySelector("form");
+            form?.requestSubmit();
+          }} className="primary-btn w-full" disabled={loading || saving}>
+            {saving
+              ? "Saving business profile..."
+              : mode === "onboarding"
+                ? "Complete business profile"
+                : "Save changes"}
+          </button>
+          {mode === "manage" ? (
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/business")}
+              className="secondary-btn w-full"
+            >
+              Back to dashboard
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

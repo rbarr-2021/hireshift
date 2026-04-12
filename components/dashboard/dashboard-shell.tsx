@@ -8,14 +8,14 @@ import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
 
 const workerLinks = [
-  { href: "/dashboard/worker", label: "Overview" },
-  { href: "/dashboard/worker/profile", label: "Manage Profile" },
+  { href: "/dashboard/worker", label: "Overview", mobileLabel: "Home" },
+  { href: "/dashboard/worker/profile", label: "Manage Profile", mobileLabel: "Profile" },
 ];
 
 const businessLinks = [
-  { href: "/dashboard/business", label: "Overview" },
-  { href: "/dashboard/business/profile", label: "Manage Profile" },
-  { href: "/dashboard/business/discover", label: "Discover Workers" },
+  { href: "/dashboard/business", label: "Overview", mobileLabel: "Home" },
+  { href: "/dashboard/business/profile", label: "Manage Profile", mobileLabel: "Profile" },
+  { href: "/dashboard/business/discover", label: "Discover Workers", mobileLabel: "Discover" },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -65,20 +65,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-black text-stone-900">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-4 pb-24 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-6 lg:pb-4">
-        <aside className="panel sticky top-4 h-fit p-6">
-          <Link href="/" className="flex items-center gap-3">
+      <div className="mx-auto grid min-h-screen max-w-7xl gap-4 px-3 py-3 pb-24 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:py-4 lg:pb-4">
+        <aside className="panel h-fit p-4 sm:p-5 lg:sticky lg:top-4 lg:p-6">
+          <div className="flex items-start justify-between gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-stone-100 text-lg font-semibold text-stone-900">
               K
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
                 KruVo
               </p>
               <p className="text-sm text-stone-600">Crew operating system</p>
             </div>
           </Link>
-          <div className="mt-8 panel-soft p-4">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={busy}
+            className="secondary-btn min-w-[88px] px-3 lg:hidden"
+          >
+            {busy ? "..." : "Sign out"}
+          </button>
+          </div>
+          <div className="mt-6 panel-soft p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
               Account
             </p>
@@ -95,7 +105,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </span>
             </div>
           </div>
-          <nav className="mt-8 space-y-2">
+          <nav className="mt-6 hidden space-y-2 lg:block">
             {links.map((link) => {
               const active = pathname === link.href;
 
@@ -118,12 +128,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={handleSignOut}
             disabled={busy}
-            className="secondary-btn mt-8 w-full disabled:cursor-not-allowed disabled:opacity-60"
+            className="secondary-btn mt-8 hidden w-full disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
           >
             {busy ? "Signing out..." : "Sign out"}
           </button>
         </aside>
-        <main className="panel p-6 lg:p-8">
+        <main className="panel p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>
@@ -135,11 +145,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex-1 rounded-2xl px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] ${
+                className={`flex-1 rounded-2xl px-2 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.12em] sm:px-3 sm:text-xs sm:tracking-[0.16em] ${
                   active ? "bg-stone-900 text-black" : "panel-soft text-stone-600"
                 }`}
               >
-                {link.label}
+                {link.mobileLabel}
               </Link>
             );
           })}

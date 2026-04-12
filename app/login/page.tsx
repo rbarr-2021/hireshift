@@ -177,11 +177,11 @@ export default function Login() {
     <>
       <SiteHeader compact />
       <div className="public-shell flex items-center justify-center py-10">
-      <div className="panel w-full max-w-md p-8">
+      <div className="panel w-full max-w-md p-5 sm:p-8">
         <p className="section-label">
           KruVo access
         </p>
-        <h1 className="mt-4 text-3xl font-semibold text-stone-900">Log in</h1>
+        <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">Log in</h1>
         <p className="mt-3 text-sm leading-6 text-stone-600">
           Access your worker or business dashboard and continue onboarding where
           you left off.

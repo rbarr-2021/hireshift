@@ -166,12 +166,12 @@ export default function RoleSelect() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black px-4 py-10">
-      <div className="panel w-full max-w-3xl p-8">
+      <div className="panel w-full max-w-3xl p-5 sm:p-8">
         <OnboardingProgress role={role} step="role" />
         <p className="section-label">
           Choose your path
         </p>
-        <h1 className="mt-4 text-3xl font-semibold text-stone-900">
+        <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
           Are you looking for work or hiring staff?
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
@@ -184,7 +184,7 @@ export default function RoleSelect() {
           <button
             type="button"
             onClick={() => setRole("worker")}
-            className={`rounded-[1.5rem] border p-6 text-left transition ${
+            className={`rounded-[1.5rem] border p-5 text-left transition sm:p-6 ${
               role === "worker"
                 ? "border-stone-900 bg-stone-900 text-white"
                 : "border-stone-200 bg-stone-50 text-stone-900 hover:border-stone-400"
@@ -199,7 +199,7 @@ export default function RoleSelect() {
           <button
             type="button"
             onClick={() => setRole("business")}
-            className={`rounded-[1.5rem] border p-6 text-left transition ${
+            className={`rounded-[1.5rem] border p-5 text-left transition sm:p-6 ${
               role === "business"
                 ? "border-amber-500 bg-amber-400 text-stone-900"
                 : "border-stone-200 bg-stone-50 text-stone-900 hover:border-stone-400"
@@ -219,18 +219,34 @@ export default function RoleSelect() {
           </p>
         ) : null}
 
-        <button
-          type="button"
-          onClick={handleContinue}
-          className="primary-btn mt-8 w-full md:w-auto md:px-8"
-          disabled={bootstrapping || loading || !role}
-        >
-          {bootstrapping
-            ? "Loading role step..."
-            : loading
-              ? "Saving role..."
-              : "Continue to onboarding"}
-        </button>
+        <div className="mt-8 hidden md:block">
+          <button
+            type="button"
+            onClick={handleContinue}
+            className="primary-btn w-full md:w-auto md:px-8"
+            disabled={bootstrapping || loading || !role}
+          >
+            {bootstrapping
+              ? "Loading role step..."
+              : loading
+                ? "Saving role..."
+                : "Continue to onboarding"}
+          </button>
+        </div>
+        <div className="mobile-sticky-bar bottom-3 md:hidden">
+          <button
+            type="button"
+            onClick={handleContinue}
+            className="primary-btn w-full"
+            disabled={bootstrapping || loading || !role}
+          >
+            {bootstrapping
+              ? "Loading role step..."
+              : loading
+                ? "Saving role..."
+                : "Continue to onboarding"}
+          </button>
+        </div>
       </div>
     </div>
   );

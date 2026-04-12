@@ -79,9 +79,9 @@ export default function WorkerPublicProfilePage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="panel p-8">
-          <div className="flex gap-5">
-            <Skeleton className="h-28 w-28 rounded-[2rem]" />
+        <div className="panel p-5 sm:p-8">
+          <div className="flex flex-col gap-5 sm:flex-row">
+            <Skeleton className="h-24 w-24 rounded-[2rem] sm:h-28 sm:w-28" />
             <div className="flex-1">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="mt-4 h-10 w-60" />
@@ -97,7 +97,7 @@ export default function WorkerPublicProfilePage() {
   if (!profile) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="panel-soft p-8 text-center">
+        <div className="panel-soft p-5 text-center sm:p-8">
           <h1 className="text-2xl font-semibold text-stone-900">Worker not found</h1>
           <p className="mt-3 text-sm text-stone-600">
             This worker profile is unavailable or has not been completed yet.
@@ -110,10 +110,10 @@ export default function WorkerPublicProfilePage() {
   return (
     <div className="min-h-screen bg-black px-4 py-10">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="panel p-8">
+        <div className="panel p-5 sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex gap-5">
-              <div className="relative h-28 w-28 overflow-hidden rounded-[2rem] bg-stone-100">
+            <div className="flex flex-col gap-5 sm:flex-row">
+              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[2rem] bg-stone-100 sm:h-28 sm:w-28">
                 {profile.profile_photo_url ? (
                   <Image
                     src={profile.profile_photo_url}
@@ -128,11 +128,11 @@ export default function WorkerPublicProfilePage() {
                   </div>
                 )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
                   Worker profile
                 </p>
-                <h1 className="mt-3 text-3xl font-semibold text-stone-900">
+                <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
                   {workerUser?.display_name || profile.job_role}
                 </h1>
                 <p className="mt-2 text-sm text-stone-600">{profile.job_role}</p>
@@ -152,16 +152,16 @@ export default function WorkerPublicProfilePage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
               <Link
                 href={`/dashboard/business/bookings/new?worker=${profile.user_id}`}
-                className="primary-btn px-6"
+                className="primary-btn w-full px-6 sm:w-auto"
               >
                 Book now
               </Link>
               <Link
                 href="/dashboard/business/discover"
-                className="secondary-btn px-6"
+                className="secondary-btn w-full px-6 sm:w-auto"
               >
                 Back to discovery
               </Link>

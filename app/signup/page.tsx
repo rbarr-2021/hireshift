@@ -274,12 +274,12 @@ export default function Signup() {
     <div className="public-shell flex items-center justify-center py-10">
       <form
         onSubmit={handleSignup}
-        className="panel w-full max-w-md p-8"
+        className="panel w-full max-w-md p-5 sm:p-8"
       >
         <p className="section-label">
           Join KruVo
         </p>
-        <h1 className="mt-4 text-3xl font-semibold text-stone-900">
+        <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
           Create your account
         </h1>
         <p className="mt-3 text-sm leading-6 text-stone-600">

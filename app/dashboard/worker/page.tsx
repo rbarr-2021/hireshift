@@ -84,7 +84,7 @@ export default function WorkerDashboardPage() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="panel-soft p-5">
               <Skeleton className="h-4 w-24" />
@@ -93,7 +93,7 @@ export default function WorkerDashboardPage() {
           ))}
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="panel-soft p-6">
+          <div className="panel-soft p-5 sm:p-6">
             <Skeleton className="h-6 w-48" />
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {Array.from({ length: 4 }).map((_, index) => (
@@ -104,7 +104,7 @@ export default function WorkerDashboardPage() {
               ))}
             </div>
           </div>
-          <div className="panel-soft p-6">
+          <div className="panel-soft p-5 sm:p-6">
             <Skeleton className="h-6 w-36" />
             <Skeleton className="mt-4 h-24 w-full" />
           </div>
@@ -120,7 +120,7 @@ export default function WorkerDashboardPage() {
           <p className="section-label">
             Worker Dashboard
           </p>
-          <h1 className="mt-3 text-3xl font-semibold text-stone-900">
+          <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             Manage your marketplace profile
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
@@ -130,13 +130,13 @@ export default function WorkerDashboardPage() {
         </div>
         <Link
           href="/dashboard/worker/profile"
-          className="primary-btn px-6"
+          className="primary-btn w-full px-6 sm:w-auto"
         >
           Edit worker profile
         </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Completion</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{completion}%</p>
@@ -158,9 +158,9 @@ export default function WorkerDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="panel-soft p-6">
+        <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Profile snapshot</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-sm text-stone-500">Primary role</p>
               <p className="mt-1 font-medium text-stone-900">{profile?.job_role ?? "Not set"}</p>
@@ -187,7 +187,7 @@ export default function WorkerDashboardPage() {
           </div>
         </section>
 
-        <section className="panel-soft p-6">
+        <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
           <div className="info-banner mt-4">
             Upload a strong profile photo, keep availability fresh, and add supporting

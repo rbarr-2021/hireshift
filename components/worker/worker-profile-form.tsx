@@ -633,17 +633,17 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   };
 
   return (
-      <div className="min-h-screen bg-black px-4 py-10">
-        <div className="panel mx-auto max-w-6xl p-6 lg:p-8">
+      <div className="min-h-screen bg-black px-3 py-8 pb-28 sm:px-4 sm:py-10">
+        <div className="panel mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
           {mode === "onboarding" ? (
             <OnboardingProgress role="worker" step="profile" />
           ) : null}
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="section-label">
                 {mode === "onboarding" ? "Worker onboarding" : "Worker profile"}
               </p>
-              <h1 className="mt-4 text-3xl font-semibold text-stone-900">
+              <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
                 {mode === "onboarding"
                   ? "Create your worker profile"
                   : "Manage your worker profile"}
@@ -686,7 +686,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2 flex flex-col gap-4 md:flex-row md:items-center">
-                  <div className="h-28 w-28 overflow-hidden rounded-3xl bg-stone-100">
+                  <div className="h-24 w-24 overflow-hidden rounded-3xl bg-stone-100 sm:h-28 sm:w-28">
                     {photoUrl ? (
                       <Image
                         src={photoUrl}
@@ -808,7 +808,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                         </span>
                       ))}
                   </div>
-                  <div className="mt-3 flex gap-3">
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                     <input
                       value={customSkill}
                       onChange={(event) => setCustomSkill(event.target.value)}
@@ -821,7 +821,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                       className="input"
                       placeholder="Add a custom skill"
                     />
-                    <button type="button" onClick={addCustomSkill} className="rounded-2xl bg-stone-900 px-5 text-sm font-medium text-white">
+                    <button type="button" onClick={addCustomSkill} className="primary-btn w-full px-5 sm:w-auto">
                       Add
                     </button>
                   </div>
@@ -945,7 +945,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {WEEK_DAYS.map((day) => (
                     <div key={day.key} className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-base font-semibold text-stone-900">{day.label}</p>
                         <input
                           type="checkbox"
@@ -1010,12 +1010,12 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               </p>
             ) : null}
 
-            <div className="flex flex-wrap gap-3">
-              <button type="submit" className="primary-btn px-8" disabled={saving || loading}>
+            <div className="hidden gap-3 sm:flex sm:flex-row sm:flex-wrap">
+              <button type="submit" className="primary-btn w-full px-8 sm:w-auto" disabled={saving || loading}>
                 {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
               </button>
               {mode === "manage" ? (
-                <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn px-6">
+                <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn w-full px-6 sm:w-auto">
                   Back to dashboard
                 </button>
               ) : null}
@@ -1038,6 +1038,26 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               </div>
             </div>
           </form>
+        </div>
+        <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const form = document.querySelector("form");
+                form?.requestSubmit();
+              }}
+              className="primary-btn w-full"
+              disabled={saving || loading}
+            >
+              {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
+            </button>
+            {mode === "manage" ? (
+              <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn w-full">
+                Back to dashboard
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
   );

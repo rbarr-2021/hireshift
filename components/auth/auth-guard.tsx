@@ -134,11 +134,11 @@ export function AuthGuard({
   if (errorMessage) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
-        <div className="panel w-full max-w-md p-8 text-center">
+        <div className="panel w-full max-w-md p-5 text-center sm:p-8">
           <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
             KruVo
           </p>
-          <h1 className="mt-4 text-2xl font-semibold text-stone-900">
+          <h1 className="mt-4 text-xl font-semibold text-stone-900 sm:text-2xl">
             We hit a session problem
           </h1>
           <p className="info-banner mt-4">{errorMessage}</p>
@@ -157,11 +157,11 @@ export function AuthGuard({
   if (!isReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
-        <div className="panel w-full max-w-md p-8 text-center">
+        <div className="panel w-full max-w-md p-5 text-center sm:p-8">
           <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
             KruVo
           </p>
-          <h1 className="mt-4 text-2xl font-semibold text-stone-900">
+          <h1 className="mt-4 text-xl font-semibold text-stone-900 sm:text-2xl">
             Loading your workspace
           </h1>
           <p className="mt-3 text-sm text-stone-600">
