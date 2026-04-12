@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -54,6 +55,7 @@ function statusStyles(status: BusinessProfileRecord["verification_status"] | "pe
 
 export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const router = useRouter();
+  const { refreshAuthState } = useAuthState();
   const { showToast } = useToast();
   const [user, setUser] = useState<UserRecord | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -223,6 +225,8 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         throw new Error(formatSupabaseError(userError ?? profileError));
       }
 
+      await refreshAuthState();
+
       showToast({
         title: mode === "onboarding" ? "Business profile ready" : "Business profile saved",
         description:
@@ -239,6 +243,14 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       );
 
       if (mode === "onboarding") {
+        console.info("[auth] redirect decision", {
+          reason: "business-onboarding-complete",
+          pathname: "/profile/setup/business",
+          hasSession: true,
+          authUserId: authUser.id,
+          role: "business",
+          target: "/dashboard/business",
+        });
         router.push("/dashboard/business");
       } else {
         router.refresh();

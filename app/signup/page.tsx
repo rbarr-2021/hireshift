@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
@@ -71,6 +72,7 @@ async function waitForAppUserRow(userId: string, attempts = 3, delayMs = 250) {
 
 export default function Signup() {
   const router = useRouter();
+  const { loading: authLoading, appUser } = useAuthState();
   const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -95,33 +97,33 @@ export default function Signup() {
   }, [cooldownSeconds]);
 
   useEffect(() => {
-    let active = true;
+    if (authLoading || !appUser) {
+      return;
+    }
 
-    const redirectIfSignedIn = async () => {
-      const resolved = await resolveAuthState();
+    console.info("[auth] redirect decision", {
+      reason: hasSelectedRole(appUser)
+        ? appUser.onboarding_complete
+          ? "signup-to-dashboard"
+          : "signup-to-onboarding"
+        : "signup-to-role-select",
+      pathname: "/signup",
+      hasSession: true,
+      authUserId: appUser.id,
+      role: appUser.role,
+    });
 
-      if (!active || !resolved?.appUser) {
-        return;
-      }
-
-      if (!hasSelectedRole(resolved.appUser)) {
+    if (!hasSelectedRole(appUser)) {
         router.replace("/role-select");
         return;
-      }
+    }
 
-      router.replace(
-        resolved.appUser.onboarding_complete
-          ? getRoleHome(resolved.appUser.role)
-          : getRoleSetupPath(resolved.appUser.role),
-      );
-    };
-
-    void redirectIfSignedIn();
-
-    return () => {
-      active = false;
-    };
-  }, [router]);
+    router.replace(
+      appUser.onboarding_complete
+        ? getRoleHome(appUser.role)
+        : getRoleSetupPath(appUser.role),
+    );
+  }, [appUser, authLoading, router]);
 
   const getStrength = (value: string) => {
     if (value.length < 8) {

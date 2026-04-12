@@ -2,42 +2,71 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import {
   getRoleHome,
   getRoleSetupPath,
   hasSelectedRole,
-  resolveAuthState,
 } from "@/lib/auth-client";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { loading, hasSession, authUserId, appUser } = useAuthState();
 
   useEffect(() => {
-    const routeUser = async () => {
-      const resolved = await resolveAuthState();
+    if (loading) {
+      return;
+    }
 
-      if (!resolved) {
-        router.replace("/login");
-        return;
-      }
+    if (!hasSession || !authUserId || !appUser) {
+      console.info("[auth] redirect decision", {
+        reason: "dashboard-to-login",
+        pathname: "/dashboard",
+        hasSession,
+        authUserId,
+        role: appUser?.role ?? null,
+      });
+      router.replace("/login?message=session-required");
+      return;
+    }
 
-      const { appUser } = resolved;
+    if (!hasSelectedRole(appUser)) {
+      console.info("[auth] redirect decision", {
+        reason: "dashboard-to-role-select",
+        pathname: "/dashboard",
+        hasSession,
+        authUserId,
+        role: appUser.role,
+      });
+      router.replace("/role-select");
+      return;
+    }
 
-      if (!hasSelectedRole(appUser)) {
-        router.replace("/role-select");
-        return;
-      }
+    if (!appUser.onboarding_complete) {
+      const target = getRoleSetupPath(appUser.role);
+      console.info("[auth] redirect decision", {
+        reason: "dashboard-to-onboarding",
+        pathname: "/dashboard",
+        hasSession,
+        authUserId,
+        role: appUser.role,
+        target,
+      });
+      router.replace(target);
+      return;
+    }
 
-      if (!appUser.onboarding_complete) {
-        router.replace(getRoleSetupPath(appUser.role));
-        return;
-      }
-
-      router.replace(getRoleHome(appUser.role));
-    };
-
-    void routeUser();
-  }, [router]);
+    const target = getRoleHome(appUser.role);
+    console.info("[auth] redirect decision", {
+      reason: "dashboard-to-home",
+      pathname: "/dashboard",
+      hasSession,
+      authUserId,
+      role: appUser.role,
+      target,
+    });
+    router.replace(target);
+  }, [appUser, authUserId, hasSession, loading, router]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">

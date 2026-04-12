@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -140,6 +141,7 @@ function createWorkerSaveError(stage: WorkerSaveStage, error: unknown) {
 
 export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const router = useRouter();
+  const { refreshAuthState } = useAuthState();
   const { showToast } = useToast();
   const [fullName, setFullName] = useState("");
   const [jobRole, setJobRole] = useState<HospitalityRole>(HOSPITALITY_ROLES[0]);
@@ -598,6 +600,8 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
       await saveDocuments(user.id);
 
+      await refreshAuthState();
+
       showToast({
         title: mode === "onboarding" ? "Worker profile ready" : "Worker profile saved",
         description:
@@ -614,6 +618,14 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       );
 
       if (mode === "onboarding") {
+        console.info("[auth] redirect decision", {
+          reason: "worker-onboarding-complete",
+          pathname: "/profile/setup/worker",
+          hasSession: true,
+          authUserId: user.id,
+          role: "worker",
+          target: "/dashboard/worker",
+        });
         router.push("/dashboard/worker");
       } else {
         router.refresh();

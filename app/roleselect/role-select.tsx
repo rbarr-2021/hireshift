@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -134,9 +135,14 @@ export default function RoleSelect() {
   const [bootstrapping, setBootstrapping] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const { loading: authLoading, hasSession, authUserId, refreshAuthState } = useAuthState();
   const { showToast } = useToast();
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     let active = true;
 
     const loadExistingRole = async () => {
@@ -151,6 +157,13 @@ export default function RoleSelect() {
         }
 
         if (!user) {
+          console.info("[auth] redirect decision", {
+            reason: "role-select-to-login",
+            pathname: "/role-select",
+            hasSession,
+            authUserId,
+            role: null,
+          });
           router.replace("/login?message=verified-login");
           return;
         }
@@ -162,9 +175,16 @@ export default function RoleSelect() {
         }
 
         if (hasSelectedRole(data) && data.role) {
-          router.replace(
-            data.onboarding_complete ? getRoleHome(data.role) : getRoleSetupPath(data.role),
-          );
+          const target = data.onboarding_complete ? getRoleHome(data.role) : getRoleSetupPath(data.role);
+          console.info("[auth] redirect decision", {
+            reason: data.onboarding_complete ? "role-select-to-home" : "role-select-to-onboarding",
+            pathname: "/role-select",
+            hasSession,
+            authUserId: user.id,
+            role: data.role,
+            target,
+          });
+          router.replace(target);
           return;
         }
 
@@ -191,7 +211,7 @@ export default function RoleSelect() {
     return () => {
       active = false;
     };
-  }, [router, showToast]);
+  }, [authLoading, authUserId, hasSession, router, showToast]);
 
   const handleContinue = async () => {
     if (!role) {
@@ -241,12 +261,22 @@ export default function RoleSelect() {
       return;
     }
 
+    await refreshAuthState();
+
     showToast({
       title: "Role selected",
       description: role === "business" ? "Business onboarding is ready." : "Worker onboarding is ready.",
       tone: "success",
     });
 
+    console.info("[auth] redirect decision", {
+      reason: "role-select-complete",
+      pathname: "/role-select",
+      hasSession,
+      authUserId: user.id,
+      role,
+      target: role === "business" ? "/profile/setup/business" : "/profile/setup/worker",
+    });
     router.push(
       role === "business" ? "/profile/setup/business" : "/profile/setup/worker",
     );

@@ -13,6 +13,7 @@ import type { UserRecord } from "@/lib/models";
 
 type AuthContextValue = {
   loading: boolean;
+  hasSession: boolean;
   authUserId: string | null;
   appUser: UserRecord | null;
   refreshAuthState: () => Promise<UserRecord | null>;
@@ -96,6 +97,7 @@ async function restoreSessionFromUrl() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [appUser, setAppUser] = useState<UserRecord | null>(null);
 
@@ -105,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getSession();
 
     if (!session) {
+      setHasSession(false);
       setAuthUserId(null);
       setAppUser(null);
       clearSessionHintCookie();
@@ -116,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setSessionHintCookie();
+    setHasSession(true);
 
     const {
       data: { user },
@@ -181,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!session) {
         clearSessionHintCookie();
+        setHasSession(false);
         setAuthUserId(null);
         setAppUser(null);
         setLoading(false);
@@ -188,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setLoading(true);
+      setHasSession(true);
 
       try {
         await refreshAuthState();
@@ -207,11 +213,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       loading,
+      hasSession,
       authUserId,
       appUser,
       refreshAuthState,
     }),
-    [appUser, authUserId, loading],
+    [appUser, authUserId, hasSession, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

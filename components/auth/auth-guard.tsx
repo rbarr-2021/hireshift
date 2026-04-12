@@ -1,16 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
-import { registerAuthListener, supabase } from "@/lib/supabase";
 import {
   getRoleHome,
   getRoleSetupPath,
   hasSelectedRole,
-  resolveAuthState,
 } from "@/lib/auth-client";
-import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRole } from "@/lib/models";
 
 type AuthGuardProps = {
@@ -26,175 +23,96 @@ export function AuthGuard({
 }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { loading: authLoading } = useAuthState();
-  const [isReady, setIsReady] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const redirectToLogin = useCallback(
-    (reason: "verified-login" | "session-required") => {
-      const next = new URLSearchParams({
-        message: reason,
-      });
-      router.replace(`/login?${next.toString()}`);
-    },
-    [router],
-  );
+  const { loading: authLoading, hasSession, authUserId, appUser } = useAuthState();
 
   useEffect(() => {
     if (authLoading) {
       return;
     }
 
-    let active = true;
-    const timeout = window.setTimeout(() => {
-      if (active) {
+    if (!hasSession || !authUserId) {
+      const nextReason = pathname === "/role-select" ? "verified-login" : "session-required";
+      console.info("[auth] redirect decision", {
+        reason: nextReason,
+        pathname,
+        hasSession,
+        authUserId,
+        role: null,
+      });
+      router.replace(`/login?message=${nextReason}`);
+      return;
+    }
+
+    if (!appUser) {
+      const nextReason = pathname === "/role-select" ? "verified-login" : "session-required";
+      console.info("[auth] redirect decision", {
+        reason: "missing-app-user",
+        pathname,
+        hasSession,
+        authUserId,
+        role: null,
+      });
+      router.replace(`/login?message=${nextReason}`);
+      return;
+    }
+
+    if (!hasSelectedRole(appUser)) {
+      if (pathname === "/role-select") {
+        return;
+      }
+
+      console.info("[auth] redirect decision", {
+        reason: "missing-role-selection",
+        pathname,
+        hasSession,
+        authUserId,
+        role: appUser.role,
+      });
+      router.replace("/role-select");
+      return;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(appUser.role)) {
+      const target = getRoleHome(appUser.role);
+      console.info("[auth] redirect decision", {
+        reason: "role-mismatch",
+        pathname,
+        hasSession,
+        authUserId,
+        role: appUser.role,
+        target,
+      });
+      router.replace(target);
+      return;
+    }
+
+    if (requireOnboarding && !appUser.onboarding_complete) {
+      const onboardingPath = getRoleSetupPath(appUser.role);
+
+      if (pathname !== onboardingPath) {
         console.info("[auth] redirect decision", {
-          reason: pathname === "/role-select" ? "verified-login" : "session-required",
+          reason: "onboarding-required",
           pathname,
+          hasSession,
+          authUserId,
+          role: appUser.role,
+          target: onboardingPath,
         });
-        if (pathname === "/role-select") {
-          redirectToLogin("verified-login");
-          return;
-        }
-
-        redirectToLogin("session-required");
+        router.replace(onboardingPath);
+        return;
       }
-    }, 7000);
+    }
 
-    const checkSession = async () => {
-      try {
-        const resolved = await resolveAuthState();
+  }, [allowedRoles, appUser, authLoading, authUserId, hasSession, pathname, requireOnboarding, router]);
 
-        if (!active) {
-          return;
-        }
+  const isAllowedPath =
+    Boolean(hasSession && authUserId && appUser) &&
+    (!hasSelectedRole(appUser)
+      ? pathname === "/role-select"
+      : (!allowedRoles || allowedRoles.includes(appUser.role)) &&
+        (!requireOnboarding || appUser.onboarding_complete || pathname === getRoleSetupPath(appUser.role)));
 
-        if (!resolved) {
-          console.info("[auth] redirect decision", {
-            reason: pathname === "/role-select" ? "verified-login" : "session-required",
-            pathname,
-          });
-          redirectToLogin(pathname === "/role-select" ? "verified-login" : "session-required");
-          return;
-        }
-
-        const { appUser } = resolved;
-
-        if (!appUser) {
-          await supabase.auth.signOut();
-          clearSessionHintCookie();
-          console.info("[auth] redirect decision", {
-            reason: pathname === "/role-select" ? "verified-login" : "session-required",
-            pathname,
-          });
-          redirectToLogin(pathname === "/role-select" ? "verified-login" : "session-required");
-          return;
-        }
-
-        if (!hasSelectedRole(appUser)) {
-          if (pathname === "/role-select") {
-            setIsReady(true);
-            return;
-          }
-
-          console.info("[auth] redirect decision", {
-            reason: "missing-role-selection",
-            pathname,
-          });
-          router.replace("/role-select");
-          return;
-        }
-
-        if (allowedRoles && !allowedRoles.includes(appUser.role)) {
-          console.info("[auth] redirect decision", {
-            reason: "role-mismatch",
-            pathname,
-            target: getRoleHome(appUser.role),
-          });
-          router.replace(getRoleHome(appUser.role));
-          return;
-        }
-
-        if (requireOnboarding && !appUser.onboarding_complete) {
-          const onboardingPath = getRoleSetupPath(appUser.role);
-
-          if (pathname !== onboardingPath) {
-            console.info("[auth] redirect decision", {
-              reason: "onboarding-required",
-              pathname,
-              target: onboardingPath,
-            });
-            router.replace(onboardingPath);
-            return;
-          }
-        }
-
-        setIsReady(true);
-    } catch (error) {
-      const nextMessage =
-        error instanceof Error
-            ? error.message
-            : "Unexpected auth guard error. Please sign in again.";
-        clearSessionHintCookie();
-        await supabase.auth.signOut();
-        if (pathname === "/role-select") {
-          console.info("[auth] redirect decision", {
-            reason: "verified-login",
-            pathname,
-          });
-          redirectToLogin("verified-login");
-          return;
-        }
-
-        setErrorMessage(nextMessage);
-        console.info("[auth] redirect decision", {
-          reason: "session-required",
-          pathname,
-        });
-        redirectToLogin("session-required");
-      }
-    };
-
-    void checkSession();
-
-    const unsubscribeAuthListener = registerAuthListener("auth-guard", (event) => {
-      if (event === "SIGNED_OUT") {
-        clearSessionHintCookie();
-        router.replace("/login");
-      }
-    });
-
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-      unsubscribeAuthListener();
-    };
-  }, [allowedRoles, authLoading, pathname, redirectToLogin, requireOnboarding, router]);
-
-  if (errorMessage) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black px-6">
-        <div className="panel w-full max-w-md p-5 text-center sm:p-8">
-          <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-            KruVo
-          </p>
-          <h1 className="mt-4 text-xl font-semibold text-stone-900 sm:text-2xl">
-            We hit a session problem
-          </h1>
-          <p className="info-banner mt-4">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={() => router.replace("/login")}
-            className="primary-btn mt-6 w-full"
-          >
-            Back to login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (authLoading || !isReady) {
+  if (authLoading || !isAllowedPath) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
         <div className="panel w-full max-w-md p-5 text-center sm:p-8">
