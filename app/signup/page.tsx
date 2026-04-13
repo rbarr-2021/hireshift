@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -81,6 +81,8 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const submitLockRef = useRef(false);
+  const submitAttemptRef = useRef(0);
 
   useEffect(() => {
     if (cooldownSeconds <= 0) {
@@ -143,7 +145,13 @@ export default function Signup() {
     event.preventDefault();
     setMessage(null);
 
-    if (loading || cooldownSeconds > 0) {
+    if (submitLockRef.current || loading || authLoading || cooldownSeconds > 0) {
+      console.info("[signup] blocked duplicate submit", {
+        loading,
+        authLoading,
+        cooldownSeconds,
+        locked: submitLockRef.current,
+      });
       return;
     }
 
@@ -157,9 +165,19 @@ export default function Signup() {
       return;
     }
 
+    submitLockRef.current = true;
     setLoading(true);
+    const attemptId = submitAttemptRef.current + 1;
+    submitAttemptRef.current = attemptId;
+    console.info("[signup] submit fired", {
+      attemptId,
+      hasEmail: Boolean(email),
+      passwordLength: password.length,
+      confirmPasswordLength: confirmPassword.length,
+    });
 
     try {
+      console.info("[signup] resolving current auth state", { attemptId });
       const resolved = await resolveAuthState();
 
       if (resolved?.authUser) {
@@ -180,6 +198,12 @@ export default function Signup() {
         options: {
           emailRedirectTo: `${getAppBaseUrl()}/login`,
         },
+      });
+      console.info("[signup] signUp response", {
+        attemptId,
+        hasUser: Boolean(data.user),
+        hasSession: Boolean(data.session),
+        error: error?.message ?? null,
       });
 
       if (error) {
@@ -253,6 +277,7 @@ export default function Signup() {
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : "Unexpected signup error. Please try again.";
+      console.error("[signup] caught exception", { attemptId, error });
       clearSessionHintCookie();
       setMessage(nextMessage);
       showToast({
@@ -261,6 +286,8 @@ export default function Signup() {
         tone: "error",
       });
     } finally {
+      console.info("[signup] request settled", { attemptId });
+      submitLockRef.current = false;
       setLoading(false);
     }
   };
@@ -350,7 +377,7 @@ export default function Signup() {
 
           <button
             type="submit"
-            disabled={loading || cooldownSeconds > 0 || !isValid}
+            disabled={loading || authLoading || cooldownSeconds > 0 || !isValid}
             className="primary-btn w-full"
           >
             {loading

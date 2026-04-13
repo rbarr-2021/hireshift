@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,8 @@ export default function Login() {
   const router = useRouter();
   const { loading: authLoading, appUser } = useAuthState();
   const { showToast } = useToast();
+  const submitLockRef = useRef(false);
+  const submitAttemptRef = useRef(0);
 
   useEffect(() => {
     if (authLoading || !appUser) {
@@ -72,13 +74,35 @@ export default function Login() {
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitLockRef.current || loading || authLoading) {
+      console.info("[login] blocked duplicate submit", {
+        loading,
+        authLoading,
+        locked: submitLockRef.current,
+      });
+      return;
+    }
+
+    submitLockRef.current = true;
     setLoading(true);
     setMessage(null);
+    const attemptId = submitAttemptRef.current + 1;
+    submitAttemptRef.current = attemptId;
+    console.info("[login] submit fired", {
+      attemptId,
+      hasEmail: Boolean(email),
+      passwordLength: password.length,
+    });
 
     try {
+      console.info("[login] starting signInWithPassword", { attemptId });
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+      });
+      console.info("[login] signInWithPassword response", {
+        attemptId,
+        error: error?.message ?? null,
       });
 
       if (error) {
@@ -90,6 +114,7 @@ export default function Login() {
 
       setSessionHintCookie();
 
+      console.info("[login] resolving auth state", { attemptId });
       const resolved = await resolveAuthState();
 
       if (!resolved?.appUser) {
@@ -133,6 +158,7 @@ export default function Login() {
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : "Unexpected login error. Please try again.";
+      console.error("[login] caught exception", { attemptId, error });
       clearSessionHintCookie();
       setMessage(nextMessage);
       showToast({
@@ -141,6 +167,8 @@ export default function Login() {
         tone: "error",
       });
     } finally {
+      console.info("[login] request settled", { attemptId });
+      submitLockRef.current = false;
       setLoading(false);
     }
   };
