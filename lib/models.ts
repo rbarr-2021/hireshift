@@ -36,6 +36,13 @@ export const BUSINESS_SECTORS = [
 ] as const;
 
 export const APPROVAL_STATUSES = ["pending", "verified", "rejected"] as const;
+export const BOOKING_STATUSES = [
+  "pending",
+  "accepted",
+  "declined",
+  "completed",
+  "cancelled",
+] as const;
 
 export const DOCUMENT_TYPES = [
   "food_safety_certificate",
@@ -66,6 +73,7 @@ export type HospitalityRole = (typeof HOSPITALITY_ROLES)[number];
 export type HospitalitySkill = (typeof HOSPITALITY_SKILLS)[number];
 export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 export type UserRecord = {
@@ -158,6 +166,23 @@ export type BusinessProfileRecord = {
   postcode: string | null;
   description: string | null;
   verification_status: ApprovalStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BookingRecord = {
+  id: string;
+  worker_id: string;
+  business_id: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  hourly_rate_gbp: number;
+  location: string;
+  notes: string | null;
+  status: BookingStatus;
+  total_amount_gbp: number;
+  platform_fee_gbp: number;
   created_at: string;
   updated_at: string;
 };

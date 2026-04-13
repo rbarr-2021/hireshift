@@ -2,9 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  bookingStatusClass,
+  formatBookingDate,
+  formatBookingStatus,
+  formatBookingTimeRange,
+  isPastBooking,
+} from "@/lib/bookings";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast-provider";
 import {
+  type BookingRecord,
+  type BusinessProfileRecord,
+  type UserRecord,
   type WorkerAvailabilitySlotRecord,
   type WorkerDocumentRecord,
   type WorkerProfileRecord,
@@ -16,11 +27,106 @@ function statusStyles(status: string) {
   return "bg-amber-100 text-amber-900";
 }
 
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+type BusinessSnapshot = {
+  name: string;
+  contact: string;
+  location: string;
+};
+
+function BookingCard({
+  booking,
+  business,
+  actions,
+}: {
+  booking: BookingRecord;
+  business?: BusinessSnapshot;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <article className="panel-soft p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-stone-900">
+            {business?.name || "Business request"}
+          </p>
+          <p className="mt-1 text-sm text-stone-600">
+            {business?.contact || "Hospitality business"}
+            {business?.location ? ` | ${business.location}` : ""}
+          </p>
+        </div>
+        <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}>
+          {formatBookingStatus(booking.status)}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
+        <p>
+          <span className="font-medium text-stone-900">Shift:</span>{" "}
+          {formatBookingDate(booking.shift_date)}
+        </p>
+        <p>
+          <span className="font-medium text-stone-900">Time:</span>{" "}
+          {formatBookingTimeRange(booking.start_time, booking.end_time)}
+        </p>
+        <p>
+          <span className="font-medium text-stone-900">Rate:</span>{" "}
+          {formatCurrency(booking.hourly_rate_gbp)}/hr
+        </p>
+        <p>
+          <span className="font-medium text-stone-900">Status:</span>{" "}
+          {formatBookingStatus(booking.status)}
+        </p>
+      </div>
+      {booking.notes ? (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+          {booking.notes}
+        </p>
+      ) : null}
+      {actions ? <div className="mt-4 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
+    </article>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+  actionHref,
+  actionLabel,
+}: {
+  title: string;
+  description: string;
+  actionHref?: string;
+  actionLabel?: string;
+}) {
+  return (
+    <div className="mobile-empty-state">
+      <h3 className="text-lg font-semibold text-stone-900">{title}</h3>
+      <p className="mt-3 text-sm leading-6 text-stone-600">{description}</p>
+      {actionHref && actionLabel ? (
+        <Link href={actionHref} className="primary-btn mt-5 px-6">
+          {actionLabel}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
 export default function WorkerDashboardPage() {
+  const { showToast } = useToast();
   const [profile, setProfile] = useState<WorkerProfileRecord | null>(null);
   const [availabilitySlots, setAvailabilitySlots] = useState<WorkerAvailabilitySlotRecord[]>([]);
   const [documents, setDocuments] = useState<WorkerDocumentRecord[]>([]);
+  const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [businessesById, setBusinessesById] = useState<Record<string, BusinessSnapshot>>({});
   const [loading, setLoading] = useState(true);
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -34,7 +140,7 @@ export default function WorkerDashboardPage() {
         return;
       }
 
-      const [profileResult, availabilityResult, documentsResult] = await Promise.all([
+      const [profileResult, availabilityResult, documentsResult, bookingsResult] = await Promise.all([
         supabase
           .from("worker_profiles")
           .select("*")
@@ -42,15 +148,52 @@ export default function WorkerDashboardPage() {
           .maybeSingle<WorkerProfileRecord>(),
         supabase.from("worker_availability_slots").select("*").eq("worker_id", user.id),
         supabase.from("worker_documents").select("*").eq("worker_id", user.id),
+        supabase
+          .from("bookings")
+          .select("*")
+          .eq("worker_id", user.id)
+          .order("shift_date", { ascending: true })
+          .order("start_time", { ascending: true }),
       ]);
 
       if (!active) {
         return;
       }
 
+      const nextBookings = (bookingsResult.data as BookingRecord[] | null) ?? [];
+      const businessIds = [...new Set(nextBookings.map((booking) => booking.business_id))];
+      let nextBusinessMap: Record<string, BusinessSnapshot> = {};
+
+      if (businessIds.length > 0) {
+        const [businessUsersResult, businessProfilesResult] = await Promise.all([
+          supabase.from("users").select("*").in("id", businessIds),
+          supabase.from("business_profiles").select("*").in("user_id", businessIds),
+        ]);
+
+        const businessUsers = (businessUsersResult.data as UserRecord[] | null) ?? [];
+        const businessProfiles = (businessProfilesResult.data as BusinessProfileRecord[] | null) ?? [];
+
+        nextBusinessMap = businessIds.reduce<Record<string, BusinessSnapshot>>((accumulator, businessId) => {
+          const nextUser = businessUsers.find((candidate) => candidate.id === businessId);
+          const nextProfile = businessProfiles.find((candidate) => candidate.user_id === businessId);
+
+          accumulator[businessId] = {
+            name: nextProfile?.business_name || nextUser?.display_name || "Business",
+            contact: nextProfile?.contact_name || nextUser?.email || "Business contact",
+            location: [nextProfile?.address_line_1, nextProfile?.city]
+              .filter(Boolean)
+              .join(", "),
+          };
+
+          return accumulator;
+        }, {});
+      }
+
       setProfile(profileResult.data ?? null);
       setAvailabilitySlots((availabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? []);
       setDocuments((documentsResult.data as WorkerDocumentRecord[] | null) ?? []);
+      setBookings(nextBookings);
+      setBusinessesById(nextBusinessMap);
       setLoading(false);
     };
 
@@ -81,6 +224,64 @@ export default function WorkerDashboardPage() {
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [availabilitySlots.length, profile]);
 
+  const incomingRequests = useMemo(
+    () => bookings.filter((booking) => booking.status === "pending"),
+    [bookings],
+  );
+
+  const acceptedJobs = useMemo(
+    () => bookings.filter((booking) => booking.status === "accepted"),
+    [bookings],
+  );
+
+  const upcomingShifts = useMemo(
+    () =>
+      acceptedJobs
+        .filter((booking) => !isPastBooking(booking))
+        .slice(0, 3),
+    [acceptedJobs],
+  );
+
+  const handleBookingResponse = async (
+    bookingId: string,
+    status: "accepted" | "declined",
+  ) => {
+    setActioningId(bookingId);
+    console.info("[worker-bookings] update status", { bookingId, status });
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .update({ status })
+      .eq("id", bookingId)
+      .select("*")
+      .maybeSingle<BookingRecord>();
+
+    setActioningId(null);
+
+    if (error || !data) {
+      const description = error?.message || "Unable to update the booking response.";
+      console.error("[worker-bookings] update failed", { bookingId, status, error });
+      showToast({
+        title: "Booking update failed",
+        description,
+        tone: "error",
+      });
+      return;
+    }
+
+    setBookings((current) =>
+      current.map((booking) => (booking.id === bookingId ? data : booking)),
+    );
+    showToast({
+      title: status === "accepted" ? "Booking accepted" : "Booking declined",
+      description:
+        status === "accepted"
+          ? "The business can now see this shift as confirmed."
+          : "The business has been updated that you cannot take this shift.",
+      tone: "success",
+    });
+  };
+
   if (loading) {
     return (
       <div className="space-y-8">
@@ -92,22 +293,13 @@ export default function WorkerDashboardPage() {
             </div>
           ))}
         </div>
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="panel-soft p-5 sm:p-6">
-            <Skeleton className="h-6 w-48" />
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div key={index}>
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="mt-3 h-5 w-32" />
-                </div>
-              ))}
+        <div className="grid gap-4 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="panel-soft p-5 sm:p-6">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="mt-4 h-32 w-full" />
             </div>
-          </div>
-          <div className="panel-soft p-5 sm:p-6">
-            <Skeleton className="h-6 w-36" />
-            <Skeleton className="mt-4 h-24 w-full" />
-          </div>
+          ))}
         </div>
       </div>
     );
@@ -117,15 +309,13 @@ export default function WorkerDashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="section-label">
-            Worker Dashboard
-          </p>
+          <p className="section-label">Worker Dashboard</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Manage your marketplace profile
+            Manage incoming booking requests and confirmed shifts
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Keep your worker profile current so businesses can assess your role fit,
-            rates, travel range, documents, and recurring availability.
+            Keep your profile current, respond to booking requests quickly, and stay
+            on top of every accepted shift in one view.
           </p>
         </div>
         <Link
@@ -148,12 +338,106 @@ export default function WorkerDashboardPage() {
           </span>
         </section>
         <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Availability slots</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">{availabilitySlots.length}</p>
+          <p className="text-sm font-medium text-stone-500">Incoming requests</p>
+          <p className="mt-2 text-3xl font-semibold text-stone-900">{incomingRequests.length}</p>
         </section>
         <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Documents</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">{documents.length}</p>
+          <p className="text-sm font-medium text-stone-500">Upcoming shifts</p>
+          <p className="mt-2 text-3xl font-semibold text-stone-900">{upcomingShifts.length}</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.16em] text-stone-500">
+            {documents.length} docs | {availabilitySlots.length} availability slots
+          </p>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <section className="panel-soft p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-stone-900">Incoming requests</h2>
+            <span className="status-badge">{incomingRequests.length}</span>
+          </div>
+          <div className="mt-4 space-y-4">
+            {incomingRequests.length > 0 ? (
+              incomingRequests.map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  business={businessesById[booking.business_id]}
+                  actions={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleBookingResponse(booking.id, "accepted")}
+                        disabled={actioningId === booking.id}
+                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {actioningId === booking.id ? "Updating..." : "Accept"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleBookingResponse(booking.id, "declined")}
+                        disabled={actioningId === booking.id}
+                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        Decline
+                      </button>
+                    </>
+                  }
+                />
+              ))
+            ) : (
+              <EmptyState
+                title="No incoming requests"
+                description="When businesses send shift requests, you will be able to accept or decline them here."
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="panel-soft p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-stone-900">Accepted jobs</h2>
+            <span className="status-badge status-badge--ready">{acceptedJobs.length}</span>
+          </div>
+          <div className="mt-4 space-y-4">
+            {acceptedJobs.length > 0 ? (
+              acceptedJobs.map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  business={businessesById[booking.business_id]}
+                />
+              ))
+            ) : (
+              <EmptyState
+                title="No accepted jobs yet"
+                description="Accepted bookings will appear here so you can keep track of confirmed work."
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="panel-soft p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-stone-900">Upcoming shifts</h2>
+            <span className="status-badge status-badge--rating">{upcomingShifts.length}</span>
+          </div>
+          <div className="mt-4 space-y-4">
+            {upcomingShifts.length > 0 ? (
+              upcomingShifts.map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  business={businessesById[booking.business_id]}
+                />
+              ))
+            ) : (
+              <EmptyState
+                title="No upcoming shifts"
+                description="Your next accepted shifts will show up here so you can see what is coming up first."
+              />
+            )}
+          </div>
         </section>
       </div>
 
@@ -169,13 +453,13 @@ export default function WorkerDashboardPage() {
               <p className="text-sm text-stone-500">Rates</p>
               <p className="mt-1 font-medium text-stone-900">
                 {profile?.hourly_rate_gbp ? `GBP ${profile.hourly_rate_gbp}/hr` : "No hourly rate"}
-                {profile?.daily_rate_gbp ? ` • GBP ${profile.daily_rate_gbp}/day` : ""}
+                {profile?.daily_rate_gbp ? ` | GBP ${profile.daily_rate_gbp}/day` : ""}
               </p>
             </div>
             <div>
               <p className="text-sm text-stone-500">Location</p>
               <p className="mt-1 font-medium text-stone-900">
-                {profile?.city ?? "No city"}{profile?.travel_radius_miles ? ` • ${profile.travel_radius_miles} mile radius` : ""}
+                {profile?.city ?? "No city"}{profile?.travel_radius_miles ? ` | ${profile.travel_radius_miles} mile radius` : ""}
               </p>
             </div>
             <div>
@@ -190,8 +474,8 @@ export default function WorkerDashboardPage() {
         <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
           <div className="info-banner mt-4">
-            Upload a strong profile photo, keep availability fresh, and add supporting
-            documents to look trusted and booking-ready.
+            Keep your availability fresh, respond to requests quickly, and add
+            strong supporting documents so businesses trust your profile faster.
           </div>
         </section>
       </div>
