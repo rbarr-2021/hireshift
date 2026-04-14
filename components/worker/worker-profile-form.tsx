@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { AvailabilityCalendar } from "@/components/worker/availability-calendar";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -13,12 +14,12 @@ import {
   DOCUMENT_TYPES,
   HOSPITALITY_ROLES,
   HOSPITALITY_SKILLS,
-  WEEK_DAYS,
   type ApprovalStatus,
-  type HospitalityRole,
   type DocumentType,
+  type HospitalityRole,
   type UserRecord,
   type WorkHistoryItem,
+  type WorkerAvailabilityRecord,
   type WorkerAvailabilitySlotRecord,
   type WorkerDocumentRecord,
   type WorkerProfileRecord,
@@ -28,19 +29,13 @@ type WorkerProfileFormProps = {
   mode: "onboarding" | "manage";
 };
 
-type AvailabilityDayState = {
-  enabled: boolean;
-  start: string;
-  end: string;
-};
-
-type AvailabilityState = Record<number, AvailabilityDayState>;
 type DocumentFileState = Partial<Record<DocumentType, File | null>>;
 type WorkerSaveStage =
   | "auth"
   | "users"
   | "worker_profiles"
   | "worker-profile-assets"
+  | "worker_availability"
   | "worker_availability_slots"
   | "worker_documents"
   | "worker-document-storage";
@@ -60,12 +55,7 @@ const EMPTY_WORK_HISTORY: WorkHistoryItem = {
   summary: "",
 };
 
-function createInitialAvailability(): AvailabilityState {
-  return WEEK_DAYS.reduce<AvailabilityState>((accumulator, day) => {
-    accumulator[day.key] = { enabled: false, start: "09:00", end: "17:00" };
-    return accumulator;
-  }, {} as AvailabilityState);
-}
+const DEFAULT_FALLBACK_DAYS = 62;
 
 function sanitiseFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9.-]/g, "-").toLowerCase();
@@ -89,20 +79,118 @@ function approvalLabel(status: ApprovalStatus) {
   return labels[status];
 }
 
-function buildAvailabilityState(
-  slots: WorkerAvailabilitySlotRecord[] | null,
-): AvailabilityState {
-  const nextState = createInitialAvailability();
+function getDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
-  (slots ?? []).forEach((slot) => {
-    nextState[slot.day_of_week] = {
-      enabled: true,
-      start: slot.start_time.slice(0, 5),
-      end: slot.end_time.slice(0, 5),
-    };
-  });
+function getDatePart(value: string | null) {
+  return value ? value.slice(0, 10) : null;
+}
 
-  return nextState;
+function getTimePart(value: string | null) {
+  return value ? value.slice(11, 16) : null;
+}
+
+function createFallbackAvailabilityFromWeeklySlots(
+  workerId: string,
+  slots: WorkerAvailabilitySlotRecord[],
+) {
+  const entries: WorkerAvailabilityRecord[] = [];
+  const today = new Date();
+
+  for (let offset = 0; offset < DEFAULT_FALLBACK_DAYS; offset += 1) {
+    const currentDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + offset,
+    );
+    const matchingSlots = slots.filter(
+      (slot) => slot.day_of_week === currentDate.getDay(),
+    );
+
+    if (matchingSlots.length === 0) {
+      continue;
+    }
+
+    const startTimes = matchingSlots.map((slot) => slot.start_time.slice(0, 5)).sort();
+    const endTimes = matchingSlots.map((slot) => slot.end_time.slice(0, 5)).sort();
+    const startTime = startTimes[0];
+    const endTime = endTimes[endTimes.length - 1];
+    const status =
+      startTime === "00:00" && endTime === "23:59" ? "available" : "partial";
+
+    entries.push({
+      id: `fallback-${getDateKey(currentDate)}`,
+      worker_id: workerId,
+      availability_date: getDateKey(currentDate),
+      status,
+      start_datetime: `${getDateKey(currentDate)}T${startTime}:00`,
+      end_datetime: `${getDateKey(currentDate)}T${endTime}:00`,
+      created_at: "",
+      updated_at: "",
+    });
+  }
+
+  return entries;
+}
+
+function buildWeeklyCompatibilitySlots(
+  workerId: string,
+  entries: WorkerAvailabilityRecord[],
+) {
+  const grouped = entries
+    .filter(
+      (entry) =>
+        entry.status !== "unavailable" &&
+        entry.start_datetime &&
+        entry.end_datetime,
+    )
+    .reduce<Record<number, { start: string; end: string }>>((accumulator, entry) => {
+      const startDate = new Date(entry.start_datetime!);
+      const endDate = new Date(entry.end_datetime!);
+      const startWeekday = startDate.getDay();
+      const startTime = getTimePart(entry.start_datetime!) ?? "00:00";
+      const endTime = getTimePart(entry.end_datetime!) ?? "23:59";
+      const endDateKey = getDatePart(entry.end_datetime!);
+
+      const mergeSlot = (weekday: number, nextStart: string, nextEnd: string) => {
+        if (nextEnd <= nextStart) {
+          return;
+        }
+
+        const current = accumulator[weekday];
+
+        if (!current) {
+          accumulator[weekday] = { start: nextStart, end: nextEnd };
+          return;
+        }
+
+        accumulator[weekday] = {
+          start: nextStart < current.start ? nextStart : current.start,
+          end: nextEnd > current.end ? nextEnd : current.end,
+        };
+      };
+
+      if (endDateKey && endDateKey !== entry.availability_date) {
+        mergeSlot(startWeekday, startTime, "23:59");
+        mergeSlot(endDate.getDay(), "00:00", endTime);
+        return accumulator;
+      }
+
+      mergeSlot(startWeekday, startTime, endTime);
+
+      return accumulator;
+    }, {});
+
+  return Object.entries(grouped).map(([dayOfWeek, times]) => ({
+    worker_id: workerId,
+    day_of_week: Number(dayOfWeek),
+    start_time: times.start,
+    end_time: times.end,
+  }));
 }
 
 function normaliseWorkHistory(value: WorkHistoryItem[] | null | undefined) {
@@ -161,9 +249,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const [workHistory, setWorkHistory] = useState<WorkHistoryItem[]>(
     normaliseWorkHistory(undefined),
   );
-  const [availability, setAvailability] = useState<AvailabilityState>(
-    createInitialAvailability(),
-  );
+  const [availabilityEntries, setAvailabilityEntries] = useState<WorkerAvailabilityRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentFileState>({});
   const [existingDocuments, setExistingDocuments] = useState<
     Partial<Record<DocumentType, WorkerDocumentRecord>>
@@ -185,7 +271,13 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         return;
       }
 
-      const [appUserResult, profileResult, availabilityResult, documentsResult] =
+      const [
+        appUserResult,
+        profileResult,
+        dateAvailabilityResult,
+        weeklyAvailabilityResult,
+        documentsResult,
+      ] =
         await Promise.all([
           supabase.from("users").select("*").eq("id", user.id).maybeSingle<UserRecord>(),
           supabase
@@ -193,6 +285,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             .select("*")
             .eq("user_id", user.id)
             .maybeSingle<WorkerProfileRecord>(),
+          supabase
+            .from("worker_availability")
+            .select("*")
+            .eq("worker_id", user.id)
+            .order("availability_date", { ascending: true }),
           supabase
             .from("worker_availability_slots")
             .select("*")
@@ -208,8 +305,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
       const appUser = appUserResult.data;
       const profile = profileResult.data;
+      const dateAvailability =
+        (dateAvailabilityResult.data as WorkerAvailabilityRecord[] | null) ?? [];
       const availabilitySlots =
-        (availabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? [];
+        (weeklyAvailabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? [];
       const workerDocuments =
         (documentsResult.data as WorkerDocumentRecord[] | null) ?? [];
 
@@ -238,7 +337,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         setApprovalStatus(profile.verification_status);
       }
 
-      setAvailability(buildAvailabilityState(availabilitySlots));
+      setAvailabilityEntries(
+        dateAvailability.length > 0
+          ? dateAvailability
+          : createFallbackAvailabilityFromWeeklySlots(user.id, availabilitySlots),
+      );
       setExistingDocuments(
         workerDocuments.reduce<Partial<Record<DocumentType, WorkerDocumentRecord>>>(
           (accumulator, document) => {
@@ -259,8 +362,9 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   }, []);
 
   const selectedAvailabilityCount = useMemo(
-    () => WEEK_DAYS.filter((day) => availability[day.key].enabled).length,
-    [availability],
+    () =>
+      availabilityEntries.filter((entry) => entry.status !== "unavailable").length,
+    [availabilityEntries],
   );
 
   const uploadedDocumentCount = useMemo(
@@ -339,16 +443,23 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     if (!city.trim()) return "Base location is required.";
     if (!travelRadius.trim()) return "Travel radius is required.";
     if (selectedAvailabilityCount === 0) {
-      return "Add at least one availability slot to complete your profile.";
+      return "Add at least one available date to complete your profile.";
     }
 
-    const invalidAvailability = WEEK_DAYS.some((day) => {
-      const slot = availability[day.key];
-      return slot.enabled && slot.end <= slot.start;
+    const invalidAvailability = availabilityEntries.some((entry) => {
+      if (entry.status === "unavailable") {
+        return false;
+      }
+
+      if (!entry.start_datetime || !entry.end_datetime) {
+        return true;
+      }
+
+      return entry.end_datetime <= entry.start_datetime;
     });
 
     if (invalidAvailability) {
-      return "Each availability slot must end after it starts.";
+      return "Each available date must have a valid time range, and overnight shifts must end after they start.";
     }
 
     return null;
@@ -492,14 +603,24 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         (item) => item.venue.trim() || item.role.trim() || item.summary.trim(),
       );
 
-      const availabilityPayload = WEEK_DAYS.filter(
-        (day) => availability[day.key].enabled,
-      ).map((day) => ({
-        worker_id: user.id,
-        day_of_week: day.key,
-        start_time: availability[day.key].start,
-        end_time: availability[day.key].end,
-      }));
+      const availabilityPayload = availabilityEntries
+        .map((entry) => ({
+          worker_id: user.id,
+          availability_date: entry.availability_date,
+          status: entry.status,
+          start_datetime:
+            entry.status === "unavailable" ? null : entry.start_datetime,
+          end_datetime:
+            entry.status === "unavailable" ? null : entry.end_datetime,
+        }))
+        .sort((left, right) =>
+          left.availability_date.localeCompare(right.availability_date),
+        );
+
+      const availabilitySlotPayload = buildWeeklyCompatibilitySlots(
+        user.id,
+        availabilityEntries,
+      );
 
       const workerProfilePayload = {
         user_id: user.id,
@@ -528,6 +649,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         },
         workerProfilePayload,
         availabilityPayload,
+        availabilitySlotPayload,
         documentTypes: DOCUMENT_TYPES.filter((documentType) => documents[documentType]),
       });
 
@@ -573,6 +695,31 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         throw createWorkerSaveError("worker_profiles", profileError);
       }
 
+      const { error: deleteDateAvailabilityError } = await supabase
+        .from("worker_availability")
+        .delete()
+        .eq("worker_id", user.id);
+
+      if (deleteDateAvailabilityError) {
+        throw createWorkerSaveError(
+          "worker_availability",
+          deleteDateAvailabilityError,
+        );
+      }
+
+      if (availabilityPayload.length > 0) {
+        const { error: insertDateAvailabilityError } = await supabase
+          .from("worker_availability")
+          .insert(availabilityPayload);
+
+        if (insertDateAvailabilityError) {
+          throw createWorkerSaveError(
+            "worker_availability",
+            insertDateAvailabilityError,
+          );
+        }
+      }
+
       const { error: deleteAvailabilityError } = await supabase
         .from("worker_availability_slots")
         .delete()
@@ -585,10 +732,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         );
       }
 
-      if (availabilityPayload.length > 0) {
+      if (availabilitySlotPayload.length > 0) {
         const { error: insertAvailabilityError } = await supabase
           .from("worker_availability_slots")
-          .insert(availabilityPayload);
+          .insert(availabilitySlotPayload);
 
         if (insertAvailabilityError) {
           throw createWorkerSaveError(
@@ -950,33 +1097,15 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Availability</h2>
                 <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Weekly availability is stored as structured slots so we can power search later.
+                  Mark exact dates on the calendar so businesses can see when you are
+                  free without guessing from a recurring weekly pattern.
                 </p>
               </div>
               <div className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {WEEK_DAYS.map((day) => (
-                    <div key={day.key} className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-base font-semibold text-stone-900">{day.label}</p>
-                        <input
-                          type="checkbox"
-                          checked={availability[day.key].enabled}
-                          onChange={(event) =>
-                            setAvailability((current) => ({
-                              ...current,
-                              [day.key]: { ...current[day.key], enabled: event.target.checked },
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="mt-4 grid gap-3">
-                        <input type="time" value={availability[day.key].start} onChange={(event) => setAvailability((current) => ({ ...current, [day.key]: { ...current[day.key], start: event.target.value } }))} className="input" disabled={!availability[day.key].enabled} />
-                        <input type="time" value={availability[day.key].end} onChange={(event) => setAvailability((current) => ({ ...current, [day.key]: { ...current[day.key], end: event.target.value } }))} className="input" disabled={!availability[day.key].enabled} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <AvailabilityCalendar
+                  entries={availabilityEntries}
+                  onChange={setAvailabilityEntries}
+                />
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">Availability notes</label>
                   <textarea value={availabilitySummary} onChange={(event) => setAvailabilitySummary(event.target.value)} className="input min-h-28 resize-y" placeholder="Anything useful for employers to know, like preferred shift types or blackout dates." />
@@ -1035,7 +1164,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
             <div className="grid gap-4 md:grid-cols-3">
               <div className="panel-soft p-5">
-                <p className="text-sm font-medium text-stone-500">Availability days</p>
+                <p className="text-sm font-medium text-stone-500">Available dates</p>
                 <p className="mt-2 text-2xl font-semibold text-stone-900">{selectedAvailabilityCount}</p>
               </div>
               <div className="panel-soft p-5">

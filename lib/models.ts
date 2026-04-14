@@ -43,6 +43,11 @@ export const BOOKING_STATUSES = [
   "completed",
   "cancelled",
 ] as const;
+export const WORKER_AVAILABILITY_STATUSES = [
+  "available",
+  "unavailable",
+  "partial",
+] as const;
 
 export const DOCUMENT_TYPES = [
   "food_safety_certificate",
@@ -75,6 +80,7 @@ export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+export type WorkerAvailabilityStatus = (typeof WORKER_AVAILABILITY_STATUSES)[number];
 
 export type UserRecord = {
   id: string;
@@ -122,6 +128,17 @@ export type WorkerAvailabilitySlotRecord = {
   day_of_week: number;
   start_time: string;
   end_time: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkerAvailabilityRecord = {
+  id: string;
+  worker_id: string;
+  availability_date: string;
+  status: WorkerAvailabilityStatus;
+  start_datetime: string | null;
+  end_datetime: string | null;
   created_at: string;
   updated_at: string;
 };
