@@ -1,91 +1,3 @@
-alter table if exists public.shift_listings
-  add column if not exists shift_end_date date,
-  add column if not exists open_positions integer not null default 1,
-  add column if not exists claimed_positions integer not null default 0;
-
-update public.shift_listings
-set shift_end_date = shift_date
-where shift_end_date is null;
-
-do $$
-begin
-  if exists (
-    select 1
-    from pg_constraint
-    where conname = 'shift_listings_time_order'
-      and conrelid = 'public.shift_listings'::regclass
-  ) then
-    alter table public.shift_listings
-      drop constraint shift_listings_time_order;
-  end if;
-
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'shift_listings_datetime_order_check'
-      and conrelid = 'public.shift_listings'::regclass
-  ) then
-    alter table public.shift_listings
-      add constraint shift_listings_datetime_order_check
-      check (
-        ((coalesce(shift_end_date, shift_date)::text || ' ' || end_time::text)::timestamp) >
-        ((shift_date::text || ' ' || start_time::text)::timestamp)
-      );
-  end if;
-end $$;
-
-update public.shift_listings
-set open_positions = 1
-where open_positions < 1;
-
-update public.shift_listings
-set claimed_positions = case
-  when coalesce(claimed_positions, 0) > 0 then claimed_positions
-  when status = 'claimed' or claimed_worker_id is not null then 1
-  else 0
-end;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'shift_listings_positions_check'
-      and conrelid = 'public.shift_listings'::regclass
-  ) then
-    alter table public.shift_listings
-      add constraint shift_listings_positions_check
-      check (open_positions >= 1 and claimed_positions >= 0 and claimed_positions <= open_positions);
-  end if;
-end $$;
-
-create index if not exists shift_listings_shift_end_date_idx on public.shift_listings (shift_end_date);
-
-alter table if exists public.bookings
-  add column if not exists shift_end_date date,
-  add column if not exists shift_listing_id uuid;
-
-update public.bookings
-set shift_end_date = shift_date
-where shift_end_date is null;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'bookings_shift_listing_id_fkey'
-      and conrelid = 'public.bookings'::regclass
-  ) then
-    alter table public.bookings
-      add constraint bookings_shift_listing_id_fkey
-      foreign key (shift_listing_id) references public.shift_listings(id) on delete set null;
-  end if;
-end $$;
-
-create index if not exists bookings_shift_listing_id_idx on public.bookings (shift_listing_id);
-create index if not exists bookings_shift_end_date_idx on public.bookings (shift_end_date);
-
 create or replace function public.claim_shift_listing(target_listing_id uuid)
 returns uuid
 language plpgsql
@@ -195,7 +107,8 @@ begin
   update public.shift_listings
   set claimed_positions = next_claimed_positions,
       status = case
-        when next_claimed_positions >= coalesce(target_listing.open_positions, 1) then 'claimed'::public.shift_listing_status
+        when next_claimed_positions >= coalesce(target_listing.open_positions, 1)
+          then 'claimed'::public.shift_listing_status
         else 'open'::public.shift_listing_status
       end,
       claimed_worker_id = coalesce(claimed_worker_id, current_user_id),
