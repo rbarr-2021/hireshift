@@ -37,7 +37,7 @@ end $$;
 
 create table if not exists public.worker_roles (
   id uuid primary key default gen_random_uuid(),
-  worker_id uuid not null references public.worker_profiles(user_id) on delete cascade,
+  worker_id uuid not null references public.users(id) on delete cascade,
   role_id uuid not null references public.roles(id) on delete cascade,
   is_primary boolean not null default false,
   created_at timestamp with time zone not null default timezone('utc'::text, now()),
