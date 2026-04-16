@@ -436,6 +436,8 @@ export type BookingRecord = {
   worker_id: string;
   business_id: string;
   shift_date: string;
+  shift_end_date: string | null;
+  shift_listing_id: string | null;
   start_time: string;
   end_time: string;
   hourly_rate_gbp: number;
@@ -455,11 +457,14 @@ export type ShiftListingRecord = {
   title: string | null;
   description: string | null;
   shift_date: string;
+  shift_end_date: string | null;
   start_time: string;
   end_time: string;
   hourly_rate_gbp: number;
   location: string;
   city: string | null;
+  open_positions: number;
+  claimed_positions: number;
   status: ShiftListingStatus;
   claimed_worker_id: string | null;
   claimed_booking_id: string | null;

@@ -6,7 +6,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
-import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import {
+  calculateBookingDurationHours,
+  formatBookingDate,
+  formatBookingTimeRange,
+} from "@/lib/bookings";
 import { rememberPostAuthIntent } from "@/lib/post-auth-intent";
 import type {
   BusinessProfileRecord,
@@ -15,6 +19,7 @@ import type {
 } from "@/lib/models";
 import {
   formatShiftListingStatus,
+  getRemainingShiftPositions,
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
 import { supabase } from "@/lib/supabase";
@@ -174,15 +179,14 @@ export default function ShiftDetailPage() {
       return "";
     }
 
-    const [startHour, startMinute] = listing.start_time.split(":").map(Number);
-    const [endHour, endMinute] = listing.end_time.split(":").map(Number);
-    const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+    const hours = calculateBookingDurationHours(
+      listing.start_time,
+      listing.end_time,
+      listing.shift_date,
+      listing.shift_end_date,
+    );
 
-    if (minutes <= 0) {
-      return "";
-    }
-
-    return `${minutes / 60} hours`;
+    return hours > 0 ? `${hours} hours` : "";
   }, [listing]);
 
   if (loading) {
@@ -243,10 +247,11 @@ export default function ShiftDetailPage() {
           <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
             <p><span className="font-medium text-stone-900">Role:</span> {listing.role_label}</p>
             <p><span className="font-medium text-stone-900">Date:</span> {formatBookingDate(listing.shift_date)}</p>
-            <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(listing.start_time, listing.end_time)}</p>
+            <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(listing.start_time, listing.end_time, listing.shift_date, listing.shift_end_date)}</p>
             <p><span className="font-medium text-stone-900">Shift length:</span> {shiftLength || "TBC"}</p>
             <p><span className="font-medium text-stone-900">Rate:</span> GBP {listing.hourly_rate_gbp}/hr</p>
             <p><span className="font-medium text-stone-900">Location:</span> {listing.location}</p>
+            <p><span className="font-medium text-stone-900">Spots left:</span> {getRemainingShiftPositions(listing)}</p>
           </div>
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/40 p-4 text-sm leading-7 text-stone-500">
             {listing.description || "No extra shift notes yet."}
@@ -274,7 +279,7 @@ export default function ShiftDetailPage() {
               <button
                 type="button"
                 onClick={handleTakeShift}
-                disabled={taking || listing.status !== "open"}
+                disabled={taking || listing.status !== "open" || getRemainingShiftPositions(listing) === 0}
                 className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {taking

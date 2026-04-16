@@ -10,6 +10,7 @@ import type {
   BusinessProfileRecord,
   ShiftListingRecord,
 } from "@/lib/models";
+import { deriveShiftEndDate } from "@/lib/shift-listings";
 import { supabase } from "@/lib/supabase";
 
 type SupabaseLikeError = {
@@ -88,10 +89,12 @@ export default function NewShiftListingPage() {
   const [roleLabel, setRoleLabel] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [shiftDate, setShiftDate] = useState("");
+  const [shiftDateInput, setShiftDateInput] = useState("");
+  const [shiftDates, setShiftDates] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("17:00");
   const [endTime, setEndTime] = useState("23:00");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [openPositions, setOpenPositions] = useState("1");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,6 +135,35 @@ export default function NewShiftListingPage() {
     [businessProfile],
   );
 
+  const totalSlots = useMemo(
+    () => shiftDates.length * Math.max(1, Number(openPositions) || 1),
+    [openPositions, shiftDates.length],
+  );
+
+  const isOvernightShift = useMemo(
+    () => Boolean(startTime && endTime && endTime <= startTime),
+    [endTime, startTime],
+  );
+
+  const handleAddShiftDate = () => {
+    if (!shiftDateInput) {
+      setMessage("Choose a shift date first.");
+      return;
+    }
+
+    setShiftDates((current) =>
+      [...new Set([...current, shiftDateInput])].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    );
+    setShiftDateInput("");
+    setMessage(null);
+  };
+
+  const handleRemoveShiftDate = (targetDate: string) => {
+    setShiftDates((current) => current.filter((item) => item !== targetDate));
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -149,13 +181,13 @@ export default function NewShiftListingPage() {
       return;
     }
 
-    if (!shiftDate) {
-      setMessage("Choose a shift date.");
+    if (shiftDates.length === 0) {
+      setMessage("Add at least one shift date.");
       return;
     }
 
-    if (!startTime || !endTime || endTime <= startTime) {
-      setMessage("Enter a valid same-day start and end time.");
+    if (!startTime || !endTime || startTime === endTime) {
+      setMessage("Enter a valid start and end time.");
       return;
     }
 
@@ -171,23 +203,43 @@ export default function NewShiftListingPage() {
       return;
     }
 
+    const numericOpenPositions = Number(openPositions);
+
+    if (Number.isNaN(numericOpenPositions) || numericOpenPositions < 1) {
+      setMessage("Enter how many workers you need for each shift.");
+      return;
+    }
+
     setSaving(true);
     setMessage(null);
 
-    const payload: Omit<ShiftListingRecord, "id" | "status" | "claimed_worker_id" | "claimed_booking_id" | "created_at" | "updated_at"> = {
+    const payloads: Array<
+      Omit<
+        ShiftListingRecord,
+        | "id"
+        | "status"
+        | "claimed_worker_id"
+        | "claimed_booking_id"
+        | "created_at"
+        | "updated_at"
+        | "claimed_positions"
+      >
+    > = shiftDates.map((shiftDate) => ({
       business_id: authUserId,
       role_label: roleLabel.trim(),
       title: title.trim() || null,
       description: description.trim() || null,
       shift_date: shiftDate,
+      shift_end_date: deriveShiftEndDate(shiftDate, startTime, endTime),
       start_time: startTime,
       end_time: endTime,
       hourly_rate_gbp: numericRate,
       location: businessLocation,
       city: businessProfile?.city ?? null,
-    };
+      open_positions: numericOpenPositions,
+    }));
 
-    const { error } = await supabase.from("shift_listings").insert(payload);
+    const { error } = await supabase.from("shift_listings").insert(payloads);
 
     setSaving(false);
 
@@ -204,7 +256,10 @@ export default function NewShiftListingPage() {
 
     showToast({
       title: "Shift listing posted",
-      description: "Workers can now browse and take this open shift.",
+      description:
+        totalSlots === 1
+          ? "Workers can now browse and take this open shift."
+          : `${totalSlots} shift slots are now live for workers to browse.`,
       tone: "success",
     });
     router.replace("/dashboard/business");
@@ -310,15 +365,19 @@ export default function NewShiftListingPage() {
                 />
               </label>
               <label className="space-y-2 text-sm text-stone-600">
-                <span className="font-medium text-stone-900">Date</span>
-                <input
-                  type="date"
-                  value={shiftDate}
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(event) => setShiftDate(event.target.value)}
-                  className="input"
-                  required
-                />
+                <span className="font-medium text-stone-900">Add shift date</span>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={shiftDateInput}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(event) => setShiftDateInput(event.target.value)}
+                    className="input"
+                  />
+                  <button type="button" onClick={handleAddShiftDate} className="secondary-btn px-4">
+                    Add
+                  </button>
+                </div>
               </label>
               <label className="space-y-2 text-sm text-stone-600">
                 <span className="font-medium text-stone-900">Hourly rate (GBP)</span>
@@ -353,6 +412,49 @@ export default function NewShiftListingPage() {
                   required
                 />
               </label>
+              <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                <span className="font-medium text-stone-900">Workers needed per shift</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={openPositions}
+                  onChange={(event) => setOpenPositions(event.target.value)}
+                  className="input"
+                  placeholder="1"
+                  required
+                />
+              </label>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/40 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-stone-100">Shift dates</p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    Add one or more dates. If the end time is earlier than the start time, we will treat it as next day.
+                  </p>
+                </div>
+                {isOvernightShift ? (
+                  <span className="status-badge status-badge--rating">Overnight shift</span>
+                ) : null}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {shiftDates.length > 0 ? (
+                  shiftDates.map((shiftDate) => (
+                    <button
+                      key={shiftDate}
+                      type="button"
+                      onClick={() => handleRemoveShiftDate(shiftDate)}
+                      className="rounded-full bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200"
+                    >
+                      {shiftDate} x
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-stone-500">No shift dates added yet.</p>
+                )}
+              </div>
             </div>
 
             <label className="block space-y-2 text-sm text-stone-600">
@@ -404,6 +506,11 @@ export default function NewShiftListingPage() {
               <p>{roleLabel || "Role label goes here"}</p>
               <p>{businessProfile?.business_name || "Your business name"}</p>
               <p>{businessProfile?.city || "Your city"}</p>
+              <p>
+                {shiftDates.length > 0
+                  ? `${shiftDates.length} shift date${shiftDates.length === 1 ? "" : "s"} | ${openPositions || 1} worker${openPositions === "1" ? "" : "s"} each`
+                  : "Add at least one date"}
+              </p>
             </div>
           </section>
 
@@ -416,9 +523,20 @@ export default function NewShiftListingPage() {
                   {businessLocation || "Complete your business address first"}
                 </span>
               </p>
+              <p>
+                Shift pattern:{" "}
+                <span className="font-medium text-stone-900">
+                  {startTime && endTime
+                    ? isOvernightShift
+                      ? `${startTime} - ${endTime} next day`
+                      : `${startTime} - ${endTime}`
+                    : "Set your shift hours"}
+                </span>
+              </p>
               <p className="info-banner mt-4">
-                Open listings let workers see real opportunities quickly. Once a
-                worker takes the shift, we create the accepted booking automatically.
+                Open listings let workers see real opportunities quickly. We create
+                one listing per date, and each listing can hold multiple workers for
+                the same role.
               </p>
             </div>
           </section>

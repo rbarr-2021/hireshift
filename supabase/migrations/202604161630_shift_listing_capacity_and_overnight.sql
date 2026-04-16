@@ -1,0 +1,182 @@
+alter table if exists public.shift_listings
+  add column if not exists shift_end_date date,
+  add column if not exists open_positions integer not null default 1,
+  add column if not exists claimed_positions integer not null default 0;
+
+update public.shift_listings
+set shift_end_date = shift_date
+where shift_end_date is null;
+
+update public.shift_listings
+set open_positions = 1
+where open_positions < 1;
+
+update public.shift_listings
+set claimed_positions = case
+  when coalesce(claimed_positions, 0) > 0 then claimed_positions
+  when status = 'claimed' or claimed_worker_id is not null then 1
+  else 0
+end;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'shift_listings_positions_check'
+      and conrelid = 'public.shift_listings'::regclass
+  ) then
+    alter table public.shift_listings
+      add constraint shift_listings_positions_check
+      check (open_positions >= 1 and claimed_positions >= 0 and claimed_positions <= open_positions);
+  end if;
+end $$;
+
+create index if not exists shift_listings_shift_end_date_idx on public.shift_listings (shift_end_date);
+
+alter table if exists public.bookings
+  add column if not exists shift_end_date date,
+  add column if not exists shift_listing_id uuid;
+
+update public.bookings
+set shift_end_date = shift_date
+where shift_end_date is null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'bookings_shift_listing_id_fkey'
+      and conrelid = 'public.bookings'::regclass
+  ) then
+    alter table public.bookings
+      add constraint bookings_shift_listing_id_fkey
+      foreign key (shift_listing_id) references public.shift_listings(id) on delete set null;
+  end if;
+end $$;
+
+create index if not exists bookings_shift_listing_id_idx on public.bookings (shift_listing_id);
+create index if not exists bookings_shift_end_date_idx on public.bookings (shift_end_date);
+
+create or replace function public.claim_shift_listing(target_listing_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  current_user_role public.user_role;
+  is_shift_ready boolean;
+  target_listing public.shift_listings%rowtype;
+  next_booking_id uuid;
+  duration_hours numeric;
+  total_amount numeric;
+  shift_start timestamp;
+  shift_end timestamp;
+  next_claimed_positions integer;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select role, onboarding_complete
+  into current_user_role, is_shift_ready
+  from public.users
+  where id = current_user_id;
+
+  if current_user_role is distinct from 'worker' then
+    raise exception 'Only workers can take shifts';
+  end if;
+
+  if coalesce(is_shift_ready, false) is not true then
+    raise exception 'Complete your profile to take this shift';
+  end if;
+
+  if not exists (
+    select 1
+    from public.worker_profiles
+    where user_id = current_user_id
+  ) then
+    raise exception 'Complete your worker profile before taking shifts';
+  end if;
+
+  select *
+  into target_listing
+  from public.shift_listings
+  where id = target_listing_id
+  for update;
+
+  if not found then
+    raise exception 'Shift not found';
+  end if;
+
+  if target_listing.status <> 'open' then
+    raise exception 'This shift is no longer available';
+  end if;
+
+  if coalesce(target_listing.claimed_positions, 0) >= coalesce(target_listing.open_positions, 1) then
+    raise exception 'This shift is fully booked';
+  end if;
+
+  shift_start := (target_listing.shift_date::text || ' ' || target_listing.start_time::text)::timestamp;
+  shift_end := (coalesce(target_listing.shift_end_date, target_listing.shift_date)::text || ' ' || target_listing.end_time::text)::timestamp;
+
+  duration_hours := extract(epoch from (shift_end - shift_start)) / 3600.0;
+
+  if duration_hours <= 0 then
+    raise exception 'Shift duration must be valid';
+  end if;
+
+  total_amount := round((duration_hours * target_listing.hourly_rate_gbp)::numeric, 2);
+
+  insert into public.bookings (
+    worker_id,
+    business_id,
+    shift_date,
+    shift_end_date,
+    shift_listing_id,
+    start_time,
+    end_time,
+    hourly_rate_gbp,
+    location,
+    notes,
+    status,
+    total_amount_gbp,
+    platform_fee_gbp
+  )
+  values (
+    current_user_id,
+    target_listing.business_id,
+    target_listing.shift_date,
+    coalesce(target_listing.shift_end_date, target_listing.shift_date),
+    target_listing.id,
+    target_listing.start_time,
+    target_listing.end_time,
+    target_listing.hourly_rate_gbp,
+    target_listing.location,
+    target_listing.description,
+    'accepted',
+    total_amount,
+    0
+  )
+  returning id into next_booking_id;
+
+  next_claimed_positions := coalesce(target_listing.claimed_positions, 0) + 1;
+
+  update public.shift_listings
+  set claimed_positions = next_claimed_positions,
+      status = case
+        when next_claimed_positions >= coalesce(target_listing.open_positions, 1) then 'claimed'
+        else 'open'
+      end,
+      claimed_worker_id = coalesce(claimed_worker_id, current_user_id),
+      claimed_booking_id = coalesce(claimed_booking_id, next_booking_id)
+  where id = target_listing_id;
+
+  return next_booking_id;
+end;
+$$;
+
+grant execute on function public.claim_shift_listing(uuid) to authenticated;

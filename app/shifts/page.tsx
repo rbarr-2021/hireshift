@@ -12,6 +12,7 @@ import type {
 } from "@/lib/models";
 import {
   formatShiftListingStatus,
+  getRemainingShiftPositions,
   matchesShiftFilters,
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
@@ -261,11 +262,20 @@ export default function WorkerShiftBrowsePage() {
                   </p>
                   <p>
                     <span className="font-medium text-stone-900">Time:</span>{" "}
-                    {formatBookingTimeRange(listing.start_time, listing.end_time)}
+                    {formatBookingTimeRange(
+                      listing.start_time,
+                      listing.end_time,
+                      listing.shift_date,
+                      listing.shift_end_date,
+                    )}
                   </p>
                   <p>
                     <span className="font-medium text-stone-900">Rate:</span>{" "}
                     GBP {listing.hourly_rate_gbp}/hr
+                  </p>
+                  <p>
+                    <span className="font-medium text-stone-900">Spots left:</span>{" "}
+                    {getRemainingShiftPositions(listing)}
                   </p>
                 </div>
 

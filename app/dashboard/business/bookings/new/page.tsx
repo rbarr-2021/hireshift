@@ -147,8 +147,8 @@ export default function BookingEntryPage() {
   );
 
   const durationHours = useMemo(
-    () => calculateBookingDurationHours(startTime, endTime),
-    [endTime, startTime],
+    () => calculateBookingDurationHours(startTime, endTime, date || null, date || null),
+    [date, endTime, startTime],
   );
 
   const totalAmount = useMemo(() => {
@@ -221,6 +221,8 @@ export default function BookingEntryPage() {
       worker_id: workerId,
       business_id: authUserId,
       shift_date: date,
+      shift_end_date: date,
+      shift_listing_id: null,
       start_time: startTime,
       end_time: endTime,
       hourly_rate_gbp: numericRate,
@@ -467,7 +469,7 @@ export default function BookingEntryPage() {
               <p>
                 Time:{" "}
                 <span className="font-medium text-stone-900">
-                  {durationHours > 0 ? formatBookingTimeRange(startTime, endTime) : "Choose a valid time range"}
+                  {durationHours > 0 ? formatBookingTimeRange(startTime, endTime, date || null, date || null) : "Choose a valid time range"}
                 </span>
               </p>
               <p>

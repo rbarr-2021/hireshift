@@ -73,7 +73,12 @@ function BookingCard({
         </p>
         <p>
           <span className="font-medium text-stone-900">Time:</span>{" "}
-          {formatBookingTimeRange(booking.start_time, booking.end_time)}
+          {formatBookingTimeRange(
+            booking.start_time,
+            booking.end_time,
+            booking.shift_date,
+            booking.shift_end_date,
+          )}
         </p>
         <p>
           <span className="font-medium text-stone-900">Rate:</span>{" "}

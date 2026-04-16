@@ -1,5 +1,27 @@
 import type { ShiftListingRecord } from "@/lib/models";
 
+export function deriveShiftEndDate(
+  shiftDate: string,
+  startTime: string,
+  endTime: string,
+) {
+  if (!shiftDate || !startTime || !endTime) {
+    return shiftDate;
+  }
+
+  if (endTime > startTime) {
+    return shiftDate;
+  }
+
+  const startDate = new Date(`${shiftDate}T12:00:00`);
+  startDate.setDate(startDate.getDate() + 1);
+  return startDate.toISOString().slice(0, 10);
+}
+
+export function getRemainingShiftPositions(listing: ShiftListingRecord) {
+  return Math.max(0, listing.open_positions - listing.claimed_positions);
+}
+
 export function formatShiftListingStatus(status: ShiftListingRecord["status"]) {
   const labels: Record<ShiftListingRecord["status"], string> = {
     open: "Open",

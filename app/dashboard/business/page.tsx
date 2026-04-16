@@ -21,6 +21,7 @@ import type {
 import { calculateBusinessProfileCompletion } from "@/lib/business-discovery";
 import {
   formatShiftListingStatus,
+  getRemainingShiftPositions,
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
 
@@ -74,7 +75,12 @@ function BookingCard({
         </p>
         <p>
           <span className="font-medium text-stone-900">Time:</span>{" "}
-          {formatBookingTimeRange(booking.start_time, booking.end_time)}
+          {formatBookingTimeRange(
+            booking.start_time,
+            booking.end_time,
+            booking.shift_date,
+            booking.shift_end_date,
+          )}
         </p>
         <p>
           <span className="font-medium text-stone-900">Rate:</span>{" "}
@@ -427,7 +433,7 @@ export default function BusinessDashboardPage() {
                         {listing.title || listing.role_label}
                       </p>
                       <p className="mt-1 text-sm text-stone-400">
-                        {formatBookingDate(listing.shift_date)} | {formatBookingTimeRange(listing.start_time, listing.end_time)}
+                        {formatBookingDate(listing.shift_date)} | {formatBookingTimeRange(listing.start_time, listing.end_time, listing.shift_date, listing.shift_end_date)}
                       </p>
                     </div>
                     <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${shiftListingStatusClass(listing.status)}`}>
@@ -442,6 +448,10 @@ export default function BusinessDashboardPage() {
                     <p>
                       <span className="font-medium text-stone-100">Location:</span>{" "}
                       {listing.city || listing.location}
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-100">Spots left:</span>{" "}
+                      {getRemainingShiftPositions(listing)} / {listing.open_positions}
                     </p>
                   </div>
                 </article>

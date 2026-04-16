@@ -1,5 +1,9 @@
 import type { BookingRecord, BookingStatus } from "@/lib/models";
 
+function buildDateTime(date: string, time: string) {
+  return new Date(`${date}T${time}`);
+}
+
 export function formatBookingStatus(status: BookingStatus) {
   const labels: Record<BookingStatus, string> = {
     pending: "Pending",
@@ -33,11 +37,35 @@ export function formatBookingDate(date: string) {
   }).format(new Date(`${date}T12:00:00`));
 }
 
-export function formatBookingTimeRange(startTime: string, endTime: string) {
-  return `${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}`;
+export function formatBookingTimeRange(
+  startTime: string,
+  endTime: string,
+  shiftDate?: string | null,
+  shiftEndDate?: string | null,
+) {
+  const suffix =
+    shiftDate && shiftEndDate && shiftEndDate > shiftDate ? " (next day)" : "";
+  return `${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}${suffix}`;
 }
 
-export function calculateBookingDurationHours(startTime: string, endTime: string) {
+export function calculateBookingDurationHours(
+  startTime: string,
+  endTime: string,
+  shiftDate?: string | null,
+  shiftEndDate?: string | null,
+) {
+  if (shiftDate && shiftEndDate) {
+    const start = buildDateTime(shiftDate, startTime);
+    const end = buildDateTime(shiftEndDate, endTime);
+    const durationMinutes = (end.getTime() - start.getTime()) / 60000;
+
+    if (Number.isNaN(durationMinutes) || durationMinutes <= 0) {
+      return 0;
+    }
+
+    return durationMinutes / 60;
+  }
+
   const [startHours, startMinutes] = startTime.split(":").map(Number);
   const [endHours, endMinutes] = endTime.split(":").map(Number);
   const startTotalMinutes = startHours * 60 + startMinutes;
@@ -57,6 +85,8 @@ export function calculateBookingDurationHours(startTime: string, endTime: string
 }
 
 export function isPastBooking(booking: BookingRecord) {
-  const shiftDate = new Date(`${booking.shift_date}T${booking.end_time}`);
+  const shiftDate = new Date(
+    `${booking.shift_end_date ?? booking.shift_date}T${booking.end_time}`,
+  );
   return shiftDate.getTime() < Date.now();
 }
