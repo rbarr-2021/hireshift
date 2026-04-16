@@ -66,7 +66,6 @@ export function matchesWorkerFilters(input: {
       profile.city,
       profile.postcode ?? "",
       profile.availability_summary ?? "",
-      ...profile.skills,
     ]
       .join(" ")
       .toLowerCase();
@@ -77,13 +76,6 @@ export function matchesWorkerFilters(input: {
   }
 
   if (filters.role && profile.job_role !== filters.role) {
-    return false;
-  }
-
-  if (
-    filters.skills.length > 0 &&
-    !filters.skills.every((skill) => profile.skills.includes(skill))
-  ) {
     return false;
   }
 

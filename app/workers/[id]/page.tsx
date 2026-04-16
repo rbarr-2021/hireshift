@@ -179,17 +179,6 @@ export default function WorkerPublicProfilePage() {
             </div>
 
             <div className="panel-soft p-6">
-              <h2 className="text-xl font-semibold text-stone-900">Skills</h2>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {profile.skills.map((skill) => (
-                  <span key={skill} className="rounded-full bg-stone-100 px-3 py-1 text-sm font-medium text-stone-700">
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="panel-soft p-6">
               <h2 className="text-xl font-semibold text-stone-900">Experience</h2>
               <div className="mt-4 space-y-4">
                 <p className="text-sm text-stone-600">
@@ -219,7 +208,6 @@ export default function WorkerPublicProfilePage() {
               <h2 className="text-xl font-semibold text-stone-900">Rates</h2>
               <div className="mt-4 space-y-3 text-sm text-stone-700">
                 <p>Hourly: {profile.hourly_rate_gbp ? `GBP ${profile.hourly_rate_gbp}` : "Not set"}</p>
-                <p>Daily: {profile.daily_rate_gbp ? `GBP ${profile.daily_rate_gbp}` : "Not set"}</p>
               </div>
             </div>
 

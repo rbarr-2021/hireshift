@@ -14,7 +14,6 @@ import {
   APPROVAL_STATUSES,
   DOCUMENT_LABELS,
   DOCUMENT_TYPES,
-  HOSPITALITY_SKILLS,
   type ApprovalStatus,
   type DocumentType,
   type RoleCategoryRecord,
@@ -276,10 +275,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const [primaryRoleId, setPrimaryRoleId] = useState<string | null>(null);
   const [additionalRoleIds, setAdditionalRoleIds] = useState<string[]>([]);
   const [bio, setBio] = useState("");
-  const [skills, setSkills] = useState<string[]>([]);
-  const [customSkill, setCustomSkill] = useState("");
   const [hourlyRate, setHourlyRate] = useState<string>("");
-  const [dailyRate, setDailyRate] = useState<string>("");
   const [yearsExperience, setYearsExperience] = useState<string>("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
@@ -420,12 +416,8 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         );
         setJobRole(matchedPrimaryRole?.label ?? profile.job_role ?? "");
         setBio(profile.bio ?? "");
-        setSkills(profile.skills ?? []);
         setHourlyRate(
           profile.hourly_rate_gbp !== null ? String(profile.hourly_rate_gbp) : "",
-        );
-        setDailyRate(
-          profile.daily_rate_gbp !== null ? String(profile.daily_rate_gbp) : "",
         );
         setYearsExperience(String(profile.years_experience ?? ""));
         setCity(profile.city);
@@ -495,8 +487,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       fullName.trim().length > 0,
       bio.trim().length >= 60,
       Boolean(primaryRoleId),
-      skills.length >= 2,
-      hourlyRate.trim().length > 0 || dailyRate.trim().length > 0,
+      hourlyRate.trim().length > 0,
       yearsExperience.trim().length > 0,
       city.trim().length > 0,
       travelRadius.trim().length > 0,
@@ -510,29 +501,16 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   }, [
     bio,
     city,
-    dailyRate,
     fullName,
     hourlyRate,
     primaryRoleId,
     photoFile,
     photoUrl,
     selectedAvailabilityCount,
-    skills.length,
     travelRadius,
     workHistory,
     yearsExperience,
   ]);
-
-  const addCustomSkill = () => {
-    const nextSkill = customSkill.trim();
-
-    if (!nextSkill || skills.includes(nextSkill)) {
-      return;
-    }
-
-    setSkills((current) => [...current, nextSkill]);
-    setCustomSkill("");
-  };
 
   const handlePrimaryRoleChange = (roleId: string) => {
     const nextRole = rolesById.get(roleId);
@@ -566,10 +544,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     if (bio.trim().length < 60) return "Bio should be at least 60 characters.";
     if (!primaryRoleId) return "Choose your main role.";
     if (additionalRoleIds.length > 3) return "You can add up to three additional roles.";
-    if (skills.length < 2) return "Add at least two skills.";
-    if (!hourlyRate.trim() && !dailyRate.trim()) {
-      return "Set at least an hourly rate or a daily rate.";
-    }
+    if (!hourlyRate.trim()) return "Set your hourly rate.";
     if (!yearsExperience.trim()) return "Years of experience is required.";
     if (!city.trim()) return "Base location is required.";
     if (!travelRadius.trim()) return "Travel radius is required.";
@@ -816,9 +791,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         job_role: primaryRole?.label ?? jobRole,
         primary_role_id: primaryRoleId,
         bio: bio.trim(),
-        skills,
         hourly_rate_gbp: hourlyRate ? Number(hourlyRate) : null,
-        daily_rate_gbp: dailyRate ? Number(dailyRate) : null,
         years_experience: Number(yearsExperience),
         city: city.trim(),
         postcode: postcode.trim() || null,
@@ -1142,69 +1115,12 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
-                <h2 className="text-lg font-semibold text-stone-900">Skills and rates</h2>
+                <h2 className="text-lg font-semibold text-stone-900">Rates</h2>
                 <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Help businesses understand what you do best and how you price your work.
+                  Set a clear hourly rate so businesses know what to expect before they book you.
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
-                    Core skills
-                  </label>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {HOSPITALITY_SKILLS.map((skill) => {
-                      const selected = skills.includes(skill);
-                      return (
-                        <button
-                          key={skill}
-                          type="button"
-                          onClick={() =>
-                            setSkills((current) =>
-                              current.includes(skill)
-                                ? current.filter((item) => item !== skill)
-                                : [...current, skill],
-                            )
-                          }
-                          className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                            selected
-                              ? "border-stone-900 bg-stone-900 text-white"
-                              : "border-stone-200 bg-stone-50 text-stone-700 hover:border-stone-400"
-                          }`}
-                        >
-                          {skill}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {skills
-                      .filter((skill) => !HOSPITALITY_SKILLS.includes(skill as never))
-                      .map((skill) => (
-                        <span key={skill} className="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-700">
-                          {skill}
-                        </span>
-                      ))}
-                  </div>
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                    <input
-                      value={customSkill}
-                      onChange={(event) => setCustomSkill(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addCustomSkill();
-                        }
-                      }}
-                      className="input"
-                      placeholder="Add a custom skill"
-                    />
-                    <button type="button" onClick={addCustomSkill} className="primary-btn w-full px-5 sm:w-auto">
-                      Add
-                    </button>
-                  </div>
-                </div>
-
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">
                     Hourly rate (GBP)
@@ -1217,21 +1133,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                     onChange={(event) => setHourlyRate(event.target.value)}
                     className="input"
                     placeholder="18.50"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
-                    Daily rate (GBP)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.50"
-                    value={dailyRate}
-                    onChange={(event) => setDailyRate(event.target.value)}
-                    className="input"
-                    placeholder="150.00"
+                    required
                   />
                 </div>
 

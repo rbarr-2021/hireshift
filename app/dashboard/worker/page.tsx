@@ -213,8 +213,7 @@ export default function WorkerDashboardPage() {
       Boolean(profile.profile_photo_url),
       Boolean(profile.bio),
       Boolean(profile.job_role),
-      profile.skills.length >= 2,
-      Boolean(profile.hourly_rate_gbp || profile.daily_rate_gbp),
+      Boolean(profile.hourly_rate_gbp),
       Boolean(profile.city),
       Boolean(profile.travel_radius_miles),
       availabilitySlots.length > 0,
@@ -453,7 +452,6 @@ export default function WorkerDashboardPage() {
               <p className="text-sm text-stone-500">Rates</p>
               <p className="mt-1 font-medium text-stone-900">
                 {profile?.hourly_rate_gbp ? `GBP ${profile.hourly_rate_gbp}/hr` : "No hourly rate"}
-                {profile?.daily_rate_gbp ? ` | GBP ${profile.daily_rate_gbp}/day` : ""}
               </p>
             </div>
             <div>
@@ -463,9 +461,9 @@ export default function WorkerDashboardPage() {
               </p>
             </div>
             <div>
-              <p className="text-sm text-stone-500">Skills</p>
+              <p className="text-sm text-stone-500">Experience</p>
               <p className="mt-1 font-medium text-stone-900">
-                {profile?.skills?.length ? profile.skills.join(", ") : "No skills selected"}
+                {profile?.years_experience ? `${profile.years_experience} years` : "No experience added"}
               </p>
             </div>
           </div>

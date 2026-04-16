@@ -20,7 +20,7 @@ const audienceCards = [
   {
     label: "For businesses",
     title: "Find reliable hospitality staff faster",
-    body: "Discover workers by role, skills, rates, and availability without recruiter friction.",
+    body: "Discover workers by role, rate, and availability without recruiter friction.",
     cta: "Find Staff",
     href: "/signup",
   },

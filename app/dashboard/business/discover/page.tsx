@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   HOSPITALITY_ROLES,
-  HOSPITALITY_SKILLS,
   WEEK_DAYS,
   type ReviewRecord,
   type WorkerAvailabilitySlotRecord,
@@ -22,7 +21,6 @@ import {
 const initialFilters: WorkerDiscoveryFilters = {
   query: "",
   role: "",
-  skills: [],
   availableDay: "",
   maxHourlyRate: "",
   location: "",
@@ -205,7 +203,7 @@ export default function BusinessWorkerDiscoveryPage() {
             Search and shortlist hospitality workers
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-            Filter workers by role, skills, availability, rates, city, minimum
+            Filter workers by role, availability, rates, city, minimum
             rating, and travel radius. Booking stays as a placeholder entry point
             in this phase.
           </p>
@@ -274,33 +272,6 @@ export default function BusinessWorkerDiscoveryPage() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium text-stone-700">Skills</p>
-              <div className="grid gap-2">
-                {HOSPITALITY_SKILLS.slice(0, 8).map((skill) => {
-                  const checked = filters.skills.includes(skill);
-                  return (
-                    <label key={skill} className="flex items-center gap-2 text-sm text-stone-700">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => {
-                          setPage(1);
-                          setFilters((current) => ({
-                            ...current,
-                            skills: event.target.checked
-                              ? [...current.skills, skill]
-                              : current.skills.filter((item) => item !== skill),
-                          }));
-                        }}
-                      />
-                      {skill}
-                    </label>
-                  );
-                })}
-              </div>
             </div>
 
             <div>
@@ -490,32 +461,6 @@ export default function BusinessWorkerDiscoveryPage() {
                     </select>
                   </div>
                   <div>
-                    <p className="mb-2 text-sm font-medium text-stone-700">Skills</p>
-                    <div className="grid gap-2">
-                      {HOSPITALITY_SKILLS.slice(0, 8).map((skill) => {
-                        const checked = filters.skills.includes(skill);
-                        return (
-                          <label key={skill} className="flex items-center gap-2 text-sm text-stone-700">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(event) => {
-                                setPage(1);
-                                setFilters((current) => ({
-                                  ...current,
-                                  skills: event.target.checked
-                                    ? [...current.skills, skill]
-                                    : current.skills.filter((item) => item !== skill),
-                                }));
-                              }}
-                            />
-                            {skill}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
                     <label className="mb-2 block text-sm font-medium text-stone-700">
                       Availability day
                     </label>
@@ -669,7 +614,7 @@ export default function BusinessWorkerDiscoveryPage() {
             <div className="mobile-empty-state">
               <h2 className="text-xl font-semibold text-stone-900">No workers match those filters</h2>
               <p className="mt-3 text-sm text-stone-600">
-                Try broadening the search, role, skills, or location filters.
+                Try broadening the search, role, rate, or location filters.
               </p>
             </div>
           ) : (
@@ -710,19 +655,10 @@ export default function BusinessWorkerDiscoveryPage() {
                       {worker.bio || "No profile summary available yet."}
                     </p>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {worker.skills.slice(0, 5).map((skill) => (
-                        <span key={skill} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-
                     <div className="mt-4 grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
                       <p>
                         <span className="font-medium">Rates:</span>{" "}
                         {worker.hourly_rate_gbp ? `GBP ${worker.hourly_rate_gbp}/hr` : "No hourly rate"}
-                        {worker.daily_rate_gbp ? ` | GBP ${worker.daily_rate_gbp}/day` : ""}
                       </p>
                       <p>
                         <span className="font-medium">Experience:</span>{" "}

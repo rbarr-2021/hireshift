@@ -240,21 +240,6 @@ export const WORKER_ROLE_TAXONOMY = [
   },
 ] as const;
 
-export const HOSPITALITY_SKILLS = [
-  "Cocktail service",
-  "Wine knowledge",
-  "POS systems",
-  "Food safety",
-  "Plating",
-  "Prep",
-  "Stock control",
-  "Customer service",
-  "Events",
-  "Cash handling",
-  "Coffee",
-  "Team leadership",
-] as const;
-
 export const BUSINESS_SECTORS = [
   "Restaurant",
   "Bar",
@@ -303,7 +288,6 @@ export const WEEK_DAYS = [
 
 export type UserRole = (typeof USER_ROLES)[number];
 export type HospitalityRole = string;
-export type HospitalitySkill = (typeof HOSPITALITY_SKILLS)[number];
 export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
@@ -366,9 +350,7 @@ export type WorkerProfileRecord = {
   job_role: string;
   primary_role_id: string | null;
   bio: string | null;
-  skills: string[];
   hourly_rate_gbp: number | null;
-  daily_rate_gbp: number | null;
   years_experience: number;
   city: string;
   postcode: string | null;
@@ -467,7 +449,6 @@ export type BookingRecord = {
 export type WorkerDiscoveryFilters = {
   query: string;
   role: HospitalityRole | "";
-  skills: string[];
   availableDay: number | "";
   maxHourlyRate: string;
   location: string;
