@@ -9,11 +9,12 @@ import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
 import {
   getResetPasswordRedirectUrl,
-  getRoleHome,
-  getRoleSetupPath,
+  getRoleEntryPath,
   hasSelectedRole,
   resolveAuthState,
+  sanitiseAppRedirectPath,
 } from "@/lib/auth-client";
+import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
 
 export default function Login() {
@@ -28,30 +29,40 @@ export default function Login() {
   const submitLockRef = useRef(false);
   const submitAttemptRef = useRef(0);
 
+  const getPendingRedirect = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    return sanitiseAppRedirectPath(searchParams.get("redirect")) ?? readPostAuthIntent();
+  };
+
   useEffect(() => {
     if (authLoading || !appUser) {
       return;
     }
 
+    const redirectTarget = getPendingRedirect();
+
     console.info("[auth] redirect decision", {
       reason: hasSelectedRole(appUser)
         ? appUser.onboarding_complete
           ? "login-to-dashboard"
-          : "login-to-onboarding"
+          : appUser.role === "worker"
+            ? "login-to-shifts"
+            : "login-to-onboarding"
         : "login-to-role-select",
       pathname: "/login",
     });
 
     if (!hasSelectedRole(appUser)) {
-        router.replace("/role-select");
+        router.replace(redirectTarget ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}` : "/role-select");
         return;
     }
 
-    router.replace(
-      appUser.onboarding_complete
-        ? getRoleHome(appUser.role)
-        : getRoleSetupPath(appUser.role),
-    );
+    clearPostAuthIntent();
+    router.replace(getRoleEntryPath(appUser.role, appUser.onboarding_complete, redirectTarget));
   }, [appUser, authLoading, router]);
 
   useEffect(() => {
@@ -131,13 +142,32 @@ export default function Login() {
       }
 
       if (!hasSelectedRole(resolved.appUser)) {
+        const redirectTarget = getPendingRedirect();
         setMessage("Login successful. Choose whether you are looking for work or hiring staff.");
         showToast({
           title: "Choose your role",
           description: "Tell KruVii whether you are joining as a worker or a business.",
           tone: "success",
         });
-        router.push("/role-select");
+        router.push(
+          redirectTarget
+            ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}`
+            : "/role-select",
+        );
+        return;
+      }
+
+      const redirectTarget = getPendingRedirect();
+
+      if (!resolved.appUser.onboarding_complete && resolved.appUser.role === "worker") {
+        setMessage("Login successful. Browse shifts now, and complete your profile when you take your first one.");
+        showToast({
+          title: "Browse shifts",
+          description: "You can explore available shifts before completing your worker profile.",
+          tone: "success",
+        });
+        clearPostAuthIntent();
+        router.push(getRoleEntryPath("worker", false, redirectTarget));
         return;
       }
 
@@ -148,12 +178,13 @@ export default function Login() {
           description: "Finish your setup to reach your dashboard.",
           tone: "success",
         });
-        router.push(getRoleSetupPath(resolved.appUser.role));
+        router.push(getRoleEntryPath(resolved.appUser.role, false, redirectTarget));
         return;
       }
 
       setMessage("Login successful. Redirecting to your dashboard.");
-      router.push(getRoleHome(resolved.appUser.role));
+      clearPostAuthIntent();
+      router.push(getRoleEntryPath(resolved.appUser.role, true, redirectTarget));
       showToast({ title: "Welcome back", description: "You're signed in and ready to go.", tone: "success" });
     } catch (error) {
       const nextMessage =

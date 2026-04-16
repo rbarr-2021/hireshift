@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AvailabilityCalendar } from "@/components/worker/availability-calendar";
 import { WorkerRolePicker } from "@/components/worker/role-picker";
+import { sanitiseAppRedirectPath } from "@/lib/auth-client";
 import { getAddressFromCurrentLocation } from "@/lib/geolocation";
+import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -269,6 +271,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const { refreshAuthState } = useAuthState();
   const { showToast } = useToast();
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [jobRole, setJobRole] = useState("");
   const [roleCategories, setRoleCategories] = useState<RoleCategoryRecord[]>([]);
   const [roleCatalog, setRoleCatalog] = useState<RoleRecord[]>([]);
@@ -391,6 +394,9 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       if (appUser?.display_name) {
         setFullName(appUser.display_name);
       }
+      if (appUser?.phone) {
+        setPhone(appUser.phone);
+      }
 
       if (profile) {
         const primaryWorkerRole =
@@ -485,15 +491,13 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const completion = useMemo(() => {
     const completedChecks = [
       fullName.trim().length > 0,
-      bio.trim().length >= 60,
+      phone.trim().length > 0,
+      bio.trim().length >= 24,
       Boolean(primaryRoleId),
-      hourlyRate.trim().length > 0,
       yearsExperience.trim().length > 0,
       city.trim().length > 0,
       travelRadius.trim().length > 0,
       selectedAvailabilityCount > 0,
-      workHistory.some((item) => item.venue.trim() && item.role.trim()),
-      Boolean(photoUrl || photoFile),
     ];
 
     const score = completedChecks.filter(Boolean).length;
@@ -502,13 +506,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     bio,
     city,
     fullName,
-    hourlyRate,
+    phone,
     primaryRoleId,
-    photoFile,
-    photoUrl,
     selectedAvailabilityCount,
     travelRadius,
-    workHistory,
     yearsExperience,
   ]);
 
@@ -541,10 +542,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
   const validateProfile = () => {
     if (!fullName.trim()) return "Full name is required.";
-    if (bio.trim().length < 60) return "Bio should be at least 60 characters.";
+    if (!phone.trim()) return "Phone number is required.";
+    if (bio.trim().length < 24) return "Add a short work summary so businesses know your background.";
     if (!primaryRoleId) return "Choose your main role.";
     if (additionalRoleIds.length > 3) return "You can add up to three additional roles.";
-    if (!hourlyRate.trim()) return "Set your hourly rate.";
     if (!yearsExperience.trim()) return "Years of experience is required.";
     if (!city.trim()) return "Base location is required.";
     if (!travelRadius.trim()) return "Travel radius is required.";
@@ -704,7 +705,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
       const { data: appUser, error: appUserError } = await supabase
         .from("users")
-        .select("id, role, onboarding_complete")
+        .select("id, role, phone, onboarding_complete")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -808,6 +809,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         userUpdate: {
           id: user.id,
           role: "worker",
+          phone: phone.trim() || null,
           onboarding_complete: true,
         },
         workerProfilePayload,
@@ -833,6 +835,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           .from("users")
           .update({
             display_name: fullName.trim(),
+            phone: phone.trim() || null,
             role: "worker",
             role_selected: true,
             onboarding_complete: true,
@@ -948,15 +951,23 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       );
 
       if (mode === "onboarding") {
+        const redirectTarget =
+          typeof window !== "undefined"
+            ? sanitiseAppRedirectPath(
+                new URLSearchParams(window.location.search).get("redirect"),
+              ) ?? readPostAuthIntent()
+            : null;
+
         console.info("[auth] redirect decision", {
           reason: "worker-onboarding-complete",
           pathname: "/profile/setup/worker",
           hasSession: true,
           authUserId: user.id,
           role: "worker",
-          target: "/dashboard/worker",
+          target: redirectTarget ?? "/dashboard/worker",
         });
-        router.push("/dashboard/worker");
+        clearPostAuthIntent();
+        router.push(redirectTarget ?? "/dashboard/worker");
       } else {
         router.refresh();
       }
@@ -1068,6 +1079,19 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   />
                 </div>
 
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-stone-700">
+                    Phone number
+                  </label>
+                  <input
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    className="input"
+                    placeholder="07..."
+                    required
+                  />
+                </div>
+
                 <div className="md:col-span-2">
                   <WorkerRolePicker
                     categories={roleCategories}
@@ -1103,11 +1127,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                     value={bio}
                     onChange={(event) => setBio(event.target.value)}
                     className="input min-h-36 resize-y"
-                    placeholder="Share your hospitality background, strengths, shift preferences, and guest service style."
+                    placeholder="Share a short summary of your hospitality background and the kinds of shifts you usually cover."
                     required
                   />
                   <p className="mt-2 text-xs text-stone-500">
-                    Minimum 60 characters so businesses get enough context.
+                    A short summary is enough for your first shift.
                   </p>
                 </div>
               </div>

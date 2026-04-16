@@ -9,11 +9,12 @@ import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
 import {
   getAppBaseUrl,
-  getRoleHome,
-  getRoleSetupPath,
+  getRoleEntryPath,
   hasSelectedRole,
   resolveAuthState,
+  sanitiseAppRedirectPath,
 } from "@/lib/auth-client";
+import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
 
@@ -84,6 +85,15 @@ export default function Signup() {
   const submitLockRef = useRef(false);
   const submitAttemptRef = useRef(0);
 
+  const getPendingRedirect = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    return sanitiseAppRedirectPath(searchParams.get("redirect")) ?? readPostAuthIntent();
+  };
+
   useEffect(() => {
     if (cooldownSeconds <= 0) {
       return;
@@ -103,11 +113,15 @@ export default function Signup() {
       return;
     }
 
+    const redirectTarget = getPendingRedirect();
+
     console.info("[auth] redirect decision", {
       reason: hasSelectedRole(appUser)
         ? appUser.onboarding_complete
           ? "signup-to-dashboard"
-          : "signup-to-onboarding"
+          : appUser.role === "worker"
+            ? "signup-to-shifts"
+            : "signup-to-onboarding"
         : "signup-to-role-select",
       pathname: "/signup",
       hasSession: true,
@@ -116,15 +130,16 @@ export default function Signup() {
     });
 
     if (!hasSelectedRole(appUser)) {
-        router.replace("/role-select");
+        router.replace(
+          redirectTarget
+            ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}`
+            : "/role-select",
+        );
         return;
     }
 
-    router.replace(
-      appUser.onboarding_complete
-        ? getRoleHome(appUser.role)
-        : getRoleSetupPath(appUser.role),
-    );
+    clearPostAuthIntent();
+    router.replace(getRoleEntryPath(appUser.role, appUser.onboarding_complete, redirectTarget));
   }, [appUser, authLoading, router]);
 
   const getStrength = (value: string) => {
@@ -261,13 +276,19 @@ export default function Signup() {
           description: "Next up: choose whether you're looking for work or hiring staff.",
           tone: "success",
         });
-        router.push("/role-select");
+        const redirectTarget = getPendingRedirect();
+        router.push(
+          redirectTarget
+            ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}`
+            : "/role-select",
+        );
         return;
       }
 
       setMessage(
         "Account created. Check your email to verify your address, then log in.",
       );
+      clearPostAuthIntent();
       clearSessionHintCookie();
       showToast({
         title: "Check your inbox",

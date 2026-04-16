@@ -1,0 +1,295 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useAuthState } from "@/components/auth/auth-provider";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast-provider";
+import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import { rememberPostAuthIntent } from "@/lib/post-auth-intent";
+import type {
+  BusinessProfileRecord,
+  ShiftListingRecord,
+  UserRecord,
+} from "@/lib/models";
+import {
+  formatShiftListingStatus,
+  shiftListingStatusClass,
+} from "@/lib/shift-listings";
+import { supabase } from "@/lib/supabase";
+
+type BusinessSummary = {
+  name: string;
+  city: string;
+  contact: string;
+};
+
+function formatSupabaseError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: string }).message);
+  }
+
+  return "Unable to take this shift right now.";
+}
+
+export default function ShiftDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { appUser } = useAuthState();
+  const { showToast } = useToast();
+  const shiftId = params.id as string;
+  const [listing, setListing] = useState<ShiftListingRecord | null>(null);
+  const [business, setBusiness] = useState<BusinessSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [taking, setTaking] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const intentTake =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("intent") === "take";
+
+  useEffect(() => {
+    let active = true;
+
+    const loadShift = async () => {
+      const { data, error } = await supabase
+        .from("shift_listings")
+        .select("*")
+        .eq("id", shiftId)
+        .maybeSingle<ShiftListingRecord>();
+
+      if (!active) {
+        return;
+      }
+
+      if (error) {
+        setMessage(error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        setLoading(false);
+        return;
+      }
+
+      const [userResult, profileResult] = await Promise.all([
+        supabase.from("users").select("*").eq("id", data.business_id).maybeSingle<UserRecord>(),
+        supabase
+          .from("business_profiles")
+          .select("*")
+          .eq("user_id", data.business_id)
+          .maybeSingle<BusinessProfileRecord>(),
+      ]);
+
+      if (!active) {
+        return;
+      }
+
+      setListing(data);
+      setBusiness({
+        name:
+          profileResult.data?.business_name ||
+          userResult.data?.display_name ||
+          "Hospitality business",
+        city: profileResult.data?.city || data.city || "",
+        contact:
+          profileResult.data?.contact_name ||
+          userResult.data?.email ||
+          "Business contact",
+      });
+
+      if (intentTake && appUser?.onboarding_complete) {
+        setMessage("Profile complete - you're ready to take this shift.");
+      }
+
+      setLoading(false);
+    };
+
+    void loadShift();
+
+    return () => {
+      active = false;
+    };
+  }, [appUser?.onboarding_complete, intentTake, shiftId]);
+
+  const handleTakeShift = async () => {
+    if (!listing) {
+      return;
+    }
+
+    const targetPath = `/shifts/${listing.id}?intent=take`;
+    rememberPostAuthIntent(targetPath);
+
+    if (!appUser) {
+      router.push(`/login?redirect=${encodeURIComponent(targetPath)}`);
+      return;
+    }
+
+    if (!appUser.onboarding_complete) {
+      showToast({
+        title: "Complete your profile to take this shift",
+        description: "Just a few details before your first shift. You only need to do this once.",
+        tone: "info",
+      });
+      router.push(`/profile/setup/worker?redirect=${encodeURIComponent(targetPath)}`);
+      return;
+    }
+
+    setTaking(true);
+    setMessage(null);
+
+    const { error } = await supabase.rpc("claim_shift_listing", {
+      target_listing_id: listing.id,
+    });
+
+    setTaking(false);
+
+    if (error) {
+      const nextMessage = formatSupabaseError(error);
+      setMessage(nextMessage);
+      showToast({
+        title: "Shift could not be taken",
+        description: nextMessage,
+        tone: "error",
+      });
+      return;
+    }
+
+    showToast({
+      title: "Shift secured",
+      description: "Nice one - this shift is now in your upcoming work.",
+      tone: "success",
+    });
+    router.replace("/dashboard/worker");
+  };
+
+  const shiftLength = useMemo(() => {
+    if (!listing) {
+      return "";
+    }
+
+    const [startHour, startMinute] = listing.start_time.split(":").map(Number);
+    const [endHour, endMinute] = listing.end_time.split(":").map(Number);
+    const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+    if (minutes <= 0) {
+      return "";
+    }
+
+    return `${minutes / 60} hours`;
+  }, [listing]);
+
+  if (loading) {
+    return (
+      <section className="public-section">
+        <div className="panel p-5 sm:p-7">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="mt-4 h-10 w-64" />
+          <Skeleton className="mt-4 h-32 w-full" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!listing) {
+    return (
+      <section className="public-section">
+        <div className="mobile-empty-state">
+          <h1 className="text-2xl font-semibold text-stone-900">Shift unavailable</h1>
+          <p className="mt-3 text-sm text-stone-600">
+            This shift is no longer open or could not be loaded.
+          </p>
+          <Link href="/shifts" className="primary-btn mt-6 px-6">
+            Browse shifts
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="public-section space-y-6">
+      <div className="panel p-5 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="section-label">Shift details</p>
+            <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
+              {listing.title || listing.role_label}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-stone-600">
+              {business?.name || "Hospitality business"}
+              {business?.city ? ` | ${business.city}` : ""}
+            </p>
+          </div>
+          <span
+            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${shiftListingStatusClass(listing.status)}`}
+          >
+            {formatShiftListingStatus(listing.status)}
+          </span>
+        </div>
+      </div>
+
+      {message ? <div className="info-banner">{message}</div> : null}
+
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="panel-soft p-5 sm:p-6">
+          <h2 className="text-xl font-semibold text-stone-900">What you need to know</h2>
+          <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
+            <p><span className="font-medium text-stone-900">Role:</span> {listing.role_label}</p>
+            <p><span className="font-medium text-stone-900">Date:</span> {formatBookingDate(listing.shift_date)}</p>
+            <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(listing.start_time, listing.end_time)}</p>
+            <p><span className="font-medium text-stone-900">Shift length:</span> {shiftLength || "TBC"}</p>
+            <p><span className="font-medium text-stone-900">Rate:</span> GBP {listing.hourly_rate_gbp}/hr</p>
+            <p><span className="font-medium text-stone-900">Location:</span> {listing.location}</p>
+          </div>
+          <div className="mt-5 rounded-3xl border border-white/10 bg-black/40 p-4 text-sm leading-7 text-stone-500">
+            {listing.description || "No extra shift notes yet."}
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <section className="panel-soft p-5 sm:p-6">
+            <h2 className="text-xl font-semibold text-stone-900">Business snapshot</h2>
+            <div className="mt-4 space-y-3 text-sm text-stone-600">
+              <p className="font-medium text-stone-900">{business?.name || "Hospitality business"}</p>
+              <p>{business?.contact || "Business contact"}</p>
+              <p>{business?.city || listing.city || "Location to be confirmed"}</p>
+            </div>
+          </section>
+
+          <section className="panel-soft p-5 sm:p-6">
+            <h2 className="text-xl font-semibold text-stone-900">Ready to take it?</h2>
+            <p className="mt-3 text-sm leading-6 text-stone-600">
+              {appUser?.onboarding_complete
+                ? "You are shift-ready. Take this shift now and it will move straight into your accepted work."
+                : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
+            </p>
+            <div className="mt-5 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleTakeShift}
+                disabled={taking || listing.status !== "open"}
+                className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {taking
+                  ? "Taking shift..."
+                  : appUser?.onboarding_complete
+                    ? "Take shift"
+                    : "Complete profile to take shift"}
+              </button>
+              <Link href="/shifts" className="secondary-btn w-full">
+                Back to shifts
+              </Link>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  );
+}

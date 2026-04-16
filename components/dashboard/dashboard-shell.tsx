@@ -9,11 +9,13 @@ import type { UserRecord } from "@/lib/models";
 
 const workerLinks = [
   { href: "/dashboard/worker", label: "Overview", mobileLabel: "Home" },
+  { href: "/shifts", label: "Browse Shifts", mobileLabel: "Shifts" },
   { href: "/dashboard/worker/profile", label: "Manage Profile", mobileLabel: "Profile" },
 ];
 
 const businessLinks = [
   { href: "/dashboard/business", label: "Overview", mobileLabel: "Home" },
+  { href: "/dashboard/business/shifts/new", label: "Post Shift", mobileLabel: "Post" },
   { href: "/dashboard/business/profile", label: "Manage Profile", mobileLabel: "Profile" },
   { href: "/dashboard/business/discover", label: "Discover Workers", mobileLabel: "Discover" },
 ];

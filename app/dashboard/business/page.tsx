@@ -14,10 +14,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type {
   BookingRecord,
   BusinessProfileRecord,
+  ShiftListingRecord,
   UserRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import { calculateBusinessProfileCompletion } from "@/lib/business-discovery";
+import {
+  formatShiftListingStatus,
+  shiftListingStatusClass,
+} from "@/lib/shift-listings";
 
 function statusStyles(status: string) {
   if (status === "verified") return "bg-emerald-100 text-emerald-900";
@@ -117,6 +122,7 @@ export default function BusinessDashboardPage() {
   const [profile, setProfile] = useState<BusinessProfileRecord | null>(null);
   const [workerCount, setWorkerCount] = useState(0);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [shiftListings, setShiftListings] = useState<ShiftListingRecord[]>([]);
   const [workersById, setWorkersById] = useState<Record<string, WorkerSnapshot>>({});
   const [loading, setLoading] = useState(true);
 
@@ -132,7 +138,7 @@ export default function BusinessDashboardPage() {
         return;
       }
 
-      const [profileResult, workersResult, bookingsResult] = await Promise.all([
+      const [profileResult, workersResult, bookingsResult, shiftListingsResult] = await Promise.all([
         supabase
           .from("business_profiles")
           .select("*")
@@ -141,6 +147,12 @@ export default function BusinessDashboardPage() {
         supabase.from("worker_profiles").select("user_id"),
         supabase
           .from("bookings")
+          .select("*")
+          .eq("business_id", user.id)
+          .order("shift_date", { ascending: true })
+          .order("start_time", { ascending: true }),
+        supabase
+          .from("shift_listings")
           .select("*")
           .eq("business_id", user.id)
           .order("shift_date", { ascending: true })
@@ -181,6 +193,7 @@ export default function BusinessDashboardPage() {
       setProfile(profileResult.data ?? null);
       setWorkerCount(((workersResult.data as Pick<WorkerProfileRecord, "user_id">[] | null) ?? []).length);
       setBookings(nextBookings);
+      setShiftListings((shiftListingsResult.data as ShiftListingRecord[] | null) ?? []);
       setWorkersById(nextWorkerMap);
       setLoading(false);
     };
@@ -217,6 +230,16 @@ export default function BusinessDashboardPage() {
           isPastBooking(booking),
       ),
     [bookings],
+  );
+
+  const openShiftListings = useMemo(
+    () => shiftListings.filter((listing) => listing.status === "open"),
+    [shiftListings],
+  );
+
+  const claimedShiftListings = useMemo(
+    () => shiftListings.filter((listing) => listing.status === "claimed"),
+    [shiftListings],
   );
 
   if (loading) {
@@ -268,6 +291,12 @@ export default function BusinessDashboardPage() {
           >
             Discover workers
           </Link>
+          <Link
+            href="/dashboard/business/shifts/new"
+            className="secondary-btn w-full px-6 sm:w-auto"
+          >
+            Post a shift
+          </Link>
         </div>
       </div>
 
@@ -292,6 +321,18 @@ export default function BusinessDashboardPage() {
           <p className="mt-2 text-xs uppercase tracking-[0.16em] text-stone-500">
             {workerCount} workers available to discover
           </p>
+        </section>
+        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-stone-500">Open shift listings</p>
+              <p className="mt-2 text-3xl font-semibold text-stone-900">{openShiftListings.length}</p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-stone-500">
+              <span>{claimedShiftListings.length} claimed</span>
+              <span>{shiftListings.length} total listings</span>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -370,6 +411,53 @@ export default function BusinessDashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="panel-soft p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-stone-900">Shift listings</h2>
+            <Link href="/dashboard/business/shifts/new" className="secondary-btn px-4 py-2">
+              Create listing
+            </Link>
+          </div>
+          <div className="mt-4 space-y-4">
+            {shiftListings.length > 0 ? (
+              shiftListings.slice(0, 4).map((listing) => (
+                <article key={listing.id} className="rounded-3xl border border-white/10 bg-black/40 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-stone-100">
+                        {listing.title || listing.role_label}
+                      </p>
+                      <p className="mt-1 text-sm text-stone-400">
+                        {formatBookingDate(listing.shift_date)} | {formatBookingTimeRange(listing.start_time, listing.end_time)}
+                      </p>
+                    </div>
+                    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${shiftListingStatusClass(listing.status)}`}>
+                      {formatShiftListingStatus(listing.status)}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm text-stone-400 sm:grid-cols-2">
+                    <p>
+                      <span className="font-medium text-stone-100">Rate:</span>{" "}
+                      {formatCurrency(listing.hourly_rate_gbp)}/hr
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-100">Location:</span>{" "}
+                      {listing.city || listing.location}
+                    </p>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <EmptyState
+                title="No shift listings yet"
+                description="Create your first open shift so workers can discover it before you send direct booking requests."
+                actionHref="/dashboard/business/shifts/new"
+                actionLabel="Post a shift"
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Business profile snapshot</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
@@ -405,7 +493,8 @@ export default function BusinessDashboardPage() {
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
           <div className="info-banner mt-4">
             Keep your venue profile accurate so workers trust your requests, then use
-            discovery to fill urgent gaps and repeat shifts faster.
+            discovery to fill urgent gaps, or post open shift listings so workers can
+            raise their hand before you shortlist anyone.
           </div>
         </section>
       </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerAuthListener, supabase } from "@/lib/supabase";
-import { getRoleHome, getRoleSetupPath, hasSelectedRole, resolveAuthState } from "@/lib/auth-client";
+import { getRoleEntryPath, hasSelectedRole, resolveAuthState } from "@/lib/auth-client";
 import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
 
@@ -62,9 +62,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
 
   const dashboardHref =
     user && hasSelectedRole(user)
-      ? user.onboarding_complete
-        ? getRoleHome(user.role)
-        : getRoleSetupPath(user.role)
+      ? getRoleEntryPath(user.role, user.onboarding_complete)
       : "/role-select";
 
   return (

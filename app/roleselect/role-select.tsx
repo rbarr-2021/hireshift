@@ -6,7 +6,12 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
-import { getRoleHome, getRoleSetupPath, hasSelectedRole } from "@/lib/auth-client";
+import {
+  getRoleEntryPath,
+  hasSelectedRole,
+  sanitiseAppRedirectPath,
+} from "@/lib/auth-client";
+import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import type { UserRecord, UserRole } from "@/lib/models";
 
 type SupabaseLikeError = {
@@ -138,6 +143,15 @@ export default function RoleSelect() {
   const { loading: authLoading, hasSession, authUserId, refreshAuthState } = useAuthState();
   const { showToast } = useToast();
 
+  const getPendingRedirect = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    return sanitiseAppRedirectPath(searchParams.get("redirect")) ?? readPostAuthIntent();
+  };
+
   useEffect(() => {
     if (authLoading) {
       return;
@@ -175,9 +189,18 @@ export default function RoleSelect() {
         }
 
         if (hasSelectedRole(data) && data.role) {
-          const target = data.onboarding_complete ? getRoleHome(data.role) : getRoleSetupPath(data.role);
+          const target = getRoleEntryPath(
+            data.role,
+            data.onboarding_complete,
+            getPendingRedirect(),
+          );
           console.info("[auth] redirect decision", {
-            reason: data.onboarding_complete ? "role-select-to-home" : "role-select-to-onboarding",
+            reason:
+              data.onboarding_complete
+                ? "role-select-to-home"
+                : data.role === "worker"
+                  ? "role-select-to-shifts"
+                  : "role-select-to-onboarding",
             pathname: "/role-select",
             hasSession,
             authUserId: user.id,
@@ -265,9 +288,19 @@ export default function RoleSelect() {
 
     showToast({
       title: "Role selected",
-      description: role === "business" ? "Business onboarding is ready." : "Worker onboarding is ready.",
+      description:
+        role === "business"
+          ? "Business onboarding is ready."
+          : "You can browse shifts now and complete your worker profile when you take your first one.",
       tone: "success",
     });
+
+    const redirectTarget =
+      role === "worker" ? getPendingRedirect() : null;
+    const target =
+      role === "business"
+        ? "/profile/setup/business"
+        : getRoleEntryPath("worker", false, redirectTarget);
 
     console.info("[auth] redirect decision", {
       reason: "role-select-complete",
@@ -275,11 +308,12 @@ export default function RoleSelect() {
       hasSession,
       authUserId: user.id,
       role,
-      target: role === "business" ? "/profile/setup/business" : "/profile/setup/worker",
+      target,
     });
-    router.push(
-      role === "business" ? "/profile/setup/business" : "/profile/setup/worker",
-    );
+    if (role === "worker") {
+      clearPostAuthIntent();
+    }
+    router.push(target);
   };
 
   return (
@@ -310,8 +344,8 @@ export default function RoleSelect() {
           >
             <p className="text-lg font-semibold">Worker</p>
             <p className="mt-2 text-sm leading-6 opacity-80">
-              Create a hospitality profile, set your rate and travel radius, and
-              get ready to accept temporary shifts.
+              Start browsing available shifts now, then complete a few details
+              before you take your first one.
             </p>
           </button>
           <button
@@ -345,10 +379,12 @@ export default function RoleSelect() {
             disabled={bootstrapping || loading || !role}
           >
             {bootstrapping
-              ? "Loading role step..."
+                ? "Loading role step..."
               : loading
                 ? "Saving role..."
-                : "Continue to onboarding"}
+                : role === "worker"
+                  ? "Continue to shifts"
+                  : "Continue to onboarding"}
           </button>
         </div>
         <div className="mobile-sticky-bar bottom-3 md:hidden">
@@ -362,7 +398,9 @@ export default function RoleSelect() {
               ? "Loading role step..."
               : loading
                 ? "Saving role..."
-                : "Continue to onboarding"}
+                : role === "worker"
+                  ? "Continue to shifts"
+                  : "Continue to onboarding"}
           </button>
         </div>
       </div>

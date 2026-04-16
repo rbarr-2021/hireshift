@@ -256,6 +256,7 @@ export const BOOKING_STATUSES = [
   "completed",
   "cancelled",
 ] as const;
+export const SHIFT_LISTING_STATUSES = ["open", "claimed", "cancelled"] as const;
 export const WORKER_AVAILABILITY_STATUSES = [
   "available",
   "unavailable",
@@ -291,6 +292,7 @@ export type HospitalityRole = string;
 export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+export type ShiftListingStatus = (typeof SHIFT_LISTING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type WorkerAvailabilityStatus = (typeof WORKER_AVAILABILITY_STATUSES)[number];
 export type WorkerRoleCategorySlug = (typeof WORKER_ROLE_TAXONOMY)[number]["slug"];
@@ -442,6 +444,25 @@ export type BookingRecord = {
   status: BookingStatus;
   total_amount_gbp: number;
   platform_fee_gbp: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShiftListingRecord = {
+  id: string;
+  business_id: string;
+  role_label: string;
+  title: string | null;
+  description: string | null;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  hourly_rate_gbp: number;
+  location: string;
+  city: string | null;
+  status: ShiftListingStatus;
+  claimed_worker_id: string | null;
+  claimed_booking_id: string | null;
   created_at: string;
   updated_at: string;
 };

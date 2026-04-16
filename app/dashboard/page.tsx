@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import {
+  getRoleEntryPath,
   getRoleHome,
-  getRoleSetupPath,
   hasSelectedRole,
 } from "@/lib/auth-client";
 
@@ -43,9 +43,9 @@ export default function DashboardPage() {
     }
 
     if (!appUser.onboarding_complete) {
-      const target = getRoleSetupPath(appUser.role);
+      const target = getRoleEntryPath(appUser.role, false);
       console.info("[auth] redirect decision", {
-        reason: "dashboard-to-onboarding",
+        reason: appUser.role === "worker" ? "dashboard-to-shifts" : "dashboard-to-onboarding",
         pathname: "/dashboard",
         hasSession,
         authUserId,
