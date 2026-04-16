@@ -18,6 +18,7 @@ export type GeolocationAddress = {
   addressLine1: string;
   city: string;
   postcode: string;
+  accuracyMeters: number;
 };
 
 function buildAddressLine1(address: ReverseGeocodeAddress | undefined) {
@@ -92,5 +93,6 @@ export async function getAddressFromCurrentLocation(): Promise<GeolocationAddres
     addressLine1,
     city,
     postcode,
+    accuracyMeters: position.coords.accuracy,
   };
 }

@@ -496,11 +496,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       const address = await getAddressFromCurrentLocation();
 
       setCity((current) => current || address.city);
-      setPostcode((current) => current || address.postcode);
 
       showToast({
-        title: "Location added",
-        description: "We used your device location to help fill your base area.",
+        title: "Area added",
+        description: "We used your location to help fill your city. Please check your postcode manually.",
         tone: "success",
       });
     } catch (error) {
@@ -1129,7 +1128,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   </div>
                   <input value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Manchester" required />
                   <p className="mt-2 text-xs text-stone-500">
-                    Optional: use your device location to fill your city and postcode faster.
+                    Optional: use your device location to fill your area, then check your postcode manually.
                   </p>
                 </div>
                 <div>

@@ -175,13 +175,11 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     try {
       const address = await getAddressFromCurrentLocation();
 
-      setAddressLine1((current) => current || address.addressLine1);
       setCity((current) => current || address.city);
-      setPostcode((current) => current || address.postcode);
 
       showToast({
-        title: "Location added",
-        description: "We used your device location to help fill your venue address.",
+        title: "Area added",
+        description: "We used your location to help fill your city. Please confirm your street address and postcode manually.",
         tone: "success",
       });
     } catch (error) {
@@ -404,12 +402,12 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
                 disabled={locating}
                 className="secondary-btn w-full px-4 py-2 text-sm sm:w-auto"
               >
-                {locating ? "Finding address..." : "Use my location"}
+                {locating ? "Finding area..." : "Use my location"}
               </button>
             </div>
             <input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className="input" placeholder="Venue address" required />
             <p className="mt-2 text-xs text-stone-500">
-              Optional: use your device location to help fill your address faster.
+              Optional: use your device location to help fill your area, then check your exact street address and postcode manually.
             </p>
           </div>
 
