@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AvailabilityCalendar } from "@/components/worker/availability-calendar";
+import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { getAddressFromCurrentLocation } from "@/lib/geolocation";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
@@ -13,17 +14,18 @@ import {
   APPROVAL_STATUSES,
   DOCUMENT_LABELS,
   DOCUMENT_TYPES,
-  HOSPITALITY_ROLES,
   HOSPITALITY_SKILLS,
   type ApprovalStatus,
   type DocumentType,
-  type HospitalityRole,
+  type RoleCategoryRecord,
+  type RoleRecord,
   type UserRecord,
   type WorkHistoryItem,
   type WorkerAvailabilityRecord,
   type WorkerAvailabilitySlotRecord,
   type WorkerDocumentRecord,
   type WorkerProfileRecord,
+  type WorkerRoleRecord,
 } from "@/lib/models";
 
 type WorkerProfileFormProps = {
@@ -38,6 +40,7 @@ type WorkerSaveStage =
   | "worker-profile-assets"
   | "worker_availability"
   | "worker_availability_slots"
+  | "worker_roles"
   | "worker_documents"
   | "worker-document-storage";
 
@@ -194,6 +197,40 @@ function buildWeeklyCompatibilitySlots(
   }));
 }
 
+function normaliseRoleCatalog(
+  categories: RoleCategoryRecord[],
+  roles: RoleRecord[],
+) {
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+
+  return roles
+    .map((role) => {
+      const category = categoriesById.get(role.category_id);
+
+      return {
+        ...role,
+        category_slug: category?.slug,
+        category_label: category?.label,
+      };
+    })
+    .sort((left, right) => {
+      if ((left.category_label ?? "") === (right.category_label ?? "")) {
+        return left.sort_order - right.sort_order;
+      }
+
+      const leftCategoryOrder =
+        categoriesById.get(left.category_id)?.sort_order ?? Number.MAX_SAFE_INTEGER;
+      const rightCategoryOrder =
+        categoriesById.get(right.category_id)?.sort_order ?? Number.MAX_SAFE_INTEGER;
+
+      if (leftCategoryOrder === rightCategoryOrder) {
+        return left.label.localeCompare(right.label);
+      }
+
+      return leftCategoryOrder - rightCategoryOrder;
+    });
+}
+
 function normaliseWorkHistory(value: WorkHistoryItem[] | null | undefined) {
   const base = value && value.length > 0 ? value : [EMPTY_WORK_HISTORY];
   return [...base, EMPTY_WORK_HISTORY].slice(0, 3);
@@ -233,7 +270,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const { refreshAuthState } = useAuthState();
   const { showToast } = useToast();
   const [fullName, setFullName] = useState("");
-  const [jobRole, setJobRole] = useState<HospitalityRole>(HOSPITALITY_ROLES[0]);
+  const [jobRole, setJobRole] = useState("");
+  const [roleCategories, setRoleCategories] = useState<RoleCategoryRecord[]>([]);
+  const [roleCatalog, setRoleCatalog] = useState<RoleRecord[]>([]);
+  const [primaryRoleId, setPrimaryRoleId] = useState<string | null>(null);
+  const [additionalRoleIds, setAdditionalRoleIds] = useState<string[]>([]);
   const [bio, setBio] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [customSkill, setCustomSkill] = useState("");
@@ -276,6 +317,9 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       const [
         appUserResult,
         profileResult,
+        roleCategoriesResult,
+        rolesResult,
+        workerRolesResult,
         dateAvailabilityResult,
         weeklyAvailabilityResult,
         documentsResult,
@@ -287,6 +331,20 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             .select("*")
             .eq("user_id", user.id)
             .maybeSingle<WorkerProfileRecord>(),
+          supabase
+            .from("role_categories")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("roles")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("worker_roles")
+            .select("*")
+            .eq("worker_id", user.id),
           supabase
             .from("worker_availability")
             .select("*")
@@ -307,6 +365,14 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
       const appUser = appUserResult.data;
       const profile = profileResult.data;
+      const categories =
+        (roleCategoriesResult.data as RoleCategoryRecord[] | null) ?? [];
+      const roles = normaliseRoleCatalog(
+        categories,
+        (rolesResult.data as RoleRecord[] | null) ?? [],
+      );
+      const workerRoles =
+        (workerRolesResult.data as WorkerRoleRecord[] | null) ?? [];
       const dateAvailability =
         (dateAvailabilityResult.data as WorkerAvailabilityRecord[] | null) ?? [];
       const availabilitySlots =
@@ -314,12 +380,45 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       const workerDocuments =
         (documentsResult.data as WorkerDocumentRecord[] | null) ?? [];
 
+      if (roleCategoriesResult.error || rolesResult.error || workerRolesResult.error) {
+        setMessage(
+          roleCategoriesResult.error?.message ??
+            rolesResult.error?.message ??
+            workerRolesResult.error?.message ??
+            "We could not load the role catalog right now.",
+        );
+      }
+
+      setRoleCategories(categories);
+      setRoleCatalog(roles);
+
       if (appUser?.display_name) {
         setFullName(appUser.display_name);
       }
 
       if (profile) {
-        setJobRole(profile.job_role as HospitalityRole);
+        const primaryWorkerRole =
+          workerRoles.find((workerRole) => workerRole.is_primary) ?? workerRoles[0] ?? null;
+        const matchedPrimaryRole =
+          (primaryWorkerRole
+            ? roles.find((role) => role.id === primaryWorkerRole.role_id)
+            : null) ??
+          (profile.primary_role_id
+            ? roles.find((role) => role.id === profile.primary_role_id)
+            : null) ??
+          roles.find(
+            (role) => role.label.toLowerCase() === profile.job_role.toLowerCase(),
+          ) ??
+          null;
+
+        setPrimaryRoleId(matchedPrimaryRole?.id ?? null);
+        setAdditionalRoleIds(
+          workerRoles
+            .filter((workerRole) => !workerRole.is_primary)
+            .map((workerRole) => workerRole.role_id)
+            .slice(0, 3),
+        );
+        setJobRole(matchedPrimaryRole?.label ?? profile.job_role ?? "");
         setBio(profile.bio ?? "");
         setSkills(profile.skills ?? []);
         setHourlyRate(
@@ -337,6 +436,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         setPhotoPath(profile.profile_photo_path);
         setWorkHistory(normaliseWorkHistory(profile.work_history));
         setApprovalStatus(profile.verification_status);
+      } else {
+        setPrimaryRoleId(null);
+        setAdditionalRoleIds([]);
+        setJobRole("");
       }
 
       setAvailabilityEntries(
@@ -377,11 +480,21 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     [documents, existingDocuments],
   );
 
+  const rolesById = useMemo(
+    () => new Map(roleCatalog.map((role) => [role.id, role])),
+    [roleCatalog],
+  );
+
+  const primaryRole = primaryRoleId ? rolesById.get(primaryRoleId) ?? null : null;
+  const additionalRoles = additionalRoleIds
+    .map((roleId) => rolesById.get(roleId) ?? null)
+    .filter((role): role is RoleRecord => Boolean(role));
+
   const completion = useMemo(() => {
     const completedChecks = [
       fullName.trim().length > 0,
       bio.trim().length >= 60,
-      jobRole.trim().length > 0,
+      Boolean(primaryRoleId),
       skills.length >= 2,
       hourlyRate.trim().length > 0 || dailyRate.trim().length > 0,
       yearsExperience.trim().length > 0,
@@ -400,7 +513,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     dailyRate,
     fullName,
     hourlyRate,
-    jobRole,
+    primaryRoleId,
     photoFile,
     photoUrl,
     selectedAvailabilityCount,
@@ -421,6 +534,21 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     setCustomSkill("");
   };
 
+  const handlePrimaryRoleChange = (roleId: string) => {
+    const nextRole = rolesById.get(roleId);
+
+    setPrimaryRoleId(roleId);
+    setAdditionalRoleIds((current) => current.filter((item) => item !== roleId));
+
+    if (nextRole) {
+      setJobRole(nextRole.label);
+    }
+  };
+
+  const handleAdditionalRolesChange = (roleIds: string[]) => {
+    setAdditionalRoleIds(roleIds.slice(0, 3));
+  };
+
   const updateWorkHistory = (
     index: number,
     field: keyof WorkHistoryItem,
@@ -436,7 +564,8 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const validateProfile = () => {
     if (!fullName.trim()) return "Full name is required.";
     if (bio.trim().length < 60) return "Bio should be at least 60 characters.";
-    if (!jobRole.trim()) return "Select your primary job role.";
+    if (!primaryRoleId) return "Choose your main role.";
+    if (additionalRoleIds.length > 3) return "You can add up to three additional roles.";
     if (skills.length < 2) return "Add at least two skills.";
     if (!hourlyRate.trim() && !dailyRate.trim()) {
       return "Set at least an hourly rate or a daily rate.";
@@ -462,6 +591,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
     if (invalidAvailability) {
       return "Each available date must have a valid time range, and overnight shifts must end after they start.";
+    }
+
+    if (!primaryRole) {
+      return "Your selected primary role could not be matched. Refresh and try again.";
     }
 
     return null;
@@ -658,9 +791,30 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         availabilityEntries,
       );
 
+      const rolePayload = [
+        primaryRoleId
+          ? {
+              worker_id: user.id,
+              role_id: primaryRoleId,
+              is_primary: true,
+            }
+          : null,
+        ...additionalRoleIds.map((roleId) => ({
+          worker_id: user.id,
+          role_id: roleId,
+          is_primary: false,
+        })),
+      ].filter(
+        (
+          entry,
+        ): entry is { worker_id: string; role_id: string; is_primary: boolean } =>
+          Boolean(entry),
+      );
+
       const workerProfilePayload = {
         user_id: user.id,
-        job_role: jobRole,
+        job_role: primaryRole?.label ?? jobRole,
+        primary_role_id: primaryRoleId,
         bio: bio.trim(),
         skills,
         hourly_rate_gbp: hourlyRate ? Number(hourlyRate) : null,
@@ -684,6 +838,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           onboarding_complete: true,
         },
         workerProfilePayload,
+        rolePayload,
         availabilityPayload,
         availabilitySlotPayload,
         documentTypes: DOCUMENT_TYPES.filter((documentType) => documents[documentType]),
@@ -729,6 +884,25 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           error: profileError,
         });
         throw createWorkerSaveError("worker_profiles", profileError);
+      }
+
+      const { error: deleteWorkerRolesError } = await supabase
+        .from("worker_roles")
+        .delete()
+        .eq("worker_id", user.id);
+
+      if (deleteWorkerRolesError) {
+        throw createWorkerSaveError("worker_roles", deleteWorkerRolesError);
+      }
+
+      if (rolePayload.length > 0) {
+        const { error: insertWorkerRolesError } = await supabase
+          .from("worker_roles")
+          .insert(rolePayload);
+
+        if (insertWorkerRolesError) {
+          throw createWorkerSaveError("worker_roles", insertWorkerRolesError);
+        }
       }
 
       const { error: deleteDateAvailabilityError } = await supabase
@@ -921,22 +1095,31 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
-                    Primary job role
-                  </label>
-                  <select
-                    value={jobRole}
-                    onChange={(event) => setJobRole(event.target.value as HospitalityRole)}
-                    className="input"
-                    required
-                  >
-                    {HOSPITALITY_ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
+                <div className="md:col-span-2">
+                  <WorkerRolePicker
+                    categories={roleCategories}
+                    roles={roleCatalog}
+                    primaryRoleId={primaryRoleId}
+                    additionalRoleIds={additionalRoleIds}
+                    onPrimaryRoleChange={handlePrimaryRoleChange}
+                    onAdditionalRoleIdsChange={handleAdditionalRolesChange}
+                    disabled={saving || loading}
+                  />
+                  {primaryRole ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-stone-900 px-3 py-1 text-sm font-medium text-white">
+                        Main role: {primaryRole.label}
+                      </span>
+                      {additionalRoles.map((role) => (
+                        <span
+                          key={role.id}
+                          className="rounded-full bg-stone-100 px-3 py-1 text-sm font-medium text-stone-700"
+                        >
+                          Also covers: {role.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="md:col-span-2">

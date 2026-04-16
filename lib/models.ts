@@ -12,6 +12,234 @@ export const HOSPITALITY_ROLES = [
   "Front of House Supervisor",
 ] as const;
 
+export const WORKER_ROLE_TAXONOMY = [
+  {
+    slug: "back-of-house",
+    label: "Back of House",
+    sortOrder: 1,
+    roles: [
+      {
+        slug: "chef",
+        label: "Chef",
+        searchTerms: ["kitchen", "cook", "line chef"],
+      },
+      {
+        slug: "kitchen-porter",
+        label: "Kitchen Porter",
+        searchTerms: ["kp", "kitchen assistant", "porter"],
+      },
+      {
+        slug: "commis-chef",
+        label: "Commis Chef",
+        searchTerms: ["junior chef", "commis"],
+      },
+      {
+        slug: "demi-chef-de-partie",
+        label: "Demi Chef de Partie",
+        searchTerms: ["demi cdp", "chef de partie"],
+      },
+      {
+        slug: "chef-de-partie",
+        label: "Chef de Partie",
+        searchTerms: ["cdp", "section chef"],
+      },
+      {
+        slug: "senior-chef-de-partie",
+        label: "Senior Chef de Partie",
+        searchTerms: ["senior cdp", "lead cdp"],
+      },
+      {
+        slug: "junior-sous-chef",
+        label: "Junior Sous Chef",
+        searchTerms: ["junior sous", "jr sous"],
+      },
+      {
+        slug: "sous-chef",
+        label: "Sous Chef",
+        searchTerms: ["sous"],
+      },
+      {
+        slug: "head-chef",
+        label: "Head Chef",
+        searchTerms: ["lead chef", "kitchen lead"],
+      },
+      {
+        slug: "executive-head-chef",
+        label: "Executive Head Chef",
+        searchTerms: ["exec chef", "executive chef"],
+      },
+      {
+        slug: "pastry-chef",
+        label: "Pastry Chef",
+        searchTerms: ["dessert", "pastry"],
+      },
+      {
+        slug: "breakfast-chef",
+        label: "Breakfast Chef",
+        searchTerms: ["morning chef", "brunch chef"],
+      },
+      {
+        slug: "prep-chef",
+        label: "Prep Chef",
+        searchTerms: ["preparation", "prep"],
+      },
+      {
+        slug: "grill-chef",
+        label: "Grill Chef",
+        searchTerms: ["grill", "chargrill"],
+      },
+      {
+        slug: "pizza-chef",
+        label: "Pizza Chef",
+        searchTerms: ["pizzaiolo", "pizza"],
+      },
+    ],
+  },
+  {
+    slug: "front-of-house",
+    label: "Front of House",
+    sortOrder: 2,
+    roles: [
+      {
+        slug: "server",
+        label: "Server",
+        searchTerms: ["wait staff", "serving"],
+      },
+      {
+        slug: "food-runner",
+        label: "Food Runner",
+        searchTerms: ["runner", "food service"],
+      },
+      {
+        slug: "waiter",
+        label: "Waiter",
+        searchTerms: ["server", "front of house"],
+      },
+      {
+        slug: "waitress",
+        label: "Waitress",
+        searchTerms: ["server", "front of house"],
+      },
+      {
+        slug: "senior-waiter",
+        label: "Senior Waiter",
+        searchTerms: ["head waiter", "lead server"],
+      },
+      {
+        slug: "host",
+        label: "Host",
+        searchTerms: ["reception", "greeter"],
+      },
+      {
+        slug: "hostess",
+        label: "Hostess",
+        searchTerms: ["reception", "greeter"],
+      },
+      {
+        slug: "front-of-house-supervisor",
+        label: "Front of House Supervisor",
+        searchTerms: ["foh supervisor", "floor supervisor"],
+      },
+      {
+        slug: "supervisor",
+        label: "Supervisor",
+        searchTerms: ["floor supervisor", "service supervisor"],
+      },
+      {
+        slug: "barista",
+        label: "Barista",
+        searchTerms: ["coffee", "espresso"],
+      },
+    ],
+  },
+  {
+    slug: "bar",
+    label: "Bar",
+    sortOrder: 3,
+    roles: [
+      {
+        slug: "bartender",
+        label: "Bartender",
+        searchTerms: ["bar staff", "mixology"],
+      },
+      {
+        slug: "cocktail-bartender",
+        label: "Cocktail Bartender",
+        searchTerms: ["mixologist", "cocktail"],
+      },
+      {
+        slug: "senior-bartender",
+        label: "Senior Bartender",
+        searchTerms: ["lead bartender", "bar lead"],
+      },
+      {
+        slug: "bar-supervisor",
+        label: "Bar Supervisor",
+        searchTerms: ["bar lead", "supervisor"],
+      },
+      {
+        slug: "bar-manager",
+        label: "Bar Manager",
+        searchTerms: ["bar operations", "manager"],
+      },
+    ],
+  },
+  {
+    slug: "management",
+    label: "Management",
+    sortOrder: 4,
+    roles: [
+      {
+        slug: "assistant-manager",
+        label: "Assistant Manager",
+        searchTerms: ["assistant gm", "deputy manager"],
+      },
+      {
+        slug: "duty-manager",
+        label: "Duty Manager",
+        searchTerms: ["shift manager", "duty"],
+      },
+      {
+        slug: "restaurant-manager",
+        label: "Restaurant Manager",
+        searchTerms: ["rm", "operations manager"],
+      },
+      {
+        slug: "general-manager",
+        label: "General Manager",
+        searchTerms: ["gm", "venue manager"],
+      },
+    ],
+  },
+  {
+    slug: "events-support",
+    label: "Events / Support",
+    sortOrder: 5,
+    roles: [
+      {
+        slug: "event-staff",
+        label: "Event Staff",
+        searchTerms: ["events", "festival staff"],
+      },
+      {
+        slug: "porter",
+        label: "Porter",
+        searchTerms: ["support", "portering"],
+      },
+      {
+        slug: "runner",
+        label: "Runner",
+        searchTerms: ["general runner", "support runner"],
+      },
+      {
+        slug: "catering-assistant",
+        label: "Catering Assistant",
+        searchTerms: ["catering", "assistant"],
+      },
+    ],
+  },
+] as const;
+
 export const HOSPITALITY_SKILLS = [
   "Cocktail service",
   "Wine knowledge",
@@ -74,13 +302,44 @@ export const WEEK_DAYS = [
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
-export type HospitalityRole = (typeof HOSPITALITY_ROLES)[number];
+export type HospitalityRole = string;
 export type HospitalitySkill = (typeof HOSPITALITY_SKILLS)[number];
 export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type WorkerAvailabilityStatus = (typeof WORKER_AVAILABILITY_STATUSES)[number];
+export type WorkerRoleCategorySlug = (typeof WORKER_ROLE_TAXONOMY)[number]["slug"];
+
+export type RoleCategoryRecord = {
+  id: string;
+  slug: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type RoleRecord = {
+  id: string;
+  category_id: string;
+  slug: string;
+  label: string;
+  search_terms: string[] | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  category_slug?: string;
+  category_label?: string;
+};
+
+export type WorkerRoleRecord = {
+  id: string;
+  worker_id: string;
+  role_id: string;
+  is_primary: boolean;
+  created_at: string;
+};
 
 export type UserRecord = {
   id: string;
@@ -105,6 +364,7 @@ export type WorkHistoryItem = {
 export type WorkerProfileRecord = {
   user_id: string;
   job_role: string;
+  primary_role_id: string | null;
   bio: string | null;
   skills: string[];
   hourly_rate_gbp: number | null;
