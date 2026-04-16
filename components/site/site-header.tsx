@@ -76,7 +76,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500 sm:text-xs sm:tracking-[0.28em]">
-              KruVo
+              KruVii
             </p>
             <p className="hidden text-sm text-stone-600 sm:block">
               Hospitality crew marketplace
@@ -105,7 +105,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
                 Log in
               </Link>
               <Link href="/signup" className="primary-btn px-5">
-                {compact ? "Join KruVo" : "Create account"}
+                {compact ? "Join KruVii" : "Create account"}
               </Link>
             </>
           )}

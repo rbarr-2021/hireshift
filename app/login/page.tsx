@@ -134,7 +134,7 @@ export default function Login() {
         setMessage("Login successful. Choose whether you are looking for work or hiring staff.");
         showToast({
           title: "Choose your role",
-          description: "Tell KruVo whether you are joining as a worker or a business.",
+          description: "Tell KruVii whether you are joining as a worker or a business.",
           tone: "success",
         });
         router.push("/role-select");
@@ -206,7 +206,7 @@ export default function Login() {
       <div className="public-shell flex items-center justify-center py-10">
       <div className="panel w-full max-w-md p-5 sm:p-8">
         <p className="section-label">
-          KruVo access
+          KruVii access
         </p>
         <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">Log in</h1>
         <p className="mt-3 text-sm leading-6 text-stone-600">
@@ -258,7 +258,7 @@ export default function Login() {
         </button>
 
         <p className="mt-6 text-center text-sm text-stone-500">
-          New to KruVo?{" "}
+          New to KruVii?{" "}
           <Link href="/signup" className="font-medium text-stone-900 underline">
             Create an account
           </Link>

@@ -47,12 +47,12 @@ export default function HomePage() {
         <section className="public-section">
           <div className="panel px-5 py-10 sm:px-8 sm:py-12 lg:px-14 lg:py-16">
             <div className="mx-auto max-w-4xl text-center">
-              <p className="section-label">KruVo</p>
+              <p className="section-label">KruVii</p>
               <h1 className="mt-5 text-3xl font-semibold leading-tight text-stone-900 sm:text-4xl lg:text-6xl">
                 Hospitality staffing, simplified.
               </h1>
               <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base sm:leading-8 lg:text-lg">
-                KruVo helps businesses find staff and helps workers find opportunities
+                KruVii helps businesses find staff and helps workers find opportunities
                 through a cleaner, faster hospitality marketplace.
               </p>
 
@@ -124,7 +124,7 @@ export default function HomePage() {
           <div className="panel px-5 py-8 text-center sm:px-8 sm:py-10">
             <p className="section-label">Ready to start</p>
             <h2 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
-              Join KruVo and choose your path.
+              Join KruVii and choose your path.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-stone-600">
               Whether you need staff or want work, the next step is the same:

@@ -306,7 +306,7 @@ export default function Signup() {
         className="panel w-full max-w-md p-5 sm:p-8"
       >
         <p className="section-label">
-          Join KruVo
+          Join KruVii
         </p>
         <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
           Create your account

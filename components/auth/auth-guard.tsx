@@ -117,7 +117,7 @@ export function AuthGuard({
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
         <div className="panel w-full max-w-md p-5 text-center sm:p-8">
           <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-            KruVo
+            KruVii
           </p>
           <h1 className="mt-4 text-xl font-semibold text-stone-900 sm:text-2xl">
             Loading your workspace
