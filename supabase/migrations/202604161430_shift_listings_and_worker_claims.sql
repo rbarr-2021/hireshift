@@ -158,6 +158,14 @@ begin
     raise exception 'Complete your profile to take this shift';
   end if;
 
+  if not exists (
+    select 1
+    from public.worker_profiles
+    where user_id = current_user_id
+  ) then
+    raise exception 'Complete your worker profile before taking shifts';
+  end if;
+
   select *
   into target_listing
   from public.shift_listings
