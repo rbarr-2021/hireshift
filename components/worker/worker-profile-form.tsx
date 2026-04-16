@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AvailabilityCalendar } from "@/components/worker/availability-calendar";
+import { getAddressFromCurrentLocation } from "@/lib/geolocation";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -257,6 +258,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("pending");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -479,6 +481,41 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
     if (file) {
       setPhotoUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleUseLocation = async () => {
+    if (locating) {
+      return;
+    }
+
+    setLocating(true);
+    setMessage(null);
+
+    try {
+      const address = await getAddressFromCurrentLocation();
+
+      setCity((current) => current || address.city);
+      setPostcode((current) => current || address.postcode);
+
+      showToast({
+        title: "Location added",
+        description: "We used your device location to help fill your base area.",
+        tone: "success",
+      });
+    } catch (error) {
+      const nextMessage =
+        error instanceof Error
+          ? error.message
+          : "We could not use your location right now.";
+      setMessage(nextMessage);
+      showToast({
+        title: "Location unavailable",
+        description: nextMessage,
+        tone: "error",
+      });
+    } finally {
+      setLocating(false);
     }
   };
 
@@ -1078,9 +1115,22 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">City</label>
+              <div>
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <label className="block text-sm font-medium text-stone-700">City</label>
+                    <button
+                      type="button"
+                      onClick={() => void handleUseLocation()}
+                      disabled={locating}
+                      className="secondary-btn w-full px-4 py-2 text-sm sm:w-auto"
+                    >
+                      {locating ? "Finding area..." : "Use my location"}
+                    </button>
+                  </div>
                   <input value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Manchester" required />
+                  <p className="mt-2 text-xs text-stone-500">
+                    Optional: use your device location to fill your city and postcode faster.
+                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">Postcode</label>

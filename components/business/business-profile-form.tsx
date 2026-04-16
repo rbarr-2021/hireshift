@@ -6,6 +6,7 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
+import { getAddressFromCurrentLocation } from "@/lib/geolocation";
 import {
   BUSINESS_SECTORS,
   type BusinessProfileRecord,
@@ -70,6 +71,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     useState<BusinessProfileRecord["verification_status"]>("pending");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -160,6 +162,42 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     if (!city.trim()) return "City is required.";
     if (!description.trim()) return "Business description is required.";
     return null;
+  };
+
+  const handleUseLocation = async () => {
+    if (locating) {
+      return;
+    }
+
+    setLocating(true);
+    setMessage(null);
+
+    try {
+      const address = await getAddressFromCurrentLocation();
+
+      setAddressLine1((current) => current || address.addressLine1);
+      setCity((current) => current || address.city);
+      setPostcode((current) => current || address.postcode);
+
+      showToast({
+        title: "Location added",
+        description: "We used your device location to help fill your venue address.",
+        tone: "success",
+      });
+    } catch (error) {
+      const nextMessage =
+        error instanceof Error
+          ? error.message
+          : "We could not use your location right now.";
+      setMessage(nextMessage);
+      showToast({
+        title: "Location unavailable",
+        description: nextMessage,
+        tone: "error",
+      });
+    } finally {
+      setLocating(false);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -356,10 +394,23 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-stone-700">
-              Address
-            </label>
+            <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label className="block text-sm font-medium text-stone-700">
+                Address
+              </label>
+              <button
+                type="button"
+                onClick={() => void handleUseLocation()}
+                disabled={locating}
+                className="secondary-btn w-full px-4 py-2 text-sm sm:w-auto"
+              >
+                {locating ? "Finding address..." : "Use my location"}
+              </button>
+            </div>
             <input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className="input" placeholder="Venue address" required />
+            <p className="mt-2 text-xs text-stone-500">
+              Optional: use your device location to help fill your address faster.
+            </p>
           </div>
 
           <div>
