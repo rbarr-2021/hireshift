@@ -29,6 +29,17 @@ const initialFilters = {
   maxRate: "",
 };
 
+function formatShiftBrowseError(errorMessage: string) {
+  if (
+    errorMessage.includes("public.shift_listings") &&
+    errorMessage.toLowerCase().includes("schema cache")
+  ) {
+    return "Shift browsing is not ready in this environment yet. Run the latest Supabase migration, then reload this page.";
+  }
+
+  return errorMessage;
+}
+
 export default function WorkerShiftBrowsePage() {
   const { appUser } = useAuthState();
   const [filters, setFilters] = useState(initialFilters);
@@ -53,7 +64,7 @@ export default function WorkerShiftBrowsePage() {
       }
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(formatShiftBrowseError(error.message));
         setLoading(false);
         return;
       }
@@ -204,6 +215,9 @@ export default function WorkerShiftBrowsePage() {
         <div className="mobile-empty-state">
           <h2 className="text-xl font-semibold text-stone-900">Shift browsing is unavailable</h2>
           <p className="mt-3 text-sm text-stone-600">{errorMessage}</p>
+          <p className="mt-3 text-xs text-stone-500">
+            If you just pulled this feature, run <code>npx supabase db push</code> and try again.
+          </p>
         </div>
       ) : filteredListings.length === 0 ? (
         <div className="mobile-empty-state">

@@ -41,6 +41,19 @@ function formatSupabaseError(error: unknown) {
   return "Unable to post this shift right now.";
 }
 
+function formatShiftListingError(error: unknown) {
+  const nextMessage = formatSupabaseError(error);
+
+  if (
+    nextMessage.includes("public.shift_listings") &&
+    nextMessage.toLowerCase().includes("schema cache")
+  ) {
+    return "Open shift listings are not ready in this environment yet. Run the latest Supabase migration, then try posting again.";
+  }
+
+  return nextMessage;
+}
+
 function buildBusinessLocation(profile: BusinessProfileRecord | null) {
   if (!profile?.address_line_1 || !profile.city) {
     return "";
@@ -100,7 +113,7 @@ export default function NewShiftListingPage() {
       }
 
       if (error) {
-        setMessage(formatSupabaseError(error));
+        setMessage(formatShiftListingError(error));
       }
 
       setBusinessProfile(data ?? null);
@@ -179,7 +192,7 @@ export default function NewShiftListingPage() {
     setSaving(false);
 
     if (error) {
-      const nextMessage = formatSupabaseError(error);
+      const nextMessage = formatShiftListingError(error);
       setMessage(nextMessage);
       showToast({
         title: "Shift listing failed",
@@ -353,7 +366,20 @@ export default function NewShiftListingPage() {
               />
             </label>
 
-            <div className="mobile-sticky-bar flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="hidden items-center justify-between gap-4 sm:flex">
+              <div className="text-sm text-stone-500">
+                Workers will only see this listing while it is still open.
+              </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="primary-btn px-6 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? "Posting shift..." : "Post open shift"}
+              </button>
+            </div>
+
+            <div className="mobile-sticky-bar flex flex-col gap-3 sm:hidden">
               <div className="text-sm text-stone-500">
                 Workers will only see this listing while it is still open.
               </div>
