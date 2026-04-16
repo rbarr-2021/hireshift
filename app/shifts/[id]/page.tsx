@@ -50,6 +50,7 @@ export default function ShiftDetailPage() {
   const shiftId = params.id as string;
   const [listing, setListing] = useState<ShiftListingRecord | null>(null);
   const [business, setBusiness] = useState<BusinessSummary | null>(null);
+  const [workerAlreadyBooked, setWorkerAlreadyBooked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [taking, setTaking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -83,13 +84,24 @@ export default function ShiftDetailPage() {
         return;
       }
 
-      const [userResult, profileResult] = await Promise.all([
+      const bookingResultPromise = appUser?.id
+        ? supabase
+            .from("bookings")
+            .select("id")
+            .eq("worker_id", appUser.id)
+            .eq("shift_listing_id", data.id)
+            .in("status", ["pending", "accepted", "completed"])
+            .limit(1)
+        : Promise.resolve({ data: [], error: null });
+
+      const [userResult, profileResult, bookingResult] = await Promise.all([
         supabase.from("users").select("*").eq("id", data.business_id).maybeSingle<UserRecord>(),
         supabase
           .from("business_profiles")
           .select("*")
           .eq("user_id", data.business_id)
           .maybeSingle<BusinessProfileRecord>(),
+        bookingResultPromise,
       ]);
 
       if (!active) {
@@ -108,9 +120,16 @@ export default function ShiftDetailPage() {
           userResult.data?.email ||
           "Business contact",
       });
+      const hasExistingBooking =
+        ((bookingResult.data as { id: string }[] | null) ?? []).length > 0;
+      setWorkerAlreadyBooked(hasExistingBooking);
 
       if (intentTake && appUser?.onboarding_complete) {
-        setMessage("Profile complete - you're ready to take this shift.");
+        setMessage(
+          hasExistingBooking
+            ? "You've already taken this shift."
+            : "Profile complete - you're ready to take this shift.",
+        );
       }
 
       setLoading(false);
@@ -121,7 +140,7 @@ export default function ShiftDetailPage() {
     return () => {
       active = false;
     };
-  }, [appUser?.onboarding_complete, intentTake, shiftId]);
+  }, [appUser?.id, appUser?.onboarding_complete, intentTake, shiftId]);
 
   const handleTakeShift = async () => {
     if (!listing) {
@@ -279,11 +298,18 @@ export default function ShiftDetailPage() {
               <button
                 type="button"
                 onClick={handleTakeShift}
-                disabled={taking || listing.status !== "open" || getRemainingShiftPositions(listing) === 0}
+                disabled={
+                  taking ||
+                  workerAlreadyBooked ||
+                  listing.status !== "open" ||
+                  getRemainingShiftPositions(listing) === 0
+                }
                 className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {taking
                   ? "Taking shift..."
+                  : workerAlreadyBooked
+                    ? "Already taken"
                   : appUser?.onboarding_complete
                     ? "Take shift"
                     : "Complete profile to take shift"}

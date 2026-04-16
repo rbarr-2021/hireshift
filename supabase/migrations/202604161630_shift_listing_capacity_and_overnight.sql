@@ -147,6 +147,16 @@ begin
     raise exception 'This shift is fully booked';
   end if;
 
+  if exists (
+    select 1
+    from public.bookings
+    where worker_id = current_user_id
+      and shift_listing_id = target_listing_id
+      and status in ('pending', 'accepted', 'completed')
+  ) then
+    raise exception 'You have already taken this shift';
+  end if;
+
   shift_start := (target_listing.shift_date::text || ' ' || target_listing.start_time::text)::timestamp;
   shift_end := (coalesce(target_listing.shift_end_date, target_listing.shift_date)::text || ' ' || target_listing.end_time::text)::timestamp;
 

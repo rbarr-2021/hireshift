@@ -1,3 +1,22 @@
+do $$
+begin
+  if not exists (
+    select 1
+    from public.bookings current_booking
+    join public.bookings duplicate_booking
+      on duplicate_booking.worker_id = current_booking.worker_id
+     and duplicate_booking.shift_listing_id = current_booking.shift_listing_id
+     and duplicate_booking.id <> current_booking.id
+    where current_booking.shift_listing_id is not null
+      and current_booking.status in ('pending', 'accepted', 'completed')
+      and duplicate_booking.status in ('pending', 'accepted', 'completed')
+  ) then
+    create unique index if not exists bookings_worker_shift_listing_unique_idx
+      on public.bookings (worker_id, shift_listing_id)
+      where shift_listing_id is not null;
+  end if;
+end $$;
+
 create or replace function public.claim_shift_listing(target_listing_id uuid)
 returns uuid
 language plpgsql
