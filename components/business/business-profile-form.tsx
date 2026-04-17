@@ -7,7 +7,10 @@ import { supabase } from "@/lib/supabase";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
-import { getAddressFromCurrentLocation } from "@/lib/geolocation";
+import {
+  getAddressFromCurrentLocation,
+  type GeolocationAddress,
+} from "@/lib/geolocation";
 import {
   BUSINESS_SECTORS,
   type BusinessProfileRecord,
@@ -73,6 +76,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [locationSuggestion, setLocationSuggestion] = useState<GeolocationAddress | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -183,12 +187,11 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
 
     try {
       const address = await getAddressFromCurrentLocation();
-
-      setCity((current) => current || address.city);
+      setLocationSuggestion(address);
 
       showToast({
-        title: "Area added",
-        description: "We used your location to help fill your city. Please confirm your street address and postcode manually.",
+        title: "Location found",
+        description: "Review the suggested address details, then choose what you want to use.",
         tone: "success",
       });
     } catch (error) {
@@ -205,6 +208,18 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     } finally {
       setLocating(false);
     }
+  };
+
+  const applySuggestedBusinessLocation = () => {
+    if (!locationSuggestion) {
+      return;
+    }
+
+    setAddressLine1((current) => locationSuggestion.addressLine1 || current);
+    setCity((current) => locationSuggestion.city || current);
+    setPostcode((current) => locationSuggestion.postcode || current);
+    setLocationSuggestion(null);
+    setMessage(null);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -433,8 +448,55 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             </div>
             <input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className="input" placeholder="Venue address" required />
             <p className="mt-2 text-xs text-stone-500">
-              Optional: use your device location to help fill your area, then check your exact street address and postcode manually.
+              Optional: use your device location to get a suggested address, then confirm or edit it before saving.
             </p>
+            {locationSuggestion ? (
+              <div className="panel-soft mt-4 space-y-3 rounded-2xl px-4 py-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-stone-900">
+                      Suggested from your device location
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-stone-600">
+                      Approximate accuracy: within about {Math.round(locationSuggestion.accuracyMeters)}m. Review before using.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLocationSuggestion(null)}
+                    className="secondary-btn px-4 py-2 text-sm"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <div className="grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
+                  <p>
+                    <span className="font-medium text-stone-900">Address:</span>{" "}
+                    {locationSuggestion.addressLine1 || "No street detail found"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-stone-900">Town / city:</span>{" "}
+                    {locationSuggestion.city || "No town/city found"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-stone-900">Postcode:</span>{" "}
+                    {locationSuggestion.postcode || "No postcode found"}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={applySuggestedBusinessLocation}
+                    className="primary-btn w-full px-5 sm:w-auto"
+                  >
+                    Use suggested address
+                  </button>
+                  <p className="text-xs leading-5 text-stone-500 sm:self-center">
+                    You can still edit any field after applying it.
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div>

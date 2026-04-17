@@ -7,7 +7,10 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { AvailabilityCalendar } from "@/components/worker/availability-calendar";
 import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { sanitiseAppRedirectPath } from "@/lib/auth-client";
-import { getAddressFromCurrentLocation } from "@/lib/geolocation";
+import {
+  getAddressFromCurrentLocation,
+  type GeolocationAddress,
+} from "@/lib/geolocation";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
@@ -301,6 +304,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [locationSuggestion, setLocationSuggestion] = useState<GeolocationAddress | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -611,12 +615,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
     try {
       const address = await getAddressFromCurrentLocation();
-
-      setCity((current) => current || address.city);
+      setLocationSuggestion(address);
 
       showToast({
-        title: "Area added",
-        description: "We used your location to help fill your city. Please check your postcode manually.",
+        title: "Location found",
+        description: "Review the suggested area details, then choose whether to use them.",
         tone: "success",
       });
     } catch (error) {
@@ -633,6 +636,17 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     } finally {
       setLocating(false);
     }
+  };
+
+  const applySuggestedWorkerLocation = () => {
+    if (!locationSuggestion) {
+      return;
+    }
+
+    setCity((current) => locationSuggestion.city || current);
+    setPostcode((current) => locationSuggestion.postcode || current);
+    setLocationSuggestion(null);
+    setMessage(null);
   };
 
   const saveDocuments = async (userId: string) => {
@@ -1279,8 +1293,51 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   </div>
                   <input value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Manchester" required />
                   <p className="mt-2 text-xs text-stone-500">
-                    Optional: use your device location to fill your area, then check your postcode manually.
+                    Optional: use your device location to get a suggested area, then confirm it before applying.
                   </p>
+                  {locationSuggestion ? (
+                    <div className="panel-soft mt-4 space-y-3 rounded-2xl px-4 py-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-stone-900">
+                            Suggested from your device location
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-stone-600">
+                            Approximate accuracy: within about {Math.round(locationSuggestion.accuracyMeters)}m. Review before using.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLocationSuggestion(null)}
+                          className="secondary-btn px-4 py-2 text-sm"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                      <div className="grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
+                        <p>
+                          <span className="font-medium text-stone-900">Town / city:</span>{" "}
+                          {locationSuggestion.city || "No town/city found"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-stone-900">Postcode:</span>{" "}
+                          {locationSuggestion.postcode || "No postcode found"}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={applySuggestedWorkerLocation}
+                          className="primary-btn w-full px-5 sm:w-auto"
+                        >
+                          Use suggested area
+                        </button>
+                        <p className="text-xs leading-5 text-stone-500 sm:self-center">
+                          You can still edit the town or postcode after applying it.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">Postcode</label>
