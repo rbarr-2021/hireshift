@@ -268,8 +268,29 @@ function normaliseRoleCatalog(
 }
 
 function normaliseWorkHistory(value: WorkHistoryItem[] | null | undefined) {
-  const base = value && value.length > 0 ? value : [EMPTY_WORK_HISTORY];
-  return [...base, EMPTY_WORK_HISTORY].slice(0, 3);
+  if (!value || value.length === 0) {
+    return [{ ...EMPTY_WORK_HISTORY }];
+  }
+
+  return value.slice(0, 3).map((item) => ({
+    venue: item.venue ?? "",
+    role: item.role ?? "",
+    startYear: item.startYear ?? "",
+    endYear: item.endYear ?? "",
+    summary: item.summary ?? "",
+  }));
+}
+
+function summariseWorkHistoryItem(item: WorkHistoryItem, index: number) {
+  const title = item.role.trim() || item.venue.trim() || `Experience ${index + 1}`;
+  const subtitle = [item.venue.trim(), item.startYear.trim(), item.endYear.trim()]
+    .filter(Boolean)
+    .join(" | ");
+
+  return {
+    title,
+    subtitle: subtitle || "Add the basics for this role",
+  };
 }
 
 function formatSupabaseError(error: unknown) {
@@ -329,6 +350,7 @@ export function WorkerProfileForm({
   const [workHistory, setWorkHistory] = useState<WorkHistoryItem[]>(
     normaliseWorkHistory(undefined),
   );
+  const [expandedWorkHistoryIndex, setExpandedWorkHistoryIndex] = useState(0);
   const [availabilityEntries, setAvailabilityEntries] = useState<WorkerAvailabilityRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentFileState>({});
   const [existingDocuments, setExistingDocuments] = useState<
@@ -506,6 +528,12 @@ export function WorkerProfileForm({
     };
   }, []);
 
+  useEffect(() => {
+    setExpandedWorkHistoryIndex((current) =>
+      current >= workHistory.length ? Math.max(0, workHistory.length - 1) : current,
+    );
+  }, [workHistory.length]);
+
   const selectedAvailabilityCount = useMemo(
     () =>
       availabilityEntries.filter((entry) => entry.status !== "unavailable").length,
@@ -585,6 +613,27 @@ export function WorkerProfileForm({
         itemIndex === index ? { ...item, [field]: value } : item,
       ),
     );
+  };
+
+  const addWorkHistoryItem = () => {
+    setWorkHistory((current) => {
+      if (current.length >= 3) {
+        return current;
+      }
+
+      return [...current, { ...EMPTY_WORK_HISTORY }];
+    });
+    setExpandedWorkHistoryIndex(workHistory.length);
+  };
+
+  const removeWorkHistoryItem = (index: number) => {
+    setWorkHistory((current) => {
+      if (current.length === 1) {
+        return [{ ...EMPTY_WORK_HISTORY }];
+      }
+
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
   };
 
   const validateProfileStep = (stepId: WorkerProfileStepId) => {
@@ -1343,40 +1392,90 @@ export function WorkerProfileForm({
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-              <div>
-                <h2 className="text-lg font-semibold text-stone-900">Experience</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Recent work.</p>
-              </div>
-              <div className="space-y-4">
-                {workHistory.map((item, index) => (
-                  <div key={`history-${index}`} className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-stone-700">Venue / employer</label>
-                        <input value={item.venue} onChange={(event) => updateWorkHistory(index, "venue", event.target.value)} className="input" placeholder="Hotel Indigo" />
+              <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                <div>
+                  <h2 className="text-lg font-semibold text-stone-900">Experience</h2>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">Recent work.</p>
+                </div>
+                <div className="space-y-4">
+                  {workHistory.map((item, index) => {
+                    const summary = summariseWorkHistoryItem(item, index);
+                    const isExpanded = index === expandedWorkHistoryIndex;
+
+                    return (
+                      <div key={`history-${index}`} className="overflow-hidden rounded-3xl border border-stone-200 bg-stone-50">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedWorkHistoryIndex(index)}
+                          className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
+                              Experience {index + 1}
+                            </p>
+                            <p className="mt-2 truncate text-base font-semibold text-stone-900">
+                              {summary.title}
+                            </p>
+                            <p className="mt-1 truncate text-sm text-stone-600">
+                              {summary.subtitle}
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-stone-700">
+                            {isExpanded ? "Open" : "Edit"}
+                          </span>
+                        </button>
+
+                        {isExpanded ? (
+                          <div className="border-t border-stone-200 bg-white p-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-stone-700">Venue / employer</label>
+                                <input value={item.venue} onChange={(event) => updateWorkHistory(index, "venue", event.target.value)} className="input" placeholder="Hotel Indigo" />
+                              </div>
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-stone-700">Role title</label>
+                                <input value={item.role} onChange={(event) => updateWorkHistory(index, "role", event.target.value)} className="input" placeholder="Senior Bartender" />
+                              </div>
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-stone-700">Start year</label>
+                                <input value={item.startYear} onChange={(event) => updateWorkHistory(index, "startYear", event.target.value)} className="input" placeholder="2022" />
+                              </div>
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-stone-700">End year</label>
+                                <input value={item.endYear} onChange={(event) => updateWorkHistory(index, "endYear", event.target.value)} className="input" placeholder="Present" />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="mb-2 block text-sm font-medium text-stone-700">What did you do there?</label>
+                                <textarea value={item.summary} onChange={(event) => updateWorkHistory(index, "summary", event.target.value)} className="input min-h-24 resize-y" placeholder="Shift leadership, stock management, cocktail menu execution..." />
+                              </div>
+                            </div>
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              {workHistory.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeWorkHistoryItem(index)}
+                                  className="secondary-btn px-4"
+                                >
+                                  Remove
+                                </button>
+                              ) : null}
+                              {index === workHistory.length - 1 && workHistory.length < 3 ? (
+                                <button
+                                  type="button"
+                                  onClick={addWorkHistoryItem}
+                                  className="secondary-btn px-4"
+                                >
+                                  Add another role
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-stone-700">Role title</label>
-                        <input value={item.role} onChange={(event) => updateWorkHistory(index, "role", event.target.value)} className="input" placeholder="Senior Bartender" />
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-stone-700">Start year</label>
-                        <input value={item.startYear} onChange={(event) => updateWorkHistory(index, "startYear", event.target.value)} className="input" placeholder="2022" />
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-stone-700">End year</label>
-                        <input value={item.endYear} onChange={(event) => updateWorkHistory(index, "endYear", event.target.value)} className="input" placeholder="Present" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="mb-2 block text-sm font-medium text-stone-700">What did you do there?</label>
-                        <textarea value={item.summary} onChange={(event) => updateWorkHistory(index, "summary", event.target.value)} className="input min-h-24 resize-y" placeholder="Shift leadership, stock management, cocktail menu execution..." />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                    );
+                  })}
+                </div>
+              </section>
             </>
             ) : null}
 
