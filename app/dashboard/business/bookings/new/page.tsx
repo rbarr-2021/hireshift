@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { ShiftTimeRangePicker } from "@/components/forms/shift-time-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import {
@@ -17,6 +18,7 @@ import type {
   UserRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
+import { deriveShiftEndDate } from "@/lib/shift-listings";
 import { supabase } from "@/lib/supabase";
 
 type SupabaseLikeError = {
@@ -146,9 +148,14 @@ export default function BookingEntryPage() {
     [businessProfile],
   );
 
-  const durationHours = useMemo(
-    () => calculateBookingDurationHours(startTime, endTime, date || null, date || null),
+  const shiftEndDate = useMemo(
+    () => (date ? deriveShiftEndDate(date, startTime, endTime) : date),
     [date, endTime, startTime],
+  );
+
+  const durationHours = useMemo(
+    () => calculateBookingDurationHours(startTime, endTime, date || null, shiftEndDate || null),
+    [date, endTime, shiftEndDate, startTime],
   );
 
   const totalAmount = useMemo(() => {
@@ -221,7 +228,7 @@ export default function BookingEntryPage() {
       worker_id: workerId,
       business_id: authUserId,
       shift_date: date,
-      shift_end_date: date,
+      shift_end_date: shiftEndDate,
       shift_listing_id: null,
       start_time: startTime,
       end_time: endTime,
@@ -383,26 +390,15 @@ export default function BookingEntryPage() {
                   required
                 />
               </label>
-              <label className="space-y-2 text-sm text-stone-600">
-                <span className="font-medium text-stone-900">Start time</span>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(event) => setStartTime(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
-                  required
+              <div className="sm:col-span-2">
+                <ShiftTimeRangePicker
+                  startTime={startTime}
+                  endTime={endTime}
+                  onStartTimeChange={setStartTime}
+                  onEndTimeChange={setEndTime}
+                  disabled={saving}
                 />
-              </label>
-              <label className="space-y-2 text-sm text-stone-600">
-                <span className="font-medium text-stone-900">End time</span>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(event) => setEndTime(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
-                  required
-                />
-              </label>
+              </div>
             </div>
 
             <label className="block space-y-2 text-sm text-stone-600">
@@ -469,7 +465,7 @@ export default function BookingEntryPage() {
               <p>
                 Time:{" "}
                 <span className="font-medium text-stone-900">
-                  {durationHours > 0 ? formatBookingTimeRange(startTime, endTime, date || null, date || null) : "Choose a valid time range"}
+                  {durationHours > 0 ? formatBookingTimeRange(startTime, endTime, date || null, shiftEndDate || null) : "Choose a valid time range"}
                 </span>
               </p>
               <p>

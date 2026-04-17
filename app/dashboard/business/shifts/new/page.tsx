@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { ShiftTimeRangePicker } from "@/components/forms/shift-time-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import type {
@@ -392,26 +393,15 @@ export default function NewShiftListingPage() {
                   required
                 />
               </label>
-              <label className="space-y-2 text-sm text-stone-600">
-                <span className="font-medium text-stone-900">Start time</span>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(event) => setStartTime(event.target.value)}
-                  className="input"
-                  required
+              <div className="sm:col-span-2">
+                <ShiftTimeRangePicker
+                  startTime={startTime}
+                  endTime={endTime}
+                  onStartTimeChange={setStartTime}
+                  onEndTimeChange={setEndTime}
+                  disabled={saving}
                 />
-              </label>
-              <label className="space-y-2 text-sm text-stone-600">
-                <span className="font-medium text-stone-900">End time</span>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(event) => setEndTime(event.target.value)}
-                  className="input"
-                  required
-                />
-              </label>
+              </div>
               <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
                 <span className="font-medium text-stone-900">Workers needed per shift</span>
                 <input
