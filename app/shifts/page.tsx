@@ -23,6 +23,12 @@ type ShiftCardBusiness = {
   city: string;
 };
 
+const QUICK_DATE_FILTERS = [
+  { id: "today", label: "Today", offsetDays: 0 },
+  { id: "tomorrow", label: "Tomorrow", offsetDays: 1 },
+  { id: "in-two-days", label: "In 2 days", offsetDays: 2 },
+] as const;
+
 const initialFilters = {
   query: "",
   date: "",
@@ -39,6 +45,13 @@ function formatShiftBrowseError(errorMessage: string) {
   }
 
   return errorMessage;
+}
+
+function getDateOffsetValue(offsetDays: number) {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
 }
 
 export default function WorkerShiftBrowsePage() {
@@ -132,6 +145,14 @@ export default function WorkerShiftBrowsePage() {
     [filters.date, filters.location, filters.maxRate, filters.query, listings],
   );
 
+  const selectedQuickDateId = useMemo(
+    () =>
+      QUICK_DATE_FILTERS.find(
+        (filter) => filters.date === getDateOffsetValue(filter.offsetDays),
+      )?.id ?? null,
+    [filters.date],
+  );
+
   return (
     <section className="public-section space-y-8">
       <div className="panel p-5 sm:p-7">
@@ -166,14 +187,63 @@ export default function WorkerShiftBrowsePage() {
           </label>
           <label className="space-y-2 text-sm text-stone-600">
             <span className="font-medium text-stone-900">Date</span>
-            <input
-              type="date"
-              value={filters.date}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, date: event.target.value }))
-              }
-              className="input"
-            />
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilters((current) => ({ ...current, date: "" }))
+                  }
+                  className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                    !filters.date
+                      ? "bg-stone-900 text-white"
+                      : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                  }`}
+                >
+                  Any day
+                </button>
+                {QUICK_DATE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() =>
+                      setFilters((current) => ({
+                        ...current,
+                        date: getDateOffsetValue(filter.offsetDays),
+                      }))
+                    }
+                    className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                      selectedQuickDateId === filter.id
+                        ? "bg-stone-900 text-white"
+                        : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="date"
+                  value={filters.date}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, date: event.target.value }))
+                  }
+                  className="input"
+                />
+                {filters.date ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilters((current) => ({ ...current, date: "" }))
+                    }
+                    className="secondary-btn px-4 py-3 text-sm"
+                  >
+                    Clear date
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </label>
           <label className="space-y-2 text-sm text-stone-600">
             <span className="font-medium text-stone-900">Location</span>
@@ -257,6 +327,10 @@ export default function WorkerShiftBrowsePage() {
                     {listing.role_label}
                   </p>
                   <p>
+                    <span className="font-medium text-stone-900">Town / city:</span>{" "}
+                    {listing.city || business?.city || "Location to be confirmed"}
+                  </p>
+                  <p>
                     <span className="font-medium text-stone-900">Date:</span>{" "}
                     {formatBookingDate(listing.shift_date)}
                   </p>
@@ -272,6 +346,10 @@ export default function WorkerShiftBrowsePage() {
                   <p>
                     <span className="font-medium text-stone-900">Rate:</span>{" "}
                     GBP {listing.hourly_rate_gbp}/hr
+                  </p>
+                  <p>
+                    <span className="font-medium text-stone-900">Area:</span>{" "}
+                    {listing.location}
                   </p>
                   <p>
                     <span className="font-medium text-stone-900">Spots left:</span>{" "}
