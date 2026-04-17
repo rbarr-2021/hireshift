@@ -33,6 +33,8 @@ begin
     raise exception 'Complete your profile to take this shift';
   end if;
 
+  perform public.ensure_worker_can_take_shifts(current_user_id);
+
   if not exists (
     select 1
     from public.worker_profiles

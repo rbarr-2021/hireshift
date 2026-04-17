@@ -17,9 +17,16 @@ import {
   type BusinessProfileRecord,
   type UserRecord,
   type WorkerAvailabilitySlotRecord,
-  type WorkerDocumentRecord,
   type WorkerProfileRecord,
+  type WorkerReliabilityRecord,
 } from "@/lib/models";
+import {
+  formatBlockedUntil,
+  formatReliabilityStatus,
+  isLateCancellationWindow,
+  isWorkerBlocked,
+  reliabilityStatusClass,
+} from "@/lib/reliability";
 
 function statusStyles(status: string) {
   if (status === "verified") return "bg-emerald-100 text-emerald-900";
@@ -127,8 +134,8 @@ export default function WorkerDashboardPage() {
   const { showToast } = useToast();
   const [profile, setProfile] = useState<WorkerProfileRecord | null>(null);
   const [availabilitySlots, setAvailabilitySlots] = useState<WorkerAvailabilitySlotRecord[]>([]);
-  const [documents, setDocuments] = useState<WorkerDocumentRecord[]>([]);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [reliability, setReliability] = useState<WorkerReliabilityRecord | null>(null);
   const [businessesById, setBusinessesById] = useState<Record<string, BusinessSnapshot>>({});
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
@@ -145,20 +152,24 @@ export default function WorkerDashboardPage() {
         return;
       }
 
-      const [profileResult, availabilityResult, documentsResult, bookingsResult] = await Promise.all([
+      const [profileResult, availabilityResult, bookingsResult, reliabilityResult] = await Promise.all([
         supabase
           .from("worker_profiles")
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle<WorkerProfileRecord>(),
         supabase.from("worker_availability_slots").select("*").eq("worker_id", user.id),
-        supabase.from("worker_documents").select("*").eq("worker_id", user.id),
         supabase
           .from("bookings")
           .select("*")
           .eq("worker_id", user.id)
           .order("shift_date", { ascending: true })
           .order("start_time", { ascending: true }),
+        supabase
+          .from("worker_reliability")
+          .select("*")
+          .eq("worker_id", user.id)
+          .maybeSingle<WorkerReliabilityRecord>(),
       ]);
 
       if (!active) {
@@ -196,8 +207,8 @@ export default function WorkerDashboardPage() {
 
       setProfile(profileResult.data ?? null);
       setAvailabilitySlots((availabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? []);
-      setDocuments((documentsResult.data as WorkerDocumentRecord[] | null) ?? []);
       setBookings(nextBookings);
+      setReliability(reliabilityResult.data ?? null);
       setBusinessesById(nextBusinessMap);
       setLoading(false);
     };
@@ -246,29 +257,45 @@ export default function WorkerDashboardPage() {
     [acceptedJobs],
   );
 
-  const handleBookingResponse = async (
-    bookingId: string,
-    status: "accepted" | "declined",
-  ) => {
+  const reloadBooking = async (bookingId: string) => {
+    const { data } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .maybeSingle<BookingRecord>();
+
+    return data ?? null;
+  };
+
+  const handleBookingResponse = async (bookingId: string, status: "accepted" | "declined") => {
     setActioningId(bookingId);
     console.info("[worker-bookings] update status", { bookingId, status });
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .update({ status })
-      .eq("id", bookingId)
-      .select("*")
-      .maybeSingle<BookingRecord>();
+    const { error } = await supabase.rpc("respond_to_booking_request", {
+      target_booking_id: bookingId,
+      next_status: status,
+    });
 
     setActioningId(null);
 
-    if (error || !data) {
+    if (error) {
       const description = error?.message || "Unable to update the booking response.";
       console.error("[worker-bookings] update failed", { bookingId, status, error });
       showToast({
         title: "Booking update failed",
         description,
         tone: "error",
+      });
+      return;
+    }
+
+    const data = await reloadBooking(bookingId);
+
+    if (!data) {
+      showToast({
+        title: "Booking updated",
+        description: "Refresh the page to see the latest booking status.",
+        tone: "success",
       });
       return;
     }
@@ -283,6 +310,57 @@ export default function WorkerDashboardPage() {
           ? "The business can now see this shift as confirmed."
           : "The business has been updated that you cannot take this shift.",
       tone: "success",
+    });
+  };
+
+  const handleCancelBooking = async (booking: BookingRecord) => {
+    const warningMessage = isLateCancellationWindow(booking)
+      ? "Cancelling this shift now may affect your reliability standing. Continue?"
+      : "Cancel this accepted shift?";
+
+    if (typeof window !== "undefined" && !window.confirm(warningMessage)) {
+      return;
+    }
+
+    setActioningId(booking.id);
+
+    const { error } = await supabase.rpc("worker_cancel_booking", {
+      target_booking_id: booking.id,
+    });
+
+    setActioningId(null);
+
+    if (error) {
+      showToast({
+        title: "Cancellation failed",
+        description: error.message,
+        tone: "error",
+      });
+      return;
+    }
+
+    const refreshedBooking = await reloadBooking(booking.id);
+    const refreshedReliability = await supabase
+      .from("worker_reliability")
+      .select("*")
+      .eq("worker_id", booking.worker_id)
+      .maybeSingle<WorkerReliabilityRecord>();
+
+    if (refreshedBooking) {
+      setBookings((current) =>
+        current.map((item) => (item.id === booking.id ? refreshedBooking : item)),
+      );
+    }
+
+    setReliability(refreshedReliability.data ?? null);
+    showToast({
+      title: isLateCancellationWindow(booking)
+        ? "Late cancellation recorded"
+        : "Shift cancelled",
+      description: isLateCancellationWindow(booking)
+        ? "This cancellation may affect your reliability standing."
+        : "This shift has been released.",
+      tone: isLateCancellationWindow(booking) ? "info" : "success",
     });
   };
 
@@ -330,6 +408,17 @@ export default function WorkerDashboardPage() {
         </Link>
       </div>
 
+      {isWorkerBlocked(reliability) ? (
+        <div className="info-banner border border-red-400/30 bg-red-500/10 text-red-100">
+          Your account is temporarily unable to take new shifts until {formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.
+          Complete future shifts reliably to maintain good standing.
+        </div>
+      ) : reliability?.active_strikes ? (
+        <div className="info-banner">
+          Your reliability standing is currently {formatReliabilityStatus(reliability.reliability_status).toLowerCase()} with {reliability.active_strikes} active strike{reliability.active_strikes === 1 ? "" : "s"}.
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Completion</p>
@@ -346,10 +435,12 @@ export default function WorkerDashboardPage() {
           <p className="mt-2 text-3xl font-semibold text-stone-900">{incomingRequests.length}</p>
         </section>
         <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Upcoming shifts</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">{upcomingShifts.length}</p>
+          <p className="text-sm font-medium text-stone-500">Reliability</p>
+          <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-medium ${reliabilityStatusClass(reliability?.reliability_status ?? "good_standing")}`}>
+            {formatReliabilityStatus(reliability?.reliability_status ?? "good_standing")}
+          </div>
           <p className="mt-2 text-xs uppercase tracking-[0.16em] text-stone-500">
-            {documents.length} docs | {availabilitySlots.length} availability slots
+            {reliability?.active_strikes ?? 0} strikes | {reliability?.completed_shifts_count ?? 0} completed
           </p>
         </section>
       </div>
@@ -410,6 +501,18 @@ export default function WorkerDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   business={businessesById[booking.business_id]}
+                  actions={
+                    !isPastBooking(booking) ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleCancelBooking(booking)}
+                        disabled={actioningId === booking.id}
+                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {actioningId === booking.id ? "Updating..." : "Cancel shift"}
+                      </button>
+                    ) : undefined
+                  }
                 />
               ))
             ) : (

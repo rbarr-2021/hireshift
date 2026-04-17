@@ -255,12 +255,26 @@ export const BOOKING_STATUSES = [
   "declined",
   "completed",
   "cancelled",
+  "no_show",
 ] as const;
 export const SHIFT_LISTING_STATUSES = ["open", "claimed", "cancelled"] as const;
 export const WORKER_AVAILABILITY_STATUSES = [
   "available",
   "unavailable",
   "partial",
+] as const;
+export const WORKER_RELIABILITY_STATUSES = [
+  "good_standing",
+  "warned",
+  "temporarily_blocked",
+] as const;
+export const WORKER_RELIABILITY_EVENT_TYPES = [
+  "completed",
+  "cancelled_early",
+  "cancelled_late",
+  "no_show",
+  "strike_applied",
+  "block_applied",
 ] as const;
 
 export const DOCUMENT_TYPES = [
@@ -295,6 +309,8 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type ShiftListingStatus = (typeof SHIFT_LISTING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type WorkerAvailabilityStatus = (typeof WORKER_AVAILABILITY_STATUSES)[number];
+export type WorkerReliabilityStatus = (typeof WORKER_RELIABILITY_STATUSES)[number];
+export type WorkerReliabilityEventType = (typeof WORKER_RELIABILITY_EVENT_TYPES)[number];
 export type WorkerRoleCategorySlug = (typeof WORKER_ROLE_TAXONOMY)[number]["slug"];
 
 export type RoleCategoryRecord = {
@@ -396,6 +412,30 @@ export type WorkerDocumentRecord = {
   storage_path: string;
   created_at: string;
   updated_at: string;
+};
+
+export type WorkerReliabilityRecord = {
+  worker_id: string;
+  active_strikes: number;
+  reliability_status: WorkerReliabilityStatus;
+  blocked_until: string | null;
+  late_cancellations_count: number;
+  no_show_count: number;
+  completed_shifts_count: number;
+  last_event_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkerReliabilityEventRecord = {
+  id: string;
+  worker_id: string;
+  booking_id: string | null;
+  event_type: WorkerReliabilityEventType;
+  strike_value: number;
+  occurred_at: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 export type ReviewRecord = {

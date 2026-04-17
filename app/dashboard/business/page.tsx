@@ -11,6 +11,7 @@ import {
 } from "@/lib/bookings";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast-provider";
 import type {
   BookingRecord,
   BusinessProfileRecord,
@@ -48,9 +49,11 @@ type WorkerSnapshot = {
 function BookingCard({
   booking,
   worker,
+  actions,
 }: {
   booking: BookingRecord;
   worker?: WorkerSnapshot;
+  actions?: React.ReactNode;
 }) {
   return (
     <article className="panel-soft p-4 sm:p-5">
@@ -96,6 +99,7 @@ function BookingCard({
           {booking.notes}
         </p>
       ) : null}
+      {actions ? <div className="mt-4 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
     </article>
   );
 }
@@ -125,12 +129,14 @@ function EmptyState({
 }
 
 export default function BusinessDashboardPage() {
+  const { showToast } = useToast();
   const [profile, setProfile] = useState<BusinessProfileRecord | null>(null);
   const [workerCount, setWorkerCount] = useState(0);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [shiftListings, setShiftListings] = useState<ShiftListingRecord[]>([]);
   const [workersById, setWorkersById] = useState<Record<string, WorkerSnapshot>>({});
   const [loading, setLoading] = useState(true);
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -231,6 +237,7 @@ export default function BusinessDashboardPage() {
       bookings.filter(
         (booking) =>
           booking.status === "completed" ||
+          booking.status === "no_show" ||
           booking.status === "cancelled" ||
           booking.status === "declined" ||
           isPastBooking(booking),
@@ -247,6 +254,56 @@ export default function BusinessDashboardPage() {
     () => shiftListings.filter((listing) => listing.status === "claimed"),
     [shiftListings],
   );
+
+  const reloadBooking = async (bookingId: string) => {
+    const { data } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .maybeSingle<BookingRecord>();
+
+    return data ?? null;
+  };
+
+  const handleRecordOutcome = async (
+    bookingId: string,
+    outcome: "completed" | "no_show",
+  ) => {
+    setActioningId(bookingId);
+
+    const { error } = await supabase.rpc("business_record_booking_outcome", {
+      target_booking_id: bookingId,
+      outcome,
+    });
+
+    setActioningId(null);
+
+    if (error) {
+      showToast({
+        title: "Could not update booking",
+        description: error.message,
+        tone: "error",
+      });
+      return;
+    }
+
+    const refreshedBooking = await reloadBooking(bookingId);
+
+    if (refreshedBooking) {
+      setBookings((current) =>
+        current.map((booking) => (booking.id === bookingId ? refreshedBooking : booking)),
+      );
+    }
+
+    showToast({
+      title: outcome === "completed" ? "Shift marked completed" : "No-show recorded",
+      description:
+        outcome === "completed"
+          ? "This worker's completed shift has been recorded."
+          : "This no-show has been recorded against the worker's reliability standing.",
+      tone: outcome === "completed" ? "success" : "info",
+    });
+  };
 
   if (loading) {
     return (
@@ -380,6 +437,26 @@ export default function BusinessDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   worker={workersById[booking.worker_id]}
+                  actions={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleRecordOutcome(booking.id, "completed")}
+                        disabled={actioningId === booking.id}
+                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {actioningId === booking.id ? "Updating..." : "Mark completed"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRecordOutcome(booking.id, "no_show")}
+                        disabled={actioningId === booking.id}
+                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        Mark no-show
+                      </button>
+                    </>
+                  }
                 />
               ))
             ) : (

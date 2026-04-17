@@ -11,6 +11,7 @@ export function formatBookingStatus(status: BookingStatus) {
     declined: "Declined",
     completed: "Completed",
     cancelled: "Cancelled",
+    no_show: "No-show",
   };
 
   return labels[status];
@@ -23,6 +24,7 @@ export function bookingStatusClass(status: BookingStatus) {
     declined: "bg-red-100 text-red-900",
     completed: "status-badge status-badge--rating",
     cancelled: "bg-stone-200 text-stone-700",
+    no_show: "bg-red-100 text-red-900",
   };
 
   return classes[status];

@@ -11,11 +11,13 @@ import {
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
+import { formatBlockedUntil, isWorkerBlocked } from "@/lib/reliability";
 import { rememberPostAuthIntent } from "@/lib/post-auth-intent";
 import type {
   BusinessProfileRecord,
   ShiftListingRecord,
   UserRecord,
+  WorkerReliabilityRecord,
 } from "@/lib/models";
 import {
   formatShiftListingStatus,
@@ -51,6 +53,7 @@ export default function ShiftDetailPage() {
   const [listing, setListing] = useState<ShiftListingRecord | null>(null);
   const [business, setBusiness] = useState<BusinessSummary | null>(null);
   const [workerAlreadyBooked, setWorkerAlreadyBooked] = useState(false);
+  const [reliability, setReliability] = useState<WorkerReliabilityRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [taking, setTaking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -94,7 +97,15 @@ export default function ShiftDetailPage() {
             .limit(1)
         : Promise.resolve({ data: [], error: null });
 
-      const [userResult, profileResult, bookingResult] = await Promise.all([
+      const reliabilityResultPromise = appUser?.id
+        ? supabase
+            .from("worker_reliability")
+            .select("*")
+            .eq("worker_id", appUser.id)
+            .maybeSingle<WorkerReliabilityRecord>()
+        : Promise.resolve({ data: null, error: null });
+
+      const [userResult, profileResult, bookingResult, reliabilityResult] = await Promise.all([
         supabase.from("users").select("*").eq("id", data.business_id).maybeSingle<UserRecord>(),
         supabase
           .from("business_profiles")
@@ -102,6 +113,7 @@ export default function ShiftDetailPage() {
           .eq("user_id", data.business_id)
           .maybeSingle<BusinessProfileRecord>(),
         bookingResultPromise,
+        reliabilityResultPromise,
       ]);
 
       if (!active) {
@@ -123,10 +135,13 @@ export default function ShiftDetailPage() {
       const hasExistingBooking =
         ((bookingResult.data as { id: string }[] | null) ?? []).length > 0;
       setWorkerAlreadyBooked(hasExistingBooking);
+      setReliability(reliabilityResult.data ?? null);
 
       if (intentTake && appUser?.onboarding_complete) {
         setMessage(
-          hasExistingBooking
+          isWorkerBlocked(reliabilityResult.data ?? null)
+            ? `Your account is temporarily unable to take new shifts until ${formatBlockedUntil(reliabilityResult.data?.blocked_until) ?? "a later date"}.`
+            : hasExistingBooking
             ? "You've already taken this shift."
             : "Profile complete - you're ready to take this shift.",
         );
@@ -162,6 +177,17 @@ export default function ShiftDetailPage() {
         tone: "info",
       });
       router.push(`/profile/setup/worker?redirect=${encodeURIComponent(targetPath)}`);
+      return;
+    }
+
+    if (isWorkerBlocked(reliability)) {
+      const nextMessage = `Your account is temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`;
+      setMessage(nextMessage);
+      showToast({
+        title: "Shift taking temporarily restricted",
+        description: nextMessage,
+        tone: "error",
+      });
       return;
     }
 
@@ -291,7 +317,9 @@ export default function ShiftDetailPage() {
             <h2 className="text-xl font-semibold text-stone-900">Ready to take it?</h2>
             <p className="mt-3 text-sm leading-6 text-stone-600">
               {appUser?.onboarding_complete
-                ? "You are shift-ready. Take this shift now and it will move straight into your accepted work."
+                ? isWorkerBlocked(reliability)
+                  ? `You are temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`
+                  : "You are shift-ready. Take this shift now and it will move straight into your accepted work."
                 : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
             </p>
             <div className="mt-5 flex flex-col gap-3">
@@ -300,6 +328,7 @@ export default function ShiftDetailPage() {
                 onClick={handleTakeShift}
                 disabled={
                   taking ||
+                  isWorkerBlocked(reliability) ||
                   workerAlreadyBooked ||
                   listing.status !== "open" ||
                   getRemainingShiftPositions(listing) === 0
@@ -310,6 +339,8 @@ export default function ShiftDetailPage() {
                   ? "Taking shift..."
                   : workerAlreadyBooked
                     ? "Already taken"
+                  : isWorkerBlocked(reliability)
+                    ? "Temporarily blocked"
                   : appUser?.onboarding_complete
                     ? "Take shift"
                     : "Complete profile to take shift"}
