@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
+import { processOwnNotificationJobs } from "@/lib/notifications/client";
 import {
   type BookingRecord,
   type BusinessProfileRecord,
@@ -311,6 +312,10 @@ export default function WorkerDashboardPage() {
           : "The business has been updated that you cannot take this shift.",
       tone: "success",
     });
+
+    if (status === "accepted") {
+      void processOwnNotificationJobs();
+    }
   };
 
   const handleCancelBooking = async (booking: BookingRecord) => {

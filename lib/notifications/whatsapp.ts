@@ -28,7 +28,7 @@ function shouldSkipWhatsApp(context: BookingNotificationContext) {
 
 function buildConfirmationMessage(context: BookingNotificationContext) {
   const role = context.roleLabel || "your role";
-  return `You’re booked for ${role} at ${context.businessName} on ${formatBookingDate(
+  return `You're booked for ${role} at ${context.businessName} on ${formatBookingDate(
     context.shiftDate,
   )} at ${formatBookingTimeRange(
     context.startTime,

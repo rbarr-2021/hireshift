@@ -13,6 +13,7 @@ import {
 } from "@/lib/bookings";
 import { formatBlockedUntil, isWorkerBlocked } from "@/lib/reliability";
 import { rememberPostAuthIntent } from "@/lib/post-auth-intent";
+import { processOwnNotificationJobs } from "@/lib/notifications/client";
 import type {
   BusinessProfileRecord,
   ShiftListingRecord,
@@ -216,6 +217,7 @@ export default function ShiftDetailPage() {
       description: "Nice one - this shift is now in your upcoming work.",
       tone: "success",
     });
+    void processOwnNotificationJobs();
     router.replace("/dashboard/worker");
   };
 
