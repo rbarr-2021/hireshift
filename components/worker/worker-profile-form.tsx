@@ -32,6 +32,7 @@ import {
 
 type WorkerProfileFormProps = {
   mode: "onboarding" | "manage";
+  manageSection?: "settings" | "availability";
 };
 
 type WorkerProfileStepId = "about" | "work" | "location" | "availability";
@@ -300,7 +301,10 @@ function createWorkerSaveError(stage: WorkerSaveStage, error: unknown) {
   return nextError;
 }
 
-export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
+export function WorkerProfileForm({
+  mode,
+  manageSection = "settings",
+}: WorkerProfileFormProps) {
   const router = useRouter();
   const { refreshAuthState } = useAuthState();
   const { showToast } = useToast();
@@ -553,6 +557,8 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
   const currentStep = WORKER_PROFILE_STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === WORKER_PROFILE_STEPS.length - 1;
+  const isManageAvailability = mode === "manage" && manageSection === "availability";
+  const isManageSettings = mode === "manage" && manageSection === "settings";
 
   const handlePrimaryRoleChange = (roleId: string) => {
     const nextRole = rolesById.get(roleId);
@@ -1076,7 +1082,11 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   : "Manage your worker profile"}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-                Complete your profile in a few short steps.
+                {mode === "onboarding"
+                  ? "Complete your profile in a few short steps."
+                  : isManageAvailability
+                    ? "Update the dates you can work."
+                    : "Update your profile details."}
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[280px]">
@@ -1102,6 +1112,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            {mode === "onboarding" ? (
             <div className="grid gap-3 lg:grid-cols-4">
               {WORKER_PROFILE_STEPS.map((step, index) => {
                 const isCurrent = index === currentStepIndex;
@@ -1126,27 +1137,40 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 );
               })}
             </div>
+            ) : null}
 
             <div className="rounded-[2rem] border border-stone-200 bg-stone-50 p-5 sm:p-6">
               <div className="flex flex-col gap-3 border-b border-stone-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="section-label">{currentStep.label}</p>
+                  <p className="section-label">
+                    {mode === "onboarding"
+                      ? currentStep.label
+                      : isManageAvailability
+                        ? "Availability"
+                        : "Settings"}
+                  </p>
                   <h2 className="mt-3 text-xl font-semibold text-stone-900 sm:text-2xl">
-                    {currentStep.title}
+                    {mode === "onboarding"
+                      ? currentStep.title
+                      : isManageAvailability
+                        ? "Availability"
+                        : "Profile settings"}
                   </h2>
                 </div>
-                <div className="panel-soft min-w-[160px] px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-                    Progress
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-stone-900">
-                    {currentStepIndex + 1} of {WORKER_PROFILE_STEPS.length}
-                  </p>
-                </div>
+                {mode === "onboarding" ? (
+                  <div className="panel-soft min-w-[160px] px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                      Progress
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-stone-900">
+                      {currentStepIndex + 1} of {WORKER_PROFILE_STEPS.length}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-6">
-            {currentStep.id === "about" ? (
+            {currentStep.id === "about" || isManageSettings ? (
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Identity</h2>
@@ -1278,7 +1302,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             </section>
             ) : null}
 
-            {currentStep.id === "work" ? (
+            {(currentStep.id === "work" || isManageSettings) ? (
             <>
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
@@ -1356,7 +1380,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             </>
             ) : null}
 
-            {currentStep.id === "location" ? (
+            {(currentStep.id === "location" || isManageSettings) ? (
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Location</h2>
@@ -1391,7 +1415,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             </section>
             ) : null}
 
-            {currentStep.id === "availability" ? (
+            {(currentStep.id === "availability" || isManageAvailability) ? (
             <>
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
@@ -1410,35 +1434,37 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-              <div>
-                <h2 className="text-lg font-semibold text-stone-900">Documents</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Optional.</p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                {DOCUMENT_TYPES.map((documentType) => (
-                  <div key={documentType} className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-stone-900">{DOCUMENT_LABELS[documentType]}</p>
-                        <p className="mt-1 text-xs text-stone-500">Optional supporting document</p>
+            {mode === "onboarding" ? (
+              <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                <div>
+                  <h2 className="text-lg font-semibold text-stone-900">Documents</h2>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">Optional.</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {DOCUMENT_TYPES.map((documentType) => (
+                    <div key={documentType} className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-stone-900">{DOCUMENT_LABELS[documentType]}</p>
+                          <p className="mt-1 text-xs text-stone-500">Optional supporting document</p>
+                        </div>
+                        {existingDocuments[documentType] ? (
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">Uploaded</span>
+                        ) : (
+                          <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-700">Optional</span>
+                        )}
                       </div>
-                      {existingDocuments[documentType] ? (
-                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">Uploaded</span>
-                      ) : (
-                        <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-700">Optional</span>
-                      )}
+                      <div className="mt-4">
+                        <input type="file" onChange={(event) => handleDocumentChange(documentType, event)} className="input" />
+                        <p className="mt-2 text-xs text-stone-500">
+                          {documents[documentType]?.name || existingDocuments[documentType]?.file_name || "No file selected"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="mt-4">
-                      <input type="file" onChange={(event) => handleDocumentChange(documentType, event)} className="input" />
-                      <p className="mt-2 text-xs text-stone-500">
-                        {documents[documentType]?.name || existingDocuments[documentType]?.file_name || "No file selected"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             </>
             ) : null}
               </div>
@@ -1452,7 +1478,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
 
             <div className="hidden gap-3 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex gap-3">
-                {currentStepIndex > 0 ? (
+                {mode === "onboarding" && currentStepIndex > 0 ? (
                   <button
                     type="button"
                     onClick={() => setCurrentStepIndex((current) => Math.max(0, current - 1))}
@@ -1467,7 +1493,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 ) : null}
               </div>
               <div className="flex gap-3">
-                {!isLastStep ? (
+                {mode === "onboarding" && !isLastStep ? (
                   <button type="button" onClick={handleContinue} className="primary-btn w-full px-8 sm:w-auto" disabled={saving || loading}>
                     Continue
                   </button>
@@ -1499,7 +1525,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         </div>
         <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
           <div className="flex flex-col gap-3">
-            {!isLastStep ? (
+            {mode === "onboarding" && !isLastStep ? (
               <button
                 type="button"
                 onClick={handleContinue}
@@ -1521,7 +1547,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
               </button>
             )}
-            {currentStepIndex > 0 ? (
+            {mode === "onboarding" && currentStepIndex > 0 ? (
               <button
                 type="button"
                 onClick={() => setCurrentStepIndex((current) => Math.max(0, current - 1))}

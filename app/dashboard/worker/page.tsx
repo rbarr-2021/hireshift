@@ -406,10 +406,10 @@ export default function WorkerDashboardPage() {
           </p>
         </div>
         <Link
-          href="/dashboard/worker/profile"
+          href="/dashboard/worker/availability"
           className="primary-btn w-full px-6 sm:w-auto"
         >
-          Edit worker profile
+          Update availability
         </Link>
       </div>
 

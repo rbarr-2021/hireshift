@@ -10,7 +10,8 @@ import type { UserRecord } from "@/lib/models";
 const workerLinks = [
   { href: "/dashboard/worker", label: "Overview", mobileLabel: "Home" },
   { href: "/shifts", label: "Browse Shifts", mobileLabel: "Shifts" },
-  { href: "/dashboard/worker/profile", label: "Manage Profile", mobileLabel: "Profile" },
+  { href: "/dashboard/worker/availability", label: "Availability", mobileLabel: "Avail" },
+  { href: "/dashboard/worker/settings", label: "Settings", mobileLabel: "Settings" },
 ];
 
 const businessLinks = [
