@@ -34,6 +34,8 @@ type WorkerProfileFormProps = {
   mode: "onboarding" | "manage";
 };
 
+type WorkerProfileStepId = "about" | "work" | "location" | "availability";
+
 type DocumentFileState = Partial<Record<DocumentType, File | null>>;
 type WorkerSaveStage =
   | "auth"
@@ -62,6 +64,37 @@ const EMPTY_WORK_HISTORY: WorkHistoryItem = {
 };
 
 const DEFAULT_FALLBACK_DAYS = 62;
+const WORKER_PROFILE_STEPS: {
+  id: WorkerProfileStepId;
+  label: string;
+  title: string;
+  description: string;
+}[] = [
+  {
+    id: "about",
+    label: "Step 1",
+    title: "About you",
+    description: "Name, role, and intro.",
+  },
+  {
+    id: "work",
+    label: "Step 2",
+    title: "Work details",
+    description: "Rates and experience.",
+  },
+  {
+    id: "location",
+    label: "Step 3",
+    title: "Location",
+    description: "Base area and travel radius.",
+  },
+  {
+    id: "availability",
+    label: "Step 4",
+    title: "Availability",
+    description: "Dates and documents.",
+  },
+];
 
 function sanitiseFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9.-]/g, "-").toLowerCase();
@@ -301,6 +334,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -517,6 +551,9 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     yearsExperience,
   ]);
 
+  const currentStep = WORKER_PROFILE_STEPS[currentStepIndex];
+  const isLastStep = currentStepIndex === WORKER_PROFILE_STEPS.length - 1;
+
   const handlePrimaryRoleChange = (roleId: string) => {
     const nextRole = rolesById.get(roleId);
 
@@ -544,18 +581,40 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     );
   };
 
-  const validateProfile = () => {
-    if (!fullName.trim()) return "Full name is required.";
-    if (!phone.trim()) return "Phone number is required.";
-    if (!normaliseInternationalPhoneNumber(phone)) {
-      return "Enter your mobile number in international format, for example +447700900123.";
+  const validateProfileStep = (stepId: WorkerProfileStepId) => {
+    if (stepId === "about") {
+      if (!fullName.trim()) return "Full name is required.";
+      if (!phone.trim()) return "Phone number is required.";
+      if (!normaliseInternationalPhoneNumber(phone)) {
+        return "Enter your mobile number in international format, for example +447700900123.";
+      }
+      if (bio.trim().length < 24) {
+        return "Add a short work summary so businesses know your background.";
+      }
+      if (!primaryRoleId) return "Choose your main role.";
+      if (additionalRoleIds.length > 3) {
+        return "You can add up to three additional roles.";
+      }
+      if (!primaryRole) {
+        return "Your selected primary role could not be matched. Refresh and try again.";
+      }
+      return null;
     }
-    if (bio.trim().length < 24) return "Add a short work summary so businesses know your background.";
-    if (!primaryRoleId) return "Choose your main role.";
-    if (additionalRoleIds.length > 3) return "You can add up to three additional roles.";
-    if (!yearsExperience.trim()) return "Years of experience is required.";
-    if (!city.trim()) return "Base location is required.";
-    if (!travelRadius.trim()) return "Travel radius is required.";
+
+    if (stepId === "work") {
+      if (!hourlyRate.trim()) return "Hourly rate is required.";
+      if (Number(hourlyRate) <= 0) return "Add a valid hourly rate.";
+      if (!yearsExperience.trim()) return "Years of experience is required.";
+      return null;
+    }
+
+    if (stepId === "location") {
+      if (!city.trim()) return "Base location is required.";
+      if (!travelRadius.trim()) return "Travel radius is required.";
+      if (Number(travelRadius) < 0) return "Travel radius cannot be negative.";
+      return null;
+    }
+
     if (selectedAvailabilityCount === 0) {
       return "Add at least one available date to complete your profile.";
     }
@@ -576,8 +635,15 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
       return "Each available date must have a valid time range, and overnight shifts must end after they start.";
     }
 
-    if (!primaryRole) {
-      return "Your selected primary role could not be matched. Refresh and try again.";
+    return null;
+  };
+
+  const validateProfile = () => {
+    for (const step of WORKER_PROFILE_STEPS) {
+      const error = validateProfileStep(step.id);
+      if (error) {
+        return error;
+      }
     }
 
     return null;
@@ -598,6 +664,38 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
     if (file) {
       setPhotoUrl(URL.createObjectURL(file));
     }
+  };
+
+  const handleContinue = () => {
+    const validationError = validateProfileStep(currentStep.id);
+    setMessage(validationError);
+
+    if (validationError) {
+      return;
+    }
+
+    setCurrentStepIndex((current) =>
+      current < WORKER_PROFILE_STEPS.length - 1 ? current + 1 : current,
+    );
+  };
+
+  const handleStepSelect = (stepIndex: number) => {
+    if (stepIndex <= currentStepIndex) {
+      setCurrentStepIndex(stepIndex);
+      return;
+    }
+
+    for (let index = 0; index < stepIndex; index += 1) {
+      const validationError = validateProfileStep(WORKER_PROFILE_STEPS[index].id);
+      if (validationError) {
+        setMessage(validationError);
+        setCurrentStepIndex(index);
+        return;
+      }
+    }
+
+    setMessage(null);
+    setCurrentStepIndex(stepIndex);
   };
 
   const saveDocuments = async (userId: string) => {
@@ -978,9 +1076,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   : "Manage your worker profile"}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-                Build the public-facing profile businesses will use to assess your
-                experience, rates, travel range, availability, and supporting
-                documents.
+                Complete your profile in a few short steps.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[280px]">
@@ -1005,7 +1101,52 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             <div className="h-full rounded-full bg-stone-900" style={{ width: `${completion}%` }} />
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-8">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <div className="grid gap-3 lg:grid-cols-4">
+              {WORKER_PROFILE_STEPS.map((step, index) => {
+                const isCurrent = index === currentStepIndex;
+
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => handleStepSelect(index)}
+                    className={`rounded-3xl border p-4 text-left transition ${
+                      isCurrent
+                        ? "border-stone-900 bg-stone-900 text-white shadow-lg"
+                        : "border-stone-200 bg-stone-50 text-stone-700"
+                    }`}
+                  >
+                    <p className={`text-xs uppercase tracking-[0.2em] ${isCurrent ? "text-stone-300" : "text-stone-500"}`}>
+                      {step.label}
+                    </p>
+                    <p className="mt-3 text-base font-semibold">{step.label}</p>
+                    <p className={`mt-2 text-sm leading-6 ${isCurrent ? "text-stone-200" : "text-stone-600"}`}>{step.title}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="rounded-[2rem] border border-stone-200 bg-stone-50 p-5 sm:p-6">
+              <div className="flex flex-col gap-3 border-b border-stone-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="section-label">{currentStep.label}</p>
+                  <h2 className="mt-3 text-xl font-semibold text-stone-900 sm:text-2xl">
+                    {currentStep.title}
+                  </h2>
+                </div>
+                <div className="panel-soft min-w-[160px] px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                    Progress
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-stone-900">
+                    {currentStepIndex + 1} of {WORKER_PROFILE_STEPS.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+            {currentStep.id === "about" ? (
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Identity</h2>
@@ -1036,9 +1177,6 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                       Profile photo
                     </label>
                     <input type="file" accept="image/*" onChange={handlePhotoChange} className="input" />
-                    <p className="mt-2 text-xs text-stone-500">
-                      Upload a clear headshot or professional profile image.
-                    </p>
                   </div>
                 </div>
 
@@ -1075,9 +1213,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                     placeholder="+447700900123"
                     required
                   />
-                  <p className="mt-2 text-xs text-stone-500">
-                    Use international format so shift confirmations can reach you on WhatsApp if you opt in later.
-                  </p>
+                  <p className="mt-2 text-xs text-stone-500">Use international format.</p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -1093,7 +1229,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                         Get shift confirmations and reminders on WhatsApp
                       </span>
                       <span className="mt-1 block text-xs leading-5 text-stone-600">
-                        Optional. We will only use your number for booking confirmations and 24-hour reminders.
+                        Optional.
                       </span>
                     </span>
                   </label>
@@ -1134,22 +1270,20 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                     value={bio}
                     onChange={(event) => setBio(event.target.value)}
                     className="input min-h-36 resize-y"
-                    placeholder="Share a short summary of your hospitality background and the kinds of shifts you usually cover."
+                    placeholder="Short intro"
                     required
                   />
-                  <p className="mt-2 text-xs text-stone-500">
-                    A short summary is enough for your first shift.
-                  </p>
                 </div>
               </div>
             </section>
+            ) : null}
 
+            {currentStep.id === "work" ? (
+            <>
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Rates</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Set a clear hourly rate so businesses know what to expect before they book you.
-                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Your rate and level.</p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -1188,9 +1322,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Experience</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Add your recent roles so businesses can see your track record.
-                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Recent work.</p>
               </div>
               <div className="space-y-4">
                 {workHistory.map((item, index) => (
@@ -1221,20 +1353,22 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 ))}
               </div>
             </section>
+            </>
+            ) : null}
 
+            {currentStep.id === "location" ? (
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Location</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Set your base location and how far you are willing to travel.
-                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Where you are based.</p>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="md:col-span-3">
                   <AddressAutocomplete
-                    label="Find your area"
-                    placeholder="Start typing your address, town, or postcode"
-                    helperText="Search for your base area, then tweak the town or postcode manually if needed."
+                    label="Type the first line of your address"
+                    placeholder="Start typing your house number and street"
+                    helperText="Pick your address, then adjust the town or postcode below if needed."
+                    selectionDisplay="addressLine1"
                     onSelect={(suggestion) => {
                       setCity(suggestion.city || "");
                       setPostcode(suggestion.postcode || "");
@@ -1244,9 +1378,6 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">City</label>
                   <input value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Manchester" required />
-                  <p className="mt-2 text-xs text-stone-500">
-                    Keep this editable so your profile shows the area you actually want businesses to search by.
-                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">Postcode</label>
@@ -1258,14 +1389,14 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 </div>
               </div>
             </section>
+            ) : null}
 
+            {currentStep.id === "availability" ? (
+            <>
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Availability</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Mark exact dates on the calendar so businesses can see when you are
-                  free without guessing from a recurring weekly pattern.
-                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Choose your working dates.</p>
               </div>
               <div className="space-y-4">
                 <AvailabilityCalendar
@@ -1282,9 +1413,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Documents</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
-                  Optional uploads for compliance and trust. These are private to the worker account for now.
-                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Optional.</p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {DOCUMENT_TYPES.map((documentType) => (
@@ -1310,6 +1439,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                 ))}
               </div>
             </section>
+            </>
+            ) : null}
+              </div>
+            </div>
 
             {message ? (
               <p className="info-banner">
@@ -1317,15 +1450,33 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
               </p>
             ) : null}
 
-            <div className="hidden gap-3 sm:flex sm:flex-row sm:flex-wrap">
-              <button type="submit" className="primary-btn w-full px-8 sm:w-auto" disabled={saving || loading}>
-                {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
-              </button>
-              {mode === "manage" ? (
-                <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn w-full px-6 sm:w-auto">
-                  Back to dashboard
-                </button>
-              ) : null}
+            <div className="hidden gap-3 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex gap-3">
+                {currentStepIndex > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStepIndex((current) => Math.max(0, current - 1))}
+                    className="secondary-btn w-full px-6 sm:w-auto"
+                  >
+                    Back
+                  </button>
+                ) : mode === "manage" ? (
+                  <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn w-full px-6 sm:w-auto">
+                    Back to dashboard
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex gap-3">
+                {!isLastStep ? (
+                  <button type="button" onClick={handleContinue} className="primary-btn w-full px-8 sm:w-auto" disabled={saving || loading}>
+                    Continue
+                  </button>
+                ) : (
+                  <button type="submit" className="primary-btn w-full px-8 sm:w-auto" disabled={saving || loading}>
+                    {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
@@ -1348,18 +1499,37 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         </div>
         <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
           <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                const form = document.querySelector("form");
-                form?.requestSubmit();
-              }}
-              className="primary-btn w-full"
-              disabled={saving || loading}
-            >
-              {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
-            </button>
-            {mode === "manage" ? (
+            {!isLastStep ? (
+              <button
+                type="button"
+                onClick={handleContinue}
+                className="primary-btn w-full"
+                disabled={saving || loading}
+              >
+                Continue
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const form = document.querySelector("form");
+                  form?.requestSubmit();
+                }}
+                className="primary-btn w-full"
+                disabled={saving || loading}
+              >
+                {saving ? "Saving worker profile..." : mode === "onboarding" ? "Complete worker profile" : "Save changes"}
+              </button>
+            )}
+            {currentStepIndex > 0 ? (
+              <button
+                type="button"
+                onClick={() => setCurrentStepIndex((current) => Math.max(0, current - 1))}
+                className="secondary-btn w-full"
+              >
+                Back
+              </button>
+            ) : mode === "manage" ? (
               <button type="button" onClick={() => router.push("/dashboard/worker")} className="secondary-btn w-full">
                 Back to dashboard
               </button>

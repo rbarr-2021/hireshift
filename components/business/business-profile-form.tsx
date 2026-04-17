@@ -387,6 +387,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               label="Find your venue address"
               placeholder="Start typing your venue address or postcode"
               helperText="Search and pick your venue address, then adjust any field below if needed."
+              selectionDisplay="addressLine1"
               onSelect={(suggestion) => {
                 setAddressLine1(suggestion.addressLine1 || "");
                 setCity(suggestion.city || "");

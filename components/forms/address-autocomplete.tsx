@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AddressSuggestion } from "@/lib/address-search";
 
 type AddressAutocompleteProps = {
@@ -8,25 +8,65 @@ type AddressAutocompleteProps = {
   placeholder: string;
   helperText?: string;
   onSelect: (suggestion: AddressSuggestion) => void;
+  selectionDisplay?: "label" | "addressLine1";
 };
+
+const MIN_ADDRESS_QUERY_LENGTH = 4;
+const ADDRESS_SEARCH_DEBOUNCE_MS = 450;
 
 export function AddressAutocomplete({
   label,
   placeholder,
   helperText,
   onSelect,
+  selectionDisplay = "label",
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cacheRef = useRef(new Map<string, AddressSuggestion[]>());
+  const skipNextSearchRef = useRef(false);
 
   useEffect(() => {
-    if (query.trim().length < 3) {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      setLoading(false);
+      return;
+    }
+
+    if (trimmedQuery.length < MIN_ADDRESS_QUERY_LENGTH) {
       setSuggestions([]);
       setError(null);
       setLoading(false);
+      return;
+    }
+
+    const cacheKey = trimmedQuery.toLowerCase();
+    const cachedSuggestions = cacheRef.current.get(cacheKey);
+
+    if (cachedSuggestions) {
+      setSuggestions(cachedSuggestions);
+      setError(null);
+      setLoading(false);
+      setIsOpen(true);
       return;
     }
 
@@ -36,7 +76,7 @@ export function AddressAutocomplete({
       setError(null);
 
       try {
-        const response = await fetch(`/api/address-search?q=${encodeURIComponent(query.trim())}`, {
+        const response = await fetch(`/api/address-search?q=${encodeURIComponent(trimmedQuery)}`, {
           signal: controller.signal,
         });
         const payload = (await response.json()) as {
@@ -48,7 +88,9 @@ export function AddressAutocomplete({
           throw new Error(payload.error || "Address search is unavailable right now.");
         }
 
-        setSuggestions(payload.suggestions ?? []);
+        const nextSuggestions = payload.suggestions ?? [];
+        cacheRef.current.set(cacheKey, nextSuggestions);
+        setSuggestions(nextSuggestions);
         setIsOpen(true);
       } catch (error) {
         if (controller.signal.aborted) {
@@ -66,7 +108,7 @@ export function AddressAutocomplete({
           setLoading(false);
         }
       }
-    }, 250);
+    }, ADDRESS_SEARCH_DEBOUNCE_MS);
 
     return () => {
       controller.abort();
@@ -74,12 +116,15 @@ export function AddressAutocomplete({
     };
   }, [query]);
 
-  const hasQuery = useMemo(() => query.trim().length >= 3, [query]);
+  const hasQuery = useMemo(
+    () => query.trim().length >= MIN_ADDRESS_QUERY_LENGTH,
+    [query],
+  );
 
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-stone-700">{label}</label>
-      <div className="relative">
+      <div ref={containerRef} className="relative">
         <input
           value={query}
           onChange={(event) => {
@@ -108,7 +153,14 @@ export function AddressAutocomplete({
                     type="button"
                     onClick={() => {
                       onSelect(suggestion);
-                      setQuery(suggestion.label);
+                      skipNextSearchRef.current = true;
+                      setQuery(
+                        selectionDisplay === "addressLine1"
+                          ? suggestion.addressLine1 || suggestion.label
+                          : suggestion.label,
+                      );
+                      setSuggestions([]);
+                      setError(null);
                       setIsOpen(false);
                     }}
                     className="w-full rounded-xl px-3 py-3 text-left text-sm text-stone-100 transition hover:bg-white/6"
@@ -134,7 +186,11 @@ export function AddressAutocomplete({
           </div>
         ) : null}
       </div>
-      {helperText ? <p className="text-xs text-stone-500">{helperText}</p> : null}
+      <p className="text-xs text-stone-500">
+        {helperText
+          ? `${helperText} Search starts after ${MIN_ADDRESS_QUERY_LENGTH} characters to keep lookups efficient.`
+          : `Search starts after ${MIN_ADDRESS_QUERY_LENGTH} characters to keep lookups efficient.`}
+      </p>
     </div>
   );
 }
