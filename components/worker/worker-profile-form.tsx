@@ -9,6 +9,7 @@ import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { sanitiseAppRedirectPath } from "@/lib/auth-client";
 import { getAddressFromCurrentLocation } from "@/lib/geolocation";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
+import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
@@ -272,6 +273,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const { showToast } = useToast();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [whatsAppOptIn, setWhatsAppOptIn] = useState(false);
   const [jobRole, setJobRole] = useState("");
   const [roleCategories, setRoleCategories] = useState<RoleCategoryRecord[]>([]);
   const [roleCatalog, setRoleCatalog] = useState<RoleRecord[]>([]);
@@ -395,7 +397,10 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         setFullName(appUser.display_name);
       }
       if (appUser?.phone) {
-        setPhone(appUser.phone);
+        setPhone(normaliseInternationalPhoneNumber(appUser.phone) ?? appUser.phone);
+      }
+      if (typeof appUser?.whatsapp_opt_in === "boolean") {
+        setWhatsAppOptIn(appUser.whatsapp_opt_in);
       }
 
       if (profile) {
@@ -543,6 +548,9 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
   const validateProfile = () => {
     if (!fullName.trim()) return "Full name is required.";
     if (!phone.trim()) return "Phone number is required.";
+    if (!normaliseInternationalPhoneNumber(phone)) {
+      return "Enter your mobile number in international format, for example +447700900123.";
+    }
     if (bio.trim().length < 24) return "Add a short work summary so businesses know your background.";
     if (!primaryRoleId) return "Choose your main role.";
     if (additionalRoleIds.length > 3) return "You can add up to three additional roles.";
@@ -802,6 +810,7 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         profile_photo_path: nextPhotoPath,
         work_history: historyPayload,
       };
+      const normalisedPhone = normaliseInternationalPhoneNumber(phone);
 
       console.info("[worker-profile-save] payload", {
         authUserId: user.id,
@@ -809,7 +818,8 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
         userUpdate: {
           id: user.id,
           role: "worker",
-          phone: phone.trim() || null,
+          phone: normalisedPhone,
+          whatsapp_opt_in: whatsAppOptIn,
           onboarding_complete: true,
         },
         workerProfilePayload,
@@ -835,7 +845,8 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
           .from("users")
           .update({
             display_name: fullName.trim(),
-            phone: phone.trim() || null,
+            phone: normalisedPhone,
+            whatsapp_opt_in: whatsAppOptIn,
             role: "worker",
             role_selected: true,
             onboarding_complete: true,
@@ -1086,10 +1097,41 @@ export function WorkerProfileForm({ mode }: WorkerProfileFormProps) {
                   <input
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
+                    onBlur={(event) => {
+                      const normalised = normaliseInternationalPhoneNumber(event.target.value);
+                      if (normalised) {
+                        setPhone(normalised);
+                      }
+                    }}
                     className="input"
-                    placeholder="07..."
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="+447700900123"
                     required
                   />
+                  <p className="mt-2 text-xs text-stone-500">
+                    Use international format so shift confirmations can reach you on WhatsApp if you opt in later.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="panel-soft flex cursor-pointer items-start gap-3 rounded-2xl px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={whatsAppOptIn}
+                      onChange={(event) => setWhatsAppOptIn(event.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-400"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-stone-900">
+                        Get shift confirmations and reminders on WhatsApp
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-stone-600">
+                        Optional. We will only use your number for booking confirmations and 24-hour reminders.
+                      </span>
+                    </span>
+                  </label>
                 </div>
 
                 <div className="md:col-span-2">

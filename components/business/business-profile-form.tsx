@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
 import { getAddressFromCurrentLocation } from "@/lib/geolocation";
@@ -103,7 +104,12 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         setBusinessName(profile.business_name);
         setSector(profile.sector as BusinessSector);
         setContactName(profile.contact_name ?? appUser?.display_name ?? "");
-        setPhone(profile.phone ?? appUser?.phone ?? "");
+        setPhone(
+          normaliseInternationalPhoneNumber(profile.phone ?? appUser?.phone ?? "") ??
+            profile.phone ??
+            appUser?.phone ??
+            "",
+        );
         setAddressLine1(profile.address_line_1);
         setCity(profile.city);
         setPostcode(profile.postcode ?? "");
@@ -111,7 +117,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         setApprovalStatus(profile.verification_status);
       } else {
         setContactName(appUser?.display_name ?? "");
-        setPhone(appUser?.phone ?? "");
+        setPhone(normaliseInternationalPhoneNumber(appUser?.phone ?? "") ?? appUser?.phone ?? "");
       }
 
       setLoading(false);
@@ -158,6 +164,9 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     if (!businessName.trim()) return "Business name is required.";
     if (!sector) return "Business sector is required.";
     if (!contactName.trim()) return "Contact name is required.";
+    if (phone.trim() && !normaliseInternationalPhoneNumber(phone)) {
+      return "Enter the contact phone in international format, for example +447700900123.";
+    }
     if (!addressLine1.trim()) return "Address is required.";
     if (!city.trim()) return "City is required.";
     if (!description.trim()) return "Business description is required.";
@@ -231,7 +240,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         business_name: businessName.trim(),
         sector,
         contact_name: contactName.trim(),
-        phone: phone.trim() || null,
+        phone: normaliseInternationalPhoneNumber(phone),
         address_line_1: addressLine1.trim(),
         city: city.trim(),
         postcode: postcode.trim() || null,
@@ -243,7 +252,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
           .from("users")
           .update({
             display_name: contactName.trim(),
-            phone: phone.trim() || null,
+            phone: normaliseInternationalPhoneNumber(phone),
             role: "business",
             role_selected: true,
             onboarding_complete: true,
@@ -381,7 +390,24 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             <label className="mb-2 block text-sm font-medium text-stone-700">
               Contact phone
             </label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="input" placeholder="+44..." />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onBlur={(event) => {
+                const normalised = normaliseInternationalPhoneNumber(event.target.value);
+                if (normalised) {
+                  setPhone(normalised);
+                }
+              }}
+              className="input"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+447700900123"
+            />
+            <p className="mt-2 text-xs text-stone-500">
+              Use international format so booking and reminder messages can be delivered reliably.
+            </p>
           </div>
 
           <div>

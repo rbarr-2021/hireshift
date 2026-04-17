@@ -1,5 +1,6 @@
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
 import { sendWhatsAppMessage, type WhatsAppSendResult } from "@/lib/notifications/provider";
+import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 
 type BookingNotificationContext = {
   workerPhone: string | null;
@@ -13,26 +14,12 @@ type BookingNotificationContext = {
   location: string;
 };
 
-function normalisePhoneNumber(phone: string | null) {
-  if (!phone) {
-    return null;
-  }
-
-  const cleaned = phone.replace(/[^\d+]/g, "");
-
-  if (!cleaned.startsWith("+")) {
-    return null;
-  }
-
-  return cleaned;
-}
-
 function shouldSkipWhatsApp(context: BookingNotificationContext) {
   if (!context.workerWhatsAppOptIn) {
     return "Worker has not opted into WhatsApp notifications.";
   }
 
-  if (!normalisePhoneNumber(context.workerPhone)) {
+  if (!normaliseInternationalPhoneNumber(context.workerPhone)) {
     return "Worker phone number is missing or not in international format.";
   }
 
@@ -68,7 +55,7 @@ export async function sendBookingConfirmationWhatsApp(
   }
 
   return sendWhatsAppMessage({
-    to: normalisePhoneNumber(context.workerPhone)!,
+    to: normaliseInternationalPhoneNumber(context.workerPhone)!,
     body: buildConfirmationMessage(context),
   });
 }
@@ -86,7 +73,7 @@ export async function sendBookingReminderWhatsApp(
   }
 
   return sendWhatsAppMessage({
-    to: normalisePhoneNumber(context.workerPhone)!,
+    to: normaliseInternationalPhoneNumber(context.workerPhone)!,
     body: buildReminderMessage(context),
   });
 }

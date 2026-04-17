@@ -350,6 +350,7 @@ export type UserRecord = {
   role_selected: boolean;
   display_name: string | null;
   phone: string | null;
+  whatsapp_opt_in: boolean;
   onboarding_complete: boolean;
   created_at: string;
   updated_at: string;
