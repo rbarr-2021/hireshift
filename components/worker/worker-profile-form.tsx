@@ -1069,7 +1069,9 @@ export function WorkerProfileForm({
         description:
           mode === "onboarding"
             ? "Your profile is ready for discovery and future bookings."
-            : "Your profile details have been updated successfully.",
+            : isManageSettings
+              ? "Profile saved. Now update your availability."
+              : "Availability saved. Browse live shifts next.",
         tone: "success",
       });
 
@@ -1097,6 +1099,10 @@ export function WorkerProfileForm({
         });
         clearPostAuthIntent();
         router.push(redirectTarget ?? "/dashboard/worker");
+      } else if (isManageSettings) {
+        router.push("/dashboard/worker/availability");
+      } else if (isManageAvailability) {
+        router.push("/shifts");
       } else {
         router.refresh();
       }
@@ -1138,27 +1144,31 @@ export function WorkerProfileForm({
                     : "Update your profile details."}
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[280px]">
-              <div className="panel-soft px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-                  Profile completion
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-stone-900">{completion}%</p>
+            {!isManageAvailability ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[280px]">
+                <div className="panel-soft px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                    Profile completion
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-stone-900">{completion}%</p>
+                </div>
+                <div className="panel-soft px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                    Approval status
+                  </p>
+                  <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${approvalStyles(approvalStatus)}`}>
+                    {approvalLabel(approvalStatus)}
+                  </span>
+                </div>
               </div>
-              <div className="panel-soft px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-                  Approval status
-                </p>
-                <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${approvalStyles(approvalStatus)}`}>
-                  {approvalLabel(approvalStatus)}
-                </span>
-              </div>
-            </div>
+            ) : null}
           </div>
 
-          <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-stone-200">
-            <div className="h-full rounded-full bg-stone-900" style={{ width: `${completion}%` }} />
-          </div>
+          {!isManageAvailability ? (
+            <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-stone-200">
+              <div className="h-full rounded-full bg-stone-900" style={{ width: `${completion}%` }} />
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             {mode === "onboarding" ? (
@@ -1219,7 +1229,7 @@ export function WorkerProfileForm({
               </div>
 
               <div className="mt-6">
-            {currentStep.id === "about" || isManageSettings ? (
+            {(mode === "onboarding" && currentStep.id === "about") || isManageSettings ? (
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Identity</h2>
@@ -1351,7 +1361,7 @@ export function WorkerProfileForm({
             </section>
             ) : null}
 
-            {(currentStep.id === "work" || isManageSettings) ? (
+            {((mode === "onboarding" && currentStep.id === "work") || isManageSettings) ? (
             <>
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
@@ -1479,7 +1489,7 @@ export function WorkerProfileForm({
             </>
             ) : null}
 
-            {(currentStep.id === "location" || isManageSettings) ? (
+            {((mode === "onboarding" && currentStep.id === "location") || isManageSettings) ? (
             <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Location</h2>
@@ -1514,24 +1524,26 @@ export function WorkerProfileForm({
             </section>
             ) : null}
 
-            {(currentStep.id === "availability" || isManageAvailability) ? (
+            {((mode === "onboarding" && currentStep.id === "availability") || isManageAvailability) ? (
             <>
-            <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-              <div>
-                <h2 className="text-lg font-semibold text-stone-900">Availability</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Choose your working dates.</p>
-              </div>
-              <div className="space-y-4">
-                <AvailabilityCalendar
-                  entries={availabilityEntries}
-                  onChange={setAvailabilityEntries}
-                />
+              <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">Availability notes</label>
-                  <textarea value={availabilitySummary} onChange={(event) => setAvailabilitySummary(event.target.value)} className="input min-h-28 resize-y" placeholder="Anything useful for employers to know, like preferred shift types or blackout dates." />
+                  <h2 className="text-lg font-semibold text-stone-900">Availability</h2>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">Choose your working dates.</p>
                 </div>
-              </div>
-            </section>
+                <div className="space-y-4">
+                  <AvailabilityCalendar
+                    entries={availabilityEntries}
+                    onChange={setAvailabilityEntries}
+                  />
+                  {!isManageAvailability ? (
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-stone-700">Availability notes</label>
+                      <textarea value={availabilitySummary} onChange={(event) => setAvailabilitySummary(event.target.value)} className="input min-h-28 resize-y" placeholder="Anything useful for employers to know, like preferred shift types or blackout dates." />
+                    </div>
+                  ) : null}
+                </div>
+              </section>
 
             {mode === "onboarding" ? (
               <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
@@ -1604,22 +1616,24 @@ export function WorkerProfileForm({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="panel-soft p-5">
-                <p className="text-sm font-medium text-stone-500">Available dates</p>
-                <p className="mt-2 text-2xl font-semibold text-stone-900">{selectedAvailabilityCount}</p>
+            {!isManageAvailability ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="panel-soft p-5">
+                  <p className="text-sm font-medium text-stone-500">Available dates</p>
+                  <p className="mt-2 text-2xl font-semibold text-stone-900">{selectedAvailabilityCount}</p>
+                </div>
+                <div className="panel-soft p-5">
+                  <p className="text-sm font-medium text-stone-500">Uploaded documents</p>
+                  <p className="mt-2 text-2xl font-semibold text-stone-900">{uploadedDocumentCount}</p>
+                </div>
+                <div className="panel-soft p-5">
+                  <p className="text-sm font-medium text-stone-500">Status options</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">
+                    {APPROVAL_STATUSES.map(approvalLabel).join(", ")}
+                  </p>
+                </div>
               </div>
-              <div className="panel-soft p-5">
-                <p className="text-sm font-medium text-stone-500">Uploaded documents</p>
-                <p className="mt-2 text-2xl font-semibold text-stone-900">{uploadedDocumentCount}</p>
-              </div>
-              <div className="panel-soft p-5">
-                <p className="text-sm font-medium text-stone-500">Status options</p>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
-                  {APPROVAL_STATUSES.map(approvalLabel).join(", ")}
-                </p>
-              </div>
-            </div>
+            ) : null}
           </form>
         </div>
         <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
