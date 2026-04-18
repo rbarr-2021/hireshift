@@ -314,7 +314,19 @@ export default function WorkerDashboardPage() {
     });
 
     if (status === "accepted") {
-      void processOwnNotificationJobs();
+      const notificationResult = await processOwnNotificationJobs();
+
+      if (!notificationResult.ok) {
+        console.warn("[worker-bookings] confirmation notification not sent", {
+          bookingId,
+          error: notificationResult.error,
+        });
+        showToast({
+          title: "Booking accepted",
+          description: "The shift was confirmed, but the confirmation email could not be sent right now.",
+          tone: "info",
+        });
+      }
     }
   };
 

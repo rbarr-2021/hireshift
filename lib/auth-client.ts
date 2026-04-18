@@ -1,6 +1,14 @@
 import { supabase } from "@/lib/supabase";
 import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
-import type { UserRecord, UserRole } from "@/lib/models";
+import type { UserRecord } from "@/lib/models";
+export {
+  getRoleEntryPath,
+  getRoleHome,
+  getRoleSetupPath,
+  getWorkerBrowsePath,
+  hasSelectedRole,
+  sanitiseAppRedirectPath,
+} from "./auth-routing";
 
 export type ResolvedAuthState = {
   authUser: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>;
@@ -40,56 +48,6 @@ export async function resolveAuthState(): Promise<ResolvedAuthState | null> {
     authUser: user,
     appUser: appUser ?? null,
   };
-}
-
-export function hasSelectedRole(
-  appUser: UserRecord | null | undefined,
-): appUser is UserRecord & { role: UserRole; role_selected: true } {
-  return Boolean(appUser?.role && appUser.role_selected);
-}
-
-export function getRoleHome(role: UserRole) {
-  return role === "worker" ? "/dashboard/worker" : "/dashboard/business";
-}
-
-export function getWorkerBrowsePath() {
-  return "/shifts";
-}
-
-export function getRoleSetupPath(role: UserRole) {
-  return role === "worker" ? "/profile/setup/worker" : "/profile/setup/business";
-}
-
-export function sanitiseAppRedirectPath(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
-    return null;
-  }
-
-  return trimmed;
-}
-
-export function getRoleEntryPath(
-  role: UserRole,
-  onboardingComplete: boolean,
-  redirectTo?: string | null,
-) {
-  const nextRedirect = sanitiseAppRedirectPath(redirectTo);
-
-  if (nextRedirect) {
-    return nextRedirect;
-  }
-
-  if (role === "worker") {
-    return onboardingComplete ? getRoleHome(role) : getWorkerBrowsePath();
-  }
-
-  return onboardingComplete ? getRoleHome(role) : getRoleSetupPath(role);
 }
 
 export function getAppBaseUrl() {

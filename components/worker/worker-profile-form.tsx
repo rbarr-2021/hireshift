@@ -694,8 +694,15 @@ export function WorkerProfileForm({
   };
 
   const validateProfile = () => {
-    for (const step of WORKER_PROFILE_STEPS) {
-      const error = validateProfileStep(step.id);
+    const stepsToValidate =
+      mode === "manage"
+        ? isManageAvailability
+          ? (["availability"] as WorkerProfileStepId[])
+          : (["about", "work", "location"] as WorkerProfileStepId[])
+        : WORKER_PROFILE_STEPS.map((step) => step.id);
+
+    for (const stepId of stepsToValidate) {
+      const error = validateProfileStep(stepId);
       if (error) {
         return error;
       }

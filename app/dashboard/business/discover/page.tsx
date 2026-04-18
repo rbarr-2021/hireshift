@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  HOSPITALITY_ROLES,
   WEEK_DAYS,
   type ReviewRecord,
   type WorkerAvailabilitySlotRecord,
@@ -160,6 +159,13 @@ export default function BusinessWorkerDiscoveryPage() {
   }, [availabilitySlots, filters, reviews, workers]);
 
   const paginatedResults = discoveryResults.slice(0, page * PAGE_SIZE);
+  const roleOptions = useMemo(
+    () =>
+      [...new Set(workers.map((worker) => worker.job_role).filter(Boolean))].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    [workers],
+  );
 
   const selectedWeekdayLabel =
     filters.availableDay === ""
@@ -266,7 +272,7 @@ export default function BusinessWorkerDiscoveryPage() {
                 className="input"
               >
                 <option value="">Any role</option>
-                {HOSPITALITY_ROLES.map((role) => (
+                {roleOptions.map((role) => (
                   <option key={role} value={role}>
                     {role}
                   </option>
@@ -453,7 +459,7 @@ export default function BusinessWorkerDiscoveryPage() {
                       className="input"
                     >
                       <option value="">Any role</option>
-                      {HOSPITALITY_ROLES.map((role) => (
+                      {roleOptions.map((role) => (
                         <option key={role} value={role}>
                           {role}
                         </option>

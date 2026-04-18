@@ -1,5 +1,9 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
+  sendBookingConfirmationEmail,
+  sendBookingReminderEmail,
+} from "@/lib/notifications/email";
+import {
   sendBookingConfirmationWhatsApp,
   sendBookingReminderWhatsApp,
 } from "@/lib/notifications/whatsapp";
@@ -9,6 +13,7 @@ type NotificationJobRow = {
   booking_id: string;
   recipient_user_id: string;
   job_type: "booking_confirmation" | "booking_reminder_24h";
+  channel: "whatsapp" | "email";
   status: "pending" | "processing" | "sent" | "skipped" | "failed" | "cancelled";
   scheduled_for: string;
   attempts: number;
@@ -222,8 +227,8 @@ export async function processDueNotificationJobs(options?: {
         null;
 
       const context = {
-        workerPhone: worker?.phone ?? null,
-        workerWhatsAppOptIn: worker?.whatsapp_opt_in ?? false,
+        workerEmail: worker?.email ?? null,
+        workerName: worker?.display_name ?? null,
         roleLabel,
         businessName: businessProfile?.business_name ?? "KruVii business",
         shiftDate: booking.shift_date,
@@ -234,9 +239,33 @@ export async function processDueNotificationJobs(options?: {
       };
 
       const result =
-        claimedJob.job_type === "booking_confirmation"
-          ? await sendBookingConfirmationWhatsApp(context)
-          : await sendBookingReminderWhatsApp(context);
+        claimedJob.channel === "whatsapp"
+          ? claimedJob.job_type === "booking_confirmation"
+            ? await sendBookingConfirmationWhatsApp({
+                workerPhone: worker?.phone ?? null,
+                workerWhatsAppOptIn: worker?.whatsapp_opt_in ?? false,
+                roleLabel,
+                businessName: businessProfile?.business_name ?? "KruVii business",
+                shiftDate: booking.shift_date,
+                shiftEndDate: booking.shift_end_date,
+                startTime: booking.start_time,
+                endTime: booking.end_time,
+                location: booking.location,
+              })
+            : await sendBookingReminderWhatsApp({
+                workerPhone: worker?.phone ?? null,
+                workerWhatsAppOptIn: worker?.whatsapp_opt_in ?? false,
+                roleLabel,
+                businessName: businessProfile?.business_name ?? "KruVii business",
+                shiftDate: booking.shift_date,
+                shiftEndDate: booking.shift_end_date,
+                startTime: booking.start_time,
+                endTime: booking.end_time,
+                location: booking.location,
+              })
+          : claimedJob.job_type === "booking_confirmation"
+            ? await sendBookingConfirmationEmail(context)
+            : await sendBookingReminderEmail(context);
 
       if (result.status === "skipped") {
         await markJob(claimedJob.id, claimedJob.metadata, "skipped", {

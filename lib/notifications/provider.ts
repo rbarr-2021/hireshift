@@ -1,6 +1,14 @@
+import nodemailer from "nodemailer";
+
 type WhatsAppSendPayload = {
   to: string;
   body: string;
+};
+
+type EmailSendPayload = {
+  to: string;
+  subject: string;
+  text: string;
 };
 
 export type WhatsAppSendResult =
@@ -15,6 +23,20 @@ export type WhatsAppSendResult =
 
 interface WhatsAppProvider {
   sendMessage(payload: WhatsAppSendPayload): Promise<WhatsAppSendResult>;
+}
+
+export type EmailSendResult =
+  | {
+      status: "sent";
+      providerMessageId?: string | null;
+    }
+  | {
+      status: "skipped";
+      reason: string;
+    };
+
+interface EmailProvider {
+  sendMessage(payload: EmailSendPayload): Promise<EmailSendResult>;
 }
 
 class NoopWhatsAppProvider implements WhatsAppProvider {
@@ -119,6 +141,57 @@ class MetaWhatsAppProvider implements WhatsAppProvider {
   }
 }
 
+class NoopEmailProvider implements EmailProvider {
+  async sendMessage(): Promise<EmailSendResult> {
+    return {
+      status: "skipped",
+      reason: "Email provider is not configured.",
+    };
+  }
+}
+
+class SmtpEmailProvider implements EmailProvider {
+  async sendMessage(payload: EmailSendPayload): Promise<EmailSendResult> {
+    const host = process.env.SMTP_HOST?.trim();
+    const port = Number(process.env.SMTP_PORT?.trim() || "587");
+    const user = process.env.SMTP_USER?.trim();
+    const pass = process.env.SMTP_PASS?.trim();
+    const fromEmail = process.env.SMTP_FROM_EMAIL?.trim();
+    const fromName = process.env.SMTP_FROM_NAME?.trim() || "KruVii";
+    const secure =
+      (process.env.SMTP_SECURE?.trim().toLowerCase() === "true") || port === 465;
+
+    if (!host || !port || !user || !pass || !fromEmail) {
+      return {
+        status: "skipped",
+        reason: "SMTP email credentials are incomplete.",
+      };
+    }
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass,
+      },
+    });
+
+    const result = await transporter.sendMail({
+      from: fromName ? `"${fromName}" <${fromEmail}>` : fromEmail,
+      to: payload.to,
+      subject: payload.subject,
+      text: payload.text,
+    });
+
+    return {
+      status: "sent",
+      providerMessageId: result.messageId ?? null,
+    };
+  }
+}
+
 function getWhatsAppProvider(): WhatsAppProvider {
   const provider = process.env.WHATSAPP_PROVIDER?.trim().toLowerCase();
 
@@ -146,4 +219,27 @@ function getWhatsAppProvider(): WhatsAppProvider {
 
 export async function sendWhatsAppMessage(payload: WhatsAppSendPayload) {
   return getWhatsAppProvider().sendMessage(payload);
+}
+
+function getEmailProvider(): EmailProvider {
+  const provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+
+  if (!provider || provider === "smtp") {
+    if (
+      process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      process.env.SMTP_PASS?.trim() &&
+      process.env.SMTP_FROM_EMAIL?.trim()
+    ) {
+      return new SmtpEmailProvider();
+    }
+
+    return new NoopEmailProvider();
+  }
+
+  return new NoopEmailProvider();
+}
+
+export async function sendEmailMessage(payload: EmailSendPayload) {
+  return getEmailProvider().sendMessage(payload);
 }

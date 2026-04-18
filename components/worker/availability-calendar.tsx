@@ -372,39 +372,6 @@ export function AvailabilityCalendar({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 lg:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => handleStatusChange("available")}
-          className={statusCardClass("available", selectedStatus === "available")}
-        >
-          <p className="text-sm font-semibold text-stone-100">Available all day</p>
-          <p className="mt-2 text-sm leading-6 text-stone-500">
-            Best for open availability or long shift coverage.
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleStatusChange("partial")}
-          className={statusCardClass("partial", selectedStatus === "partial")}
-        >
-          <p className="text-sm font-semibold text-stone-100">Available specific hours</p>
-          <p className="mt-2 text-sm leading-6 text-stone-500">
-            Set the exact time window you can work on this date.
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleStatusChange("unavailable")}
-          className={statusCardClass("unavailable", selectedStatus === "unavailable")}
-        >
-          <p className="text-sm font-semibold text-stone-100">Unavailable</p>
-          <p className="mt-2 text-sm leading-6 text-stone-500">
-            Mark this date as off so businesses know not to expect you.
-          </p>
-        </button>
-      </div>
-
       {selectedStatus === "available" || selectedStatus === "partial" ? (
         <div className="mt-6 space-y-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4 sm:p-5">
           <div>
@@ -498,6 +465,39 @@ export function AvailabilityCalendar({
           </div>
         </div>
 
+        <div className="mt-6 grid gap-3 lg:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => handleStatusChange("available")}
+            className={statusCardClass("available", selectedStatus === "available")}
+          >
+            <p className="text-sm font-semibold text-stone-100">Available all day</p>
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Best for open availability or long shift coverage.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStatusChange("partial")}
+            className={statusCardClass("partial", selectedStatus === "partial")}
+          >
+            <p className="text-sm font-semibold text-stone-100">Available specific hours</p>
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Set the exact time window you can work on this date.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStatusChange("unavailable")}
+            className={statusCardClass("unavailable", selectedStatus === "unavailable")}
+          >
+            <p className="text-sm font-semibold text-stone-100">Unavailable</p>
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Mark this date as off so businesses know not to expect you.
+            </p>
+          </button>
+        </div>
+
         <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/35 p-3 sm:p-4">
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-lg font-semibold text-stone-100">
@@ -553,11 +553,7 @@ export function AvailabilityCalendar({
                         className={`h-2.5 w-2.5 rounded-full ${calendarDotClass(entry.status)}`}
                       />
                     </span>
-                  ) : (
-                    <span className="mt-auto text-[10px] font-medium uppercase tracking-[0.12em] text-stone-500">
-                      Set
-                    </span>
-                  )}
+                  ) : null}
                 </button>
               );
             })}

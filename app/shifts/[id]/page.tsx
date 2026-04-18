@@ -217,7 +217,20 @@ export default function ShiftDetailPage() {
       description: "Nice one - this shift is now in your upcoming work.",
       tone: "success",
     });
-    void processOwnNotificationJobs();
+    const notificationResult = await processOwnNotificationJobs();
+
+    if (!notificationResult.ok) {
+      console.warn("[shift-claim] confirmation notification not sent", {
+        listingId: listing.id,
+        error: notificationResult.error,
+      });
+      showToast({
+        title: "Shift secured",
+        description: "The shift was secured, but the confirmation email could not be sent right now.",
+        tone: "info",
+      });
+    }
+
     router.replace("/dashboard/worker");
   };
 
