@@ -127,6 +127,16 @@ function formatCurrency(value: number | null) {
   }).format(value);
 }
 
+function getFirstName(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "Worker";
+  }
+
+  return trimmedValue.split(/\s+/)[0] ?? "Worker";
+}
+
 export default function BusinessWorkerDiscoveryPage() {
   const pathname = usePathname();
   const [workers, setWorkers] = useState<WorkerProfileRecord[]>([]);
@@ -139,6 +149,7 @@ export default function BusinessWorkerDiscoveryPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     if (typeof window === "undefined") {
@@ -363,7 +374,16 @@ export default function BusinessWorkerDiscoveryPage() {
     setPage(1);
   };
 
-  const renderFilterFields = () => (
+  const advancedFilterCount = [
+    filters.skill,
+    filters.availableDay !== "" ? String(filters.availableDay) : "",
+    filters.availabilityStatus,
+    filters.maxHourlyRate,
+    filters.minRating,
+    filters.minTravelRadius,
+  ].filter(Boolean).length;
+
+  const renderPrimaryFilterFields = () => (
     <>
       <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">Search workers</label>
@@ -408,6 +428,20 @@ export default function BusinessWorkerDiscoveryPage() {
       </div>
 
       <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Location</label>
+        <input
+          value={filters.location}
+          onChange={(event) => updateFilters({ location: event.target.value })}
+          className="input"
+          placeholder="Belfast"
+        />
+      </div>
+    </>
+  );
+
+  const renderAdvancedFilterFields = () => (
+    <>
+      <div>
         <label className="mb-2 block text-sm font-medium text-stone-700">Role tag</label>
         <select
           value={filters.skill}
@@ -421,16 +455,6 @@ export default function BusinessWorkerDiscoveryPage() {
             </option>
           ))}
         </select>
-      </div>
-
-      <div>
-        <label className="mb-2 block text-sm font-medium text-stone-700">Location</label>
-        <input
-          value={filters.location}
-          onChange={(event) => updateFilters({ location: event.target.value })}
-          className="input"
-          placeholder="Belfast"
-        />
       </div>
 
       <div>
@@ -454,7 +478,9 @@ export default function BusinessWorkerDiscoveryPage() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-stone-700">Availability status</label>
+        <label className="mb-2 block text-sm font-medium text-stone-700">
+          Availability status
+        </label>
         <select
           value={filters.availabilityStatus}
           onChange={(event) =>
@@ -471,7 +497,9 @@ export default function BusinessWorkerDiscoveryPage() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-stone-700">Max hourly rate (GBP)</label>
+        <label className="mb-2 block text-sm font-medium text-stone-700">
+          Max hourly rate (GBP)
+        </label>
         <input
           type="number"
           min={0}
@@ -497,7 +525,9 @@ export default function BusinessWorkerDiscoveryPage() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-stone-700">Minimum travel radius (miles)</label>
+        <label className="mb-2 block text-sm font-medium text-stone-700">
+          Minimum travel radius (miles)
+        </label>
         <input
           type="number"
           min={0}
@@ -516,12 +546,8 @@ export default function BusinessWorkerDiscoveryPage() {
         <div>
           <p className="section-label">Worker marketplace</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Browse ready-to-book hospitality professionals
+            Discover workers
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-            Search by role, city, rate, tags, rating, and availability so you can move
-            quickly from shortlist to booking request.
-          </p>
         </div>
         <div className="panel-soft px-4 py-3">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Live results</p>
@@ -533,25 +559,34 @@ export default function BusinessWorkerDiscoveryPage() {
         <aside className="hidden panel-soft p-5 lg:block">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-stone-900">Refine your shortlist</h2>
-              <p className="mt-2 text-sm leading-6 text-stone-600">
-                Tighten the list by role, tags, rate, availability, and location.
-              </p>
+              <h2 className="text-lg font-semibold text-stone-900">Filters</h2>
             </div>
             <button type="button" onClick={resetFilters} className="secondary-btn px-4 py-2">
               Reset
             </button>
           </div>
-          <div className="mt-5 space-y-4">{renderFilterFields()}</div>
+          <div className="mt-5 space-y-4">{renderPrimaryFilterFields()}</div>
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              className="secondary-btn w-full justify-between px-4 py-3"
+            >
+              {showAdvancedFilters ? "Hide more filters" : "More filters"}
+              <span className="text-xs text-stone-500">
+                {advancedFilterCount > 0 ? `${advancedFilterCount} active` : "Optional"}
+              </span>
+            </button>
+            {showAdvancedFilters ? (
+              <div className="mt-4 space-y-4">{renderAdvancedFilterFields()}</div>
+            ) : null}
+          </div>
         </aside>
 
         <section className="space-y-4">
           <div className="sticky top-[4.75rem] z-20 flex flex-col gap-3">
             <div className="flex flex-col gap-3 rounded-[2rem] border border-white/10 bg-black/70 px-4 py-4 shadow-[0_18px_50px_rgba(2,8,23,0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00A7FF]">
-                  Shortlist flow
-                </p>
                 <p className="mt-2 text-sm text-stone-200">
                   {hasInvalidRate
                     ? "Max hourly rate must be zero or more."
@@ -604,7 +639,7 @@ export default function BusinessWorkerDiscoveryPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="section-label">Filters</p>
-                    <h2 className="mt-2 text-xl font-semibold text-white">Refine workers</h2>
+                    <h2 className="mt-2 text-xl font-semibold text-white">Workers</h2>
                   </div>
                   <button
                     type="button"
@@ -614,7 +649,24 @@ export default function BusinessWorkerDiscoveryPage() {
                     Done
                   </button>
                 </div>
-                <div className="mt-5 flex-1 space-y-4 overflow-y-auto pr-1">{renderFilterFields()}</div>
+                <div className="mt-5 flex-1 space-y-4 overflow-y-auto pr-1">
+                  {renderPrimaryFilterFields()}
+                  <div className="border-t border-white/10 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedFilters((current) => !current)}
+                      className="secondary-btn w-full justify-between px-4 py-3"
+                    >
+                      {showAdvancedFilters ? "Hide more filters" : "More filters"}
+                      <span className="text-xs text-stone-500">
+                        {advancedFilterCount > 0 ? `${advancedFilterCount} active` : "Optional"}
+                      </span>
+                    </button>
+                    {showAdvancedFilters ? (
+                      <div className="mt-4 space-y-4">{renderAdvancedFilterFields()}</div>
+                    ) : null}
+                  </div>
+                </div>
                 <div className="mt-4 flex gap-3">
                   <button type="button" onClick={resetFilters} className="secondary-btn flex-1">
                     Reset
@@ -654,18 +706,11 @@ export default function BusinessWorkerDiscoveryPage() {
             </div>
           ) : filtersAreInvalid ? (
             <div className="mobile-empty-state">
-              <h2 className="text-xl font-semibold text-stone-900">Fix the highlighted filters</h2>
-              <p className="mt-3 text-sm text-stone-600">
-                Adjust the invalid filter values above to view matching workers.
-              </p>
+              <h2 className="text-xl font-semibold text-stone-900">Check your filters</h2>
             </div>
           ) : paginatedResults.length === 0 ? (
             <div className="mobile-empty-state">
-              <h2 className="text-xl font-semibold text-stone-900">No workers match that brief</h2>
-              <p className="mt-3 text-sm text-stone-600">
-                Reset the filters or broaden your location, rate, or tag search to see more
-                hospitality professionals.
-              </p>
+              <h2 className="text-xl font-semibold text-stone-900">No workers found</h2>
               <button type="button" onClick={resetFilters} className="primary-btn mt-5 px-6">
                 Reset filters
               </button>
@@ -676,8 +721,8 @@ export default function BusinessWorkerDiscoveryPage() {
                 {paginatedResults.map((entry) => (
                   <article key={entry.profile.user_id} className="panel-soft h-full p-5">
                     <div className="flex h-full flex-col">
-                      <div className="flex flex-col gap-4 sm:flex-row">
-                        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[2rem] bg-stone-100">
+                      <div className="flex items-start gap-4">
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-stone-100">
                           {entry.profile.profile_photo_url ? (
                             <Image
                               src={entry.profile.profile_photo_url}
@@ -687,106 +732,66 @@ export default function BusinessWorkerDiscoveryPage() {
                               unoptimized
                             />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
+                            <div className="flex h-full items-center justify-center text-lg font-semibold text-stone-500">
                               {entry.displayName.slice(0, 1)}
                             </div>
                           )}
                         </div>
-
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-xl font-semibold text-stone-900">{entry.displayName}</p>
+                            <div className="min-w-0">
+                              <p className="text-2xl font-semibold leading-none text-stone-900">
+                                {getFirstName(entry.displayName)}
+                              </p>
                               <p className="mt-1 text-sm font-medium text-stone-700">
                                 {entry.profile.job_role}
                               </p>
-                              <p className="mt-2 text-sm text-stone-600">
-                                {entry.profile.city}
+                              <p className="mt-2 line-clamp-1 text-sm text-stone-600">
+                                {entry.profile.city || "Location to be confirmed"}
                                 {entry.profile.travel_radius_miles
-                                  ? ` • Travels ${entry.profile.travel_radius_miles} miles`
+                                  ? ` • Covers ${entry.profile.travel_radius_miles} miles`
                                   : ""}
                               </p>
                             </div>
-                            <div className="text-right">
-                              <p className="text-lg font-semibold text-stone-900">
+                            <div className="text-left sm:text-right">
+                              <p className="text-xl font-semibold text-stone-900">
                                 {formatCurrency(entry.profile.hourly_rate_gbp)}
                                 {entry.profile.hourly_rate_gbp ? <span className="text-sm text-stone-500"> /hr</span> : null}
                               </p>
-                              <p className="mt-1 text-sm text-stone-600">{entry.experienceLabel}</p>
                             </div>
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
                             {entry.aggregate.averageRating !== null ? (
-                              <span className="status-badge status-badge--rating">
-                                {entry.aggregate.averageRating}/5 ({entry.aggregate.reviewCount})
+                              <span className="rounded-full bg-[#00A7FF]/12 px-3 py-1 text-xs font-medium text-[#0B2035]">
+                                {entry.aggregate.averageRating}/5 rating
                               </span>
                             ) : (
-                              <span className="status-badge">New profile</span>
+                              <span className="rounded-full border border-white/10 bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
+                                New profile
+                              </span>
                             )}
                             <span
-                              className={`status-badge ${
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
                                 entry.availabilityStatus === "has_availability"
-                                  ? "status-badge--ready"
-                                  : ""
+                                  ? "bg-[#A6FF34]/12 text-[#4A6900]"
+                                  : "bg-stone-100 text-stone-700"
                               }`}
                             >
                               {entry.availabilityStatus === "has_availability"
                                 ? "Availability added"
-                                : "Availability needs update"}
+                                : "Availability to update"}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <p className="mt-4 line-clamp-3 text-sm leading-6 text-stone-600">
-                        {entry.profile.bio || "No short intro added yet."}
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {entry.roleTags.length > 0 ? (
-                          entry.roleTags.slice(0, 4).map((tag) => (
-                            <span
-                              key={tag.id}
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                tag.isPrimary
-                                  ? "bg-[#00A7FF]/12 text-[#0B2035]"
-                                  : "bg-stone-100 text-stone-700"
-                              }`}
-                            >
-                              {tag.label}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
-                            {entry.profile.job_role}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-5 grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
-                        <p>
-                          <span className="font-medium">Weekly slots:</span>{" "}
-                          {entry.workerAvailability.length}
-                        </p>
-                        <p>
-                          <span className="font-medium">Experience:</span>{" "}
-                          {entry.profile.years_experience} years
-                        </p>
-                      </div>
-
-                      <div className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row">
+                      <div className="mt-auto flex flex-col gap-3 pt-6">
                         <Link
                           href={`/workers/${entry.profile.user_id}`}
-                          className="secondary-btn w-full px-4 sm:w-auto"
+                          className="primary-btn w-full px-4"
                         >
                           View profile
-                        </Link>
-                        <Link
-                          href={`/dashboard/business/bookings/new?worker=${entry.profile.user_id}`}
-                          className="primary-btn w-full px-4 sm:w-auto"
-                        >
-                          Request shift
                         </Link>
                       </div>
                     </div>
