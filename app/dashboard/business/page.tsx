@@ -15,8 +15,8 @@ import { useToast } from "@/components/ui/toast-provider";
 import type {
   BookingRecord,
   BusinessProfileRecord,
+  MarketplaceUserRecord,
   ShiftListingRecord,
-  UserRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import { calculateBusinessProfileCompletion } from "@/lib/business-discovery";
@@ -181,11 +181,11 @@ export default function BusinessDashboardPage() {
 
       if (workerIds.length > 0) {
         const [workerUsersResult, workerProfilesResult] = await Promise.all([
-          supabase.from("users").select("*").in("id", workerIds),
+          supabase.from("marketplace_users").select("*").in("id", workerIds),
           supabase.from("worker_profiles").select("*").in("user_id", workerIds),
         ]);
 
-        const workerUsers = (workerUsersResult.data as UserRecord[] | null) ?? [];
+        const workerUsers = (workerUsersResult.data as MarketplaceUserRecord[] | null) ?? [];
         const workerProfiles = (workerProfilesResult.data as WorkerProfileRecord[] | null) ?? [];
 
         nextWorkerMap = workerIds.reduce<Record<string, WorkerSnapshot>>((accumulator, workerId) => {

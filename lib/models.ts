@@ -356,6 +356,12 @@ export type UserRecord = {
   updated_at: string;
 };
 
+export type MarketplaceUserRecord = {
+  id: string;
+  role: UserRole | null;
+  display_name: string | null;
+};
+
 export type WorkHistoryItem = {
   venue: string;
   role: string;
@@ -516,7 +522,9 @@ export type ShiftListingRecord = {
 export type WorkerDiscoveryFilters = {
   query: string;
   role: HospitalityRole | "";
+  skill: string;
   availableDay: number | "";
+  availabilityStatus: "" | "has_availability" | "needs_update";
   maxHourlyRate: string;
   location: string;
   minRating: string;

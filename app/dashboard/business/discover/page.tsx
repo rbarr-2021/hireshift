@@ -3,24 +3,35 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { usePathname } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  WEEK_DAYS,
-  type ReviewRecord,
-  type WorkerAvailabilitySlotRecord,
-  type WorkerDiscoveryFilters,
-  type WorkerProfileRecord,
-} from "@/lib/models";
 import {
   calculateReviewAggregate,
   matchesWorkerFilters,
 } from "@/lib/business-discovery";
+import {
+  WEEK_DAYS,
+  type MarketplaceUserRecord,
+  type ReviewRecord,
+  type RoleRecord,
+  type WorkerAvailabilitySlotRecord,
+  type WorkerDiscoveryFilters,
+  type WorkerProfileRecord,
+  type WorkerRoleRecord,
+} from "@/lib/models";
+import { supabase } from "@/lib/supabase";
+import {
+  buildWorkerMarketplaceTags,
+  getWorkerAvailabilityState,
+  getWorkerExperienceLabel,
+} from "@/lib/worker-marketplace";
 
 const initialFilters: WorkerDiscoveryFilters = {
   query: "",
   role: "",
+  skill: "",
   availableDay: "",
+  availabilityStatus: "",
   maxHourlyRate: "",
   location: "",
   minRating: "",
@@ -31,27 +42,100 @@ const PAGE_SIZE = 9;
 const DISCOVERY_STORAGE_KEY = "kruvo-business-discovery-filters";
 const RECENT_SEARCHES_STORAGE_KEY = "kruvo-business-recent-searches";
 
+type DiscoveryWorkerCard = {
+  profile: WorkerProfileRecord;
+  displayName: string;
+  aggregate: ReturnType<typeof calculateReviewAggregate>;
+  workerAvailability: WorkerAvailabilitySlotRecord[];
+  availabilityStatus: "has_availability" | "needs_update";
+  roleTags: ReturnType<typeof buildWorkerMarketplaceTags>;
+  experienceLabel: string;
+};
+
+function parseInitialFilters(): WorkerDiscoveryFilters {
+  if (typeof window === "undefined") {
+    return initialFilters;
+  }
+
+  let savedFilters: Partial<WorkerDiscoveryFilters> = {};
+  const savedValue = window.localStorage.getItem(DISCOVERY_STORAGE_KEY);
+
+  if (savedValue) {
+    try {
+      savedFilters = JSON.parse(savedValue) as Partial<WorkerDiscoveryFilters>;
+    } catch {
+      savedFilters = {};
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const availableDay = params.get("day");
+  const parsedAvailableDay =
+    availableDay === null || availableDay === "" ? "" : Number(availableDay);
+
+  return {
+    ...initialFilters,
+    ...savedFilters,
+    query: params.get("query") ?? savedFilters.query ?? "",
+    role: params.get("role") ?? savedFilters.role ?? "",
+    skill: params.get("skill") ?? savedFilters.skill ?? "",
+    availableDay:
+      parsedAvailableDay === "" || Number.isNaN(parsedAvailableDay)
+        ? savedFilters.availableDay ?? ""
+        : parsedAvailableDay,
+    availabilityStatus:
+      (params.get("availability") as WorkerDiscoveryFilters["availabilityStatus"]) ??
+      savedFilters.availabilityStatus ??
+      "",
+    maxHourlyRate: params.get("maxRate") ?? savedFilters.maxHourlyRate ?? "",
+    location: params.get("location") ?? savedFilters.location ?? "",
+    minRating: params.get("rating") ?? savedFilters.minRating ?? "",
+    minTravelRadius: params.get("radius") ?? savedFilters.minTravelRadius ?? "",
+  };
+}
+
+function syncFiltersToUrl(pathname: string, filters: WorkerDiscoveryFilters) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const params = new URLSearchParams();
+
+  if (filters.query) params.set("query", filters.query);
+  if (filters.role) params.set("role", filters.role);
+  if (filters.skill) params.set("skill", filters.skill);
+  if (filters.availableDay !== "") params.set("day", String(filters.availableDay));
+  if (filters.availabilityStatus) params.set("availability", filters.availabilityStatus);
+  if (filters.maxHourlyRate) params.set("maxRate", filters.maxHourlyRate);
+  if (filters.location) params.set("location", filters.location);
+  if (filters.minRating) params.set("rating", filters.minRating);
+  if (filters.minTravelRadius) params.set("radius", filters.minTravelRadius);
+
+  const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+  window.history.replaceState({}, "", nextUrl);
+}
+
+function formatCurrency(value: number | null) {
+  if (!value) {
+    return "Rate not listed";
+  }
+
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export default function BusinessWorkerDiscoveryPage() {
+  const pathname = usePathname();
   const [workers, setWorkers] = useState<WorkerProfileRecord[]>([]);
+  const [workerUsers, setWorkerUsers] = useState<MarketplaceUserRecord[]>([]);
+  const [workerRoles, setWorkerRoles] = useState<WorkerRoleRecord[]>([]);
+  const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [availabilitySlots, setAvailabilitySlots] = useState<WorkerAvailabilitySlotRecord[]>([]);
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
-  const [filters, setFilters] = useState<WorkerDiscoveryFilters>(() => {
-    if (typeof window === "undefined") {
-      return initialFilters;
-    }
-
-    const savedFilters = window.localStorage.getItem(DISCOVERY_STORAGE_KEY);
-
-    if (!savedFilters) {
-      return initialFilters;
-    }
-
-    try {
-      return { ...initialFilters, ...JSON.parse(savedFilters) };
-    } catch {
-      return initialFilters;
-    }
-  });
+  const [filters, setFilters] = useState<WorkerDiscoveryFilters>(parseInitialFilters);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -68,7 +152,7 @@ export default function BusinessWorkerDiscoveryPage() {
     }
 
     try {
-      return JSON.parse(savedRecentSearches);
+      return JSON.parse(savedRecentSearches) as string[];
     } catch {
       return [];
     }
@@ -80,25 +164,33 @@ export default function BusinessWorkerDiscoveryPage() {
     }
 
     window.localStorage.setItem(DISCOVERY_STORAGE_KEY, JSON.stringify(filters));
-  }, [filters]);
+    syncFiltersToUrl(pathname, filters);
+  }, [filters, pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    window.localStorage.setItem(
-      RECENT_SEARCHES_STORAGE_KEY,
-      JSON.stringify(recentSearches),
-    );
+    window.localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(recentSearches));
   }, [recentSearches]);
 
   useEffect(() => {
     let active = true;
 
     const loadDiscoveryData = async () => {
-      const [workersResult, availabilityResult, reviewsResult] = await Promise.all([
+      const [
+        workersResult,
+        workerUsersResult,
+        workerRolesResult,
+        rolesResult,
+        availabilityResult,
+        reviewsResult,
+      ] = await Promise.all([
         supabase.from("worker_profiles").select("*").order("updated_at", { ascending: false }),
+        supabase.from("marketplace_users").select("*").eq("role", "worker"),
+        supabase.from("worker_roles").select("*"),
+        supabase.from("roles").select("*").order("sort_order", { ascending: true }),
         supabase.from("worker_availability_slots").select("*"),
         supabase.from("reviews").select("*"),
       ]);
@@ -108,7 +200,12 @@ export default function BusinessWorkerDiscoveryPage() {
       }
 
       const firstError =
-        workersResult.error ?? availabilityResult.error ?? reviewsResult.error;
+        workersResult.error ??
+        workerUsersResult.error ??
+        workerRolesResult.error ??
+        rolesResult.error ??
+        availabilityResult.error ??
+        reviewsResult.error;
 
       if (firstError) {
         setErrorMessage(firstError.message);
@@ -117,6 +214,9 @@ export default function BusinessWorkerDiscoveryPage() {
       }
 
       setWorkers((workersResult.data as WorkerProfileRecord[] | null) ?? []);
+      setWorkerUsers((workerUsersResult.data as MarketplaceUserRecord[] | null) ?? []);
+      setWorkerRoles((workerRolesResult.data as WorkerRoleRecord[] | null) ?? []);
+      setRoles((rolesResult.data as RoleRecord[] | null) ?? []);
       setAvailabilitySlots(
         (availabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? [],
       );
@@ -131,56 +231,6 @@ export default function BusinessWorkerDiscoveryPage() {
     };
   }, []);
 
-  const discoveryResults = useMemo(() => {
-    return workers
-      .map((worker) => {
-        const workerAvailability = availabilitySlots.filter(
-          (slot) => slot.worker_id === worker.user_id,
-        );
-        const workerReviews = reviews.filter(
-          (review) => review.reviewee_user_id === worker.user_id,
-        );
-        const aggregate = calculateReviewAggregate(workerReviews);
-
-        return {
-          worker,
-          workerAvailability,
-          aggregate,
-        };
-      })
-      .filter(({ worker, workerAvailability, aggregate }) =>
-        matchesWorkerFilters({
-          profile: worker,
-          filters,
-          aggregate,
-          availabilitySlots: workerAvailability,
-        }),
-      );
-  }, [availabilitySlots, filters, reviews, workers]);
-
-  const paginatedResults = discoveryResults.slice(0, page * PAGE_SIZE);
-  const roleOptions = useMemo(
-    () =>
-      [...new Set(workers.map((worker) => worker.job_role).filter(Boolean))].sort((left, right) =>
-        left.localeCompare(right),
-      ),
-    [workers],
-  );
-
-  const selectedWeekdayLabel =
-    filters.availableDay === ""
-      ? "Any day"
-      : WEEK_DAYS.find((day) => day.key === filters.availableDay)?.label ?? "Any day";
-
-  const hasInvalidRate =
-    Boolean(filters.maxHourlyRate) && Number(filters.maxHourlyRate) < 0;
-  const hasInvalidRating =
-    Boolean(filters.minRating) &&
-    (Number(filters.minRating) < 1 || Number(filters.minRating) > 5);
-  const hasInvalidTravelRadius =
-    Boolean(filters.minTravelRadius) && Number(filters.minTravelRadius) < 0;
-  const filtersAreInvalid = hasInvalidRate || hasInvalidRating || hasInvalidTravelRadius;
-
   useEffect(() => {
     const query = filters.query.trim();
 
@@ -189,229 +239,363 @@ export default function BusinessWorkerDiscoveryPage() {
     }
 
     const timer = window.setTimeout(() => {
-      setRecentSearches((current) => {
-        const next = [query, ...current.filter((item) => item !== query)].slice(0, 5);
-        return next;
-      });
+      setRecentSearches((current) => [query, ...current.filter((item) => item !== query)].slice(0, 5));
     }, 400);
 
     return () => window.clearTimeout(timer);
   }, [filters.query]);
 
+  const discoveryResults = useMemo<DiscoveryWorkerCard[]>(() => {
+    return workers
+      .map((worker) => {
+        const displayName =
+          workerUsers.find((candidate) => candidate.id === worker.user_id)?.display_name?.trim() ||
+          worker.job_role ||
+          "Hospitality professional";
+        const workerAvailability = availabilitySlots.filter(
+          (slot) => slot.worker_id === worker.user_id,
+        );
+        const workerReviews = reviews.filter(
+          (review) => review.reviewee_user_id === worker.user_id,
+        );
+        const aggregate = calculateReviewAggregate(workerReviews);
+        const roleTags = buildWorkerMarketplaceTags({
+          workerId: worker.user_id,
+          workerRoles,
+          roles,
+        });
+        const availabilityStatus = getWorkerAvailabilityState({
+          availabilitySlots: workerAvailability,
+          availabilitySummary: worker.availability_summary,
+        });
+
+        return {
+          profile: worker,
+          displayName,
+          aggregate,
+          workerAvailability,
+          availabilityStatus,
+          roleTags,
+          experienceLabel: getWorkerExperienceLabel(worker.years_experience),
+        };
+      })
+      .filter((entry) =>
+        matchesWorkerFilters({
+          profile: entry.profile,
+          filters,
+          aggregate: entry.aggregate,
+          availabilitySlots: entry.workerAvailability,
+          displayName: entry.displayName,
+          roleLabels: entry.roleTags.map((tag) => tag.label),
+          availabilityStatus: entry.availabilityStatus,
+        }),
+      )
+      .sort((left, right) => {
+        if (left.aggregate.averageRating !== null && right.aggregate.averageRating !== null) {
+          return right.aggregate.averageRating - left.aggregate.averageRating;
+        }
+
+        if (left.aggregate.averageRating !== null) {
+          return -1;
+        }
+
+        if (right.aggregate.averageRating !== null) {
+          return 1;
+        }
+
+        return right.profile.years_experience - left.profile.years_experience;
+      });
+  }, [availabilitySlots, filters, reviews, roles, workerRoles, workerUsers, workers]);
+
+  const paginatedResults = discoveryResults.slice(0, page * PAGE_SIZE);
+
+  const roleOptions = useMemo(
+    () => [...new Set(workers.map((worker) => worker.job_role).filter(Boolean))].sort((left, right) => left.localeCompare(right)),
+    [workers],
+  );
+
+  const skillOptions = useMemo(
+    () =>
+      [...new Set(
+        workers.flatMap((worker) =>
+          buildWorkerMarketplaceTags({
+            workerId: worker.user_id,
+            workerRoles,
+            roles,
+          }).map((tag) => tag.label),
+        ),
+      )].sort((left, right) => left.localeCompare(right)),
+    [roles, workerRoles, workers],
+  );
+
+  const selectedWeekdayLabel =
+    filters.availableDay === ""
+      ? "Any day"
+      : WEEK_DAYS.find((day) => day.key === filters.availableDay)?.label ?? "Any day";
+
+  const hasInvalidRate = Boolean(filters.maxHourlyRate) && Number(filters.maxHourlyRate) < 0;
+  const hasInvalidRating =
+    Boolean(filters.minRating) &&
+    (Number(filters.minRating) < 1 || Number(filters.minRating) > 5);
+  const hasInvalidTravelRadius =
+    Boolean(filters.minTravelRadius) && Number(filters.minTravelRadius) < 0;
+  const filtersAreInvalid = hasInvalidRate || hasInvalidRating || hasInvalidTravelRadius;
+
+  const activeFilterSummary = [
+    filters.role ? `Role: ${filters.role}` : null,
+    filters.skill ? `Tag: ${filters.skill}` : null,
+    filters.location ? `Location: ${filters.location}` : null,
+    filters.availableDay !== "" ? `Day: ${selectedWeekdayLabel}` : null,
+    filters.availabilityStatus === "has_availability"
+      ? "Availability added"
+      : filters.availabilityStatus === "needs_update"
+      ? "Needs availability"
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const updateFilters = (nextFilters: Partial<WorkerDiscoveryFilters>) => {
+    setPage(1);
+    setFilters((current) => ({ ...current, ...nextFilters }));
+  };
+
+  const resetFilters = () => {
+    setFilters(initialFilters);
+    setPage(1);
+  };
+
+  const renderFilterFields = () => (
+    <>
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Search workers</label>
+        <input
+          value={filters.query}
+          onChange={(event) => updateFilters({ query: event.target.value })}
+          className="input"
+          placeholder="Name, role, city, keyword..."
+        />
+        {recentSearches.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recentSearches.map((search) => (
+              <button
+                key={search}
+                type="button"
+                onClick={() => updateFilters({ query: search })}
+                className="status-badge status-badge--rating"
+              >
+                {search}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Primary role</label>
+        <select
+          value={filters.role}
+          onChange={(event) =>
+            updateFilters({ role: event.target.value as WorkerDiscoveryFilters["role"] })
+          }
+          className="input"
+        >
+          <option value="">Any role</option>
+          {roleOptions.map((role) => (
+            <option key={role} value={role}>
+              {role}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Role tag</label>
+        <select
+          value={filters.skill}
+          onChange={(event) => updateFilters({ skill: event.target.value })}
+          className="input"
+        >
+          <option value="">Any tag</option>
+          {skillOptions.map((skill) => (
+            <option key={skill} value={skill}>
+              {skill}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Location</label>
+        <input
+          value={filters.location}
+          onChange={(event) => updateFilters({ location: event.target.value })}
+          className="input"
+          placeholder="Belfast"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Availability day</label>
+        <select
+          value={filters.availableDay}
+          onChange={(event) =>
+            updateFilters({
+              availableDay: event.target.value === "" ? "" : Number(event.target.value),
+            })
+          }
+          className="input"
+        >
+          <option value="">Any day</option>
+          {WEEK_DAYS.map((day) => (
+            <option key={day.key} value={day.key}>
+              {day.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Availability status</label>
+        <select
+          value={filters.availabilityStatus}
+          onChange={(event) =>
+            updateFilters({
+              availabilityStatus: event.target.value as WorkerDiscoveryFilters["availabilityStatus"],
+            })
+          }
+          className="input"
+        >
+          <option value="">Any status</option>
+          <option value="has_availability">Has weekly availability</option>
+          <option value="needs_update">Needs availability update</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Max hourly rate (GBP)</label>
+        <input
+          type="number"
+          min={0}
+          value={filters.maxHourlyRate}
+          onChange={(event) => updateFilters({ maxHourlyRate: event.target.value })}
+          className="input"
+          placeholder="22"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Minimum rating</label>
+        <input
+          type="number"
+          min={1}
+          max={5}
+          step="0.5"
+          value={filters.minRating}
+          onChange={(event) => updateFilters({ minRating: event.target.value })}
+          className="input"
+          placeholder="4.5"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-stone-700">Minimum travel radius (miles)</label>
+        <input
+          type="number"
+          min={0}
+          value={filters.minTravelRadius}
+          onChange={(event) => updateFilters({ minTravelRadius: event.target.value })}
+          className="input"
+          placeholder="10"
+        />
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="section-label">
-            Worker Discovery
-          </p>
+          <p className="section-label">Worker marketplace</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Search and shortlist hospitality workers
+            Browse ready-to-book hospitality professionals
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-            Filter workers by role, availability, rates, city, minimum
-            rating, and travel radius. Booking stays as a placeholder entry point
-            in this phase.
+            Search by role, city, rate, tags, rating, and availability so you can move
+            quickly from shortlist to booking request.
           </p>
         </div>
         <div className="panel-soft px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Results</p>
-          <p className="mt-2 text-2xl font-semibold text-stone-900">
-            {discoveryResults.length}
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Live results</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{discoveryResults.length}</p>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(290px,320px)_minmax(0,1fr)]">
         <aside className="hidden panel-soft p-5 lg:block">
-          <h2 className="text-lg font-semibold text-stone-900">Filters</h2>
-          <div className="mt-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                Search workers
-              </label>
-              <input
-                value={filters.query}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({ ...current, query: event.target.value }));
-                }}
-                className="input"
-                placeholder="Chef, cocktail, Manchester..."
-              />
-              {recentSearches.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {recentSearches.map((search) => (
-                    <button
-                      key={search}
-                      type="button"
-                      onClick={() => {
-                        setPage(1);
-                        setFilters((current) => ({ ...current, query: search }));
-                      }}
-                      className="status-badge status-badge--rating"
-                    >
-                      {search}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <h2 className="text-lg font-semibold text-stone-900">Refine your shortlist</h2>
+              <p className="mt-2 text-sm leading-6 text-stone-600">
+                Tighten the list by role, tags, rate, availability, and location.
+              </p>
             </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">Role</label>
-              <select
-                value={filters.role}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({
-                    ...current,
-                    role: event.target.value as WorkerDiscoveryFilters["role"],
-                  }));
-                }}
-                className="input"
-              >
-                <option value="">Any role</option>
-                {roleOptions.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                Availability day
-              </label>
-              <select
-                value={filters.availableDay}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({
-                    ...current,
-                    availableDay:
-                      event.target.value === "" ? "" : Number(event.target.value),
-                  }));
-                }}
-                className="input"
-              >
-                <option value="">Any day</option>
-                {WEEK_DAYS.map((day) => (
-                  <option key={day.key} value={day.key}>
-                    {day.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                Max hourly rate (GBP)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={filters.maxHourlyRate}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({
-                    ...current,
-                    maxHourlyRate: event.target.value,
-                  }));
-                }}
-                className="input"
-                placeholder="25"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                Location
-              </label>
-              <input
-                value={filters.location}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({ ...current, location: event.target.value }));
-                }}
-                className="input"
-                placeholder="Manchester"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                Minimum rating
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={5}
-                step="0.5"
-                value={filters.minRating}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({ ...current, minRating: event.target.value }));
-                }}
-                className="input"
-                placeholder="4"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                Minimum travel radius (miles)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={filters.minTravelRadius}
-                onChange={(event) => {
-                  setPage(1);
-                  setFilters((current) => ({
-                    ...current,
-                    minTravelRadius: event.target.value,
-                  }));
-                }}
-                className="input"
-                placeholder="10"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setFilters(initialFilters);
-                setPage(1);
-              }}
-              className="secondary-btn w-full"
-            >
-              Reset filters
+            <button type="button" onClick={resetFilters} className="secondary-btn px-4 py-2">
+              Reset
             </button>
           </div>
+          <div className="mt-5 space-y-4">{renderFilterFields()}</div>
         </aside>
 
         <section className="space-y-4">
-          <div className="sticky top-[4.75rem] z-20 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div className="info-banner w-full flex-1">
-            {hasInvalidRate
-              ? "Max hourly rate must be zero or more."
-              : hasInvalidRating
-                ? "Minimum rating must be between 1 and 5."
-                : hasInvalidTravelRadius
-                  ? "Minimum travel radius must be zero or more."
-                  : errorMessage
+          <div className="sticky top-[4.75rem] z-20 flex flex-col gap-3">
+            <div className="flex flex-col gap-3 rounded-[2rem] border border-white/10 bg-black/70 px-4 py-4 shadow-[0_18px_50px_rgba(2,8,23,0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00A7FF]">
+                  Shortlist flow
+                </p>
+                <p className="mt-2 text-sm text-stone-200">
+                  {hasInvalidRate
+                    ? "Max hourly rate must be zero or more."
+                    : hasInvalidRating
+                    ? "Minimum rating must be between 1 and 5."
+                    : hasInvalidTravelRadius
+                    ? "Minimum travel radius must be zero or more."
+                    : errorMessage
                     ? `We could not load worker discovery right now: ${errorMessage}`
-              : `Showing workers available on ${selectedWeekdayLabel}. Location uses city matching, and distance uses each worker's stated travel radius.`}
+                    : activeFilterSummary.length > 0
+                    ? activeFilterSummary.join(" • ")
+                    : "Start broad, then narrow by role, rate, and availability."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((current) => !current)}
+                  className="secondary-btn px-4 py-2 lg:hidden"
+                >
+                  {showFilters ? "Hide filters" : "Show filters"}
+                </button>
+                <button type="button" onClick={resetFilters} className="secondary-btn px-4 py-2">
+                  Clear all
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowFilters((current) => !current)}
-              className="secondary-btn w-full lg:hidden"
-            >
-              {showFilters ? "Hide filters" : "Show filters"}
-            </button>
+
+            <div className="flex flex-wrap gap-2">
+              {["Chef", "Bartender", "Barista", "Event Staff"].map((spotlightRole) => (
+                <button
+                  key={spotlightRole}
+                  type="button"
+                  onClick={() => updateFilters({ role: spotlightRole })}
+                  className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                    filters.role === spotlightRole
+                      ? "bg-stone-900 text-white"
+                      : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                  }`}
+                >
+                  {spotlightRole}
+                </button>
+              ))}
+            </div>
           </div>
 
           {showFilters ? (
@@ -420,7 +604,7 @@ export default function BusinessWorkerDiscoveryPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="section-label">Filters</p>
-                    <h2 className="mt-2 text-xl font-semibold text-stone-900">Refine workers</h2>
+                    <h2 className="mt-2 text-xl font-semibold text-white">Refine workers</h2>
                   </div>
                   <button
                     type="button"
@@ -430,146 +614,9 @@ export default function BusinessWorkerDiscoveryPage() {
                     Done
                   </button>
                 </div>
-                <div className="mt-5 flex-1 space-y-4 overflow-y-auto pr-1">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">
-                      Search workers
-                    </label>
-                    <input
-                      value={filters.query}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({ ...current, query: event.target.value }));
-                      }}
-                      className="input"
-                      placeholder="Chef, cocktail, Manchester..."
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">Role</label>
-                    <select
-                      value={filters.role}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({
-                          ...current,
-                          role: event.target.value as WorkerDiscoveryFilters["role"],
-                        }));
-                      }}
-                      className="input"
-                    >
-                      <option value="">Any role</option>
-                      {roleOptions.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">
-                      Availability day
-                    </label>
-                    <select
-                      value={filters.availableDay}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({
-                          ...current,
-                          availableDay:
-                            event.target.value === "" ? "" : Number(event.target.value),
-                        }));
-                      }}
-                      className="input"
-                    >
-                      <option value="">Any day</option>
-                      {WEEK_DAYS.map((day) => (
-                        <option key={day.key} value={day.key}>
-                          {day.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">
-                      Max hourly rate (GBP)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={filters.maxHourlyRate}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({
-                          ...current,
-                          maxHourlyRate: event.target.value,
-                        }));
-                      }}
-                      className="input"
-                      placeholder="25"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">
-                      Location
-                    </label>
-                    <input
-                      value={filters.location}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({ ...current, location: event.target.value }));
-                      }}
-                      className="input"
-                      placeholder="Manchester"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">
-                      Minimum rating
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={5}
-                      step="0.5"
-                      value={filters.minRating}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({ ...current, minRating: event.target.value }));
-                      }}
-                      className="input"
-                      placeholder="4"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-stone-700">
-                      Minimum travel radius (miles)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={filters.minTravelRadius}
-                      onChange={(event) => {
-                        setPage(1);
-                        setFilters((current) => ({
-                          ...current,
-                          minTravelRadius: event.target.value,
-                        }));
-                      }}
-                      className="input"
-                      placeholder="10"
-                    />
-                  </div>
-                </div>
+                <div className="mt-5 flex-1 space-y-4 overflow-y-auto pr-1">{renderFilterFields()}</div>
                 <div className="mt-4 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilters(initialFilters);
-                      setPage(1);
-                    }}
-                    className="secondary-btn flex-1"
-                  >
+                  <button type="button" onClick={resetFilters} className="secondary-btn flex-1">
                     Reset
                   </button>
                   <button
@@ -586,27 +633,23 @@ export default function BusinessWorkerDiscoveryPage() {
 
           {loading ? (
             <div className="grid gap-4 xl:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, index) => (
+              {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="panel-soft p-5">
                   <div className="flex flex-col gap-4 sm:flex-row">
-                    <Skeleton className="h-20 w-20 rounded-3xl" />
+                    <Skeleton className="h-24 w-24 rounded-[2rem]" />
                     <div className="flex-1">
-                      <Skeleton className="h-6 w-40" />
-                      <Skeleton className="mt-3 h-4 w-48" />
-                      <Skeleton className="mt-3 h-4 w-44" />
+                      <Skeleton className="h-6 w-44" />
+                      <Skeleton className="mt-3 h-4 w-36" />
+                      <Skeleton className="mt-4 h-4 w-56" />
+                      <Skeleton className="mt-4 h-12 w-full" />
                     </div>
-                  </div>
-                  <Skeleton className="mt-5 h-16 w-full" />
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <Skeleton className="h-11 w-full sm:w-32" />
-                    <Skeleton className="h-11 w-full sm:w-28" />
                   </div>
                 </div>
               ))}
             </div>
           ) : errorMessage ? (
             <div className="mobile-empty-state">
-              <h2 className="text-xl font-semibold text-stone-900">Discovery is temporarily unavailable</h2>
+              <h2 className="text-xl font-semibold text-stone-900">Worker marketplace unavailable</h2>
               <p className="mt-3 text-sm text-stone-600">{errorMessage}</p>
             </div>
           ) : filtersAreInvalid ? (
@@ -618,77 +661,134 @@ export default function BusinessWorkerDiscoveryPage() {
             </div>
           ) : paginatedResults.length === 0 ? (
             <div className="mobile-empty-state">
-              <h2 className="text-xl font-semibold text-stone-900">No workers match those filters</h2>
+              <h2 className="text-xl font-semibold text-stone-900">No workers match that brief</h2>
               <p className="mt-3 text-sm text-stone-600">
-                Try broadening the search, role, rate, or location filters.
+                Reset the filters or broaden your location, rate, or tag search to see more
+                hospitality professionals.
               </p>
+              <button type="button" onClick={resetFilters} className="primary-btn mt-5 px-6">
+                Reset filters
+              </button>
             </div>
           ) : (
             <>
               <div className="grid gap-4 xl:grid-cols-2">
-                {paginatedResults.map(({ worker, aggregate, workerAvailability }) => (
-                  <article key={worker.user_id} className="panel-soft p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row">
-                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-3xl bg-stone-100">
-                        {worker.profile_photo_url ? (
-                          <Image
-                            src={worker.profile_photo_url}
-                            alt={worker.job_role}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-xs text-stone-500">
-                            No photo
+                {paginatedResults.map((entry) => (
+                  <article key={entry.profile.user_id} className="panel-soft h-full p-5">
+                    <div className="flex h-full flex-col">
+                      <div className="flex flex-col gap-4 sm:flex-row">
+                        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[2rem] bg-stone-100">
+                          {entry.profile.profile_photo_url ? (
+                            <Image
+                              src={entry.profile.profile_photo_url}
+                              alt={entry.displayName}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
+                              {entry.displayName.slice(0, 1)}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xl font-semibold text-stone-900">{entry.displayName}</p>
+                              <p className="mt-1 text-sm font-medium text-stone-700">
+                                {entry.profile.job_role}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-600">
+                                {entry.profile.city}
+                                {entry.profile.travel_radius_miles
+                                  ? ` • Travels ${entry.profile.travel_radius_miles} miles`
+                                  : ""}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-semibold text-stone-900">
+                                {formatCurrency(entry.profile.hourly_rate_gbp)}
+                                {entry.profile.hourly_rate_gbp ? <span className="text-sm text-stone-500"> /hr</span> : null}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">{entry.experienceLabel}</p>
+                            </div>
                           </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {entry.aggregate.averageRating !== null ? (
+                              <span className="status-badge status-badge--rating">
+                                {entry.aggregate.averageRating}/5 ({entry.aggregate.reviewCount})
+                              </span>
+                            ) : (
+                              <span className="status-badge">New profile</span>
+                            )}
+                            <span
+                              className={`status-badge ${
+                                entry.availabilityStatus === "has_availability"
+                                  ? "status-badge--ready"
+                                  : ""
+                              }`}
+                            >
+                              {entry.availabilityStatus === "has_availability"
+                                ? "Availability added"
+                                : "Availability needs update"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 line-clamp-3 text-sm leading-6 text-stone-600">
+                        {entry.profile.bio || "No short intro added yet."}
+                      </p>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {entry.roleTags.length > 0 ? (
+                          entry.roleTags.slice(0, 4).map((tag) => (
+                            <span
+                              key={tag.id}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                tag.isPrimary
+                                  ? "bg-[#00A7FF]/12 text-[#0B2035]"
+                                  : "bg-stone-100 text-stone-700"
+                              }`}
+                            >
+                              {tag.label}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
+                            {entry.profile.job_role}
+                          </span>
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xl font-semibold text-stone-900">{worker.job_role}</p>
-                        <p className="mt-1 text-sm text-stone-600">
-                          {worker.city} | {worker.travel_radius_miles} mile radius
+
+                      <div className="mt-5 grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
+                        <p>
+                          <span className="font-medium">Weekly slots:</span>{" "}
+                          {entry.workerAvailability.length}
                         </p>
-                        <p className="mt-2 text-sm text-stone-600">
-                          {aggregate.averageRating !== null
-                            ? `${aggregate.averageRating}/5 rating from ${aggregate.reviewCount} review${aggregate.reviewCount === 1 ? "" : "s"}`
-                            : "No ratings yet"}
+                        <p>
+                          <span className="font-medium">Experience:</span>{" "}
+                          {entry.profile.years_experience} years
                         </p>
                       </div>
-                    </div>
 
-                    <p className="mt-4 line-clamp-3 text-sm leading-6 text-stone-600">
-                      {worker.bio || "No profile summary available yet."}
-                    </p>
-
-                    <div className="mt-4 grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
-                      <p>
-                        <span className="font-medium">Rates:</span>{" "}
-                        {worker.hourly_rate_gbp ? `GBP ${worker.hourly_rate_gbp}/hr` : "No hourly rate"}
-                      </p>
-                      <p>
-                        <span className="font-medium">Experience:</span>{" "}
-                        {worker.years_experience} years
-                      </p>
-                      <p>
-                        <span className="font-medium">Availability:</span>{" "}
-                        {workerAvailability.length} weekly slot{workerAvailability.length === 1 ? "" : "s"}
-                      </p>
-                    </div>
-
-                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                      <Link
-                        href={`/workers/${worker.user_id}`}
-                        className="secondary-btn w-full px-4 sm:w-auto"
-                      >
-                        View profile
-                      </Link>
-                      <Link
-                        href={`/dashboard/business/bookings/new?worker=${worker.user_id}`}
-                        className="primary-btn w-full px-4 sm:w-auto"
-                      >
-                        Book now
-                      </Link>
+                      <div className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row">
+                        <Link
+                          href={`/workers/${entry.profile.user_id}`}
+                          className="secondary-btn w-full px-4 sm:w-auto"
+                        >
+                          View profile
+                        </Link>
+                        <Link
+                          href={`/dashboard/business/bookings/new?worker=${entry.profile.user_id}`}
+                          className="primary-btn w-full px-4 sm:w-auto"
+                        >
+                          Request shift
+                        </Link>
+                      </div>
                     </div>
                   </article>
                 ))}

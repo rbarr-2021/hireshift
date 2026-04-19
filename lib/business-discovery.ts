@@ -55,17 +55,30 @@ export function matchesWorkerFilters(input: {
   filters: WorkerDiscoveryFilters;
   aggregate: ReviewAggregate;
   availabilitySlots: WorkerAvailabilitySlotRecord[];
+  displayName?: string | null;
+  roleLabels?: string[];
+  availabilityStatus?: "has_availability" | "needs_update";
 }) {
-  const { profile, filters, aggregate, availabilitySlots } = input;
+  const {
+    profile,
+    filters,
+    aggregate,
+    availabilitySlots,
+    displayName,
+    roleLabels = [],
+    availabilityStatus = "needs_update",
+  } = input;
 
   if (filters.query) {
     const query = filters.query.toLowerCase().trim();
     const searchableContent = [
+      displayName ?? "",
       profile.job_role,
       profile.bio ?? "",
       profile.city,
       profile.postcode ?? "",
       profile.availability_summary ?? "",
+      ...roleLabels,
     ]
       .join(" ")
       .toLowerCase();
@@ -80,9 +93,20 @@ export function matchesWorkerFilters(input: {
   }
 
   if (
+    filters.skill &&
+    !roleLabels.some((label) => label.toLowerCase() === filters.skill.toLowerCase())
+  ) {
+    return false;
+  }
+
+  if (
     filters.availableDay !== "" &&
     !availabilitySlots.some((slot) => slot.day_of_week === filters.availableDay)
   ) {
+    return false;
+  }
+
+  if (filters.availabilityStatus && filters.availabilityStatus !== availabilityStatus) {
     return false;
   }
 

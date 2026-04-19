@@ -15,7 +15,7 @@ import {
 import type {
   BookingRecord,
   BusinessProfileRecord,
-  UserRecord,
+  MarketplaceUserRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import { deriveShiftEndDate } from "@/lib/shift-listings";
@@ -75,7 +75,7 @@ export default function BookingEntryPage() {
   const { showToast } = useToast();
   const workerId = searchParams.get("worker");
   const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
-  const [workerUser, setWorkerUser] = useState<UserRecord | null>(null);
+  const [workerUser, setWorkerUser] = useState<MarketplaceUserRecord | null>(null);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -105,7 +105,11 @@ export default function BookingEntryPage() {
             .select("*")
             .eq("user_id", workerId)
             .maybeSingle<WorkerProfileRecord>(),
-          supabase.from("users").select("*").eq("id", workerId).maybeSingle<UserRecord>(),
+          supabase
+            .from("marketplace_users")
+            .select("*")
+            .eq("id", workerId)
+            .maybeSingle<MarketplaceUserRecord>(),
           supabase
             .from("business_profiles")
             .select("*")
@@ -336,8 +340,8 @@ export default function BookingEntryPage() {
             Book {workerUser?.display_name || workerProfile.job_role}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Send a clean shift request with date, time, rate, and notes. The worker
-            will see it in their dashboard and can accept or decline.
+            Send a clean booking request with date, time, rate, and notes. The worker
+            will see it in their dashboard and can accept or decline without extra back-and-forth.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -437,6 +441,9 @@ export default function BookingEntryPage() {
               <p>{workerProfile.job_role}</p>
               <p>
                 {workerProfile.city} | {workerProfile.travel_radius_miles} mile radius
+              </p>
+              <p>
+                Experience: {workerProfile.years_experience} years
               </p>
               <p>
                 Suggested rate:{" "}
