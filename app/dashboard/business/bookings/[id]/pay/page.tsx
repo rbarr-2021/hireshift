@@ -11,7 +11,7 @@ import {
   formatBookingTimeRange,
 } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
-import { formatPaymentStatus } from "@/lib/payments";
+import { formatPaymentStatus, formatPayoutStatus } from "@/lib/payments";
 import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
@@ -157,8 +157,9 @@ export default function BusinessBookingPaymentPage() {
     );
   }
 
-  const bookingReadyForPayment = booking.status === "accepted";
+  const bookingReadyForPayment = booking.status === "accepted" || booking.status === "completed";
   const paymentLabel = payment ? formatPaymentStatus(payment.status) : "Unpaid";
+  const payoutLabel = payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation";
 
   return (
     <div className="space-y-6">
@@ -166,10 +167,10 @@ export default function BusinessBookingPaymentPage() {
         <div>
           <p className="section-label">Booking payment</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Review and pay
+            Review and pay shift
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Confirm the shift details and pay through secure Stripe checkout.
+            Confirm the shift details and pay through secure Stripe checkout. Worker payout is only released after shift completion is confirmed.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -217,6 +218,9 @@ export default function BusinessBookingPaymentPage() {
             <p>
               <span className="font-medium text-stone-900">Payment status:</span> {paymentLabel}
             </p>
+            <p>
+              <span className="font-medium text-stone-900">Payout status:</span> {payoutLabel}
+            </p>
           </div>
           {booking.notes ? (
             <p className="mt-5 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
@@ -243,10 +247,13 @@ export default function BusinessBookingPaymentPage() {
               </span>
             </div>
           </div>
+          <div className="info-banner mt-5">
+            Your charge is recorded now, but payout is not released to the worker until the shift is completed and approved. If anything goes wrong, you can flag an issue before payout is sent.
+          </div>
 
           {!bookingReadyForPayment ? (
             <div className="info-banner mt-5">
-              Payment becomes available after the worker accepts the booking request.
+              Payment becomes available after the worker accepts the booking request or once the shift has been marked completed.
             </div>
           ) : payment?.status === "captured" || payment?.status === "released" ? (
             <div className="info-banner mt-5">This booking has already been paid.</div>
@@ -270,4 +277,3 @@ export default function BusinessBookingPaymentPage() {
     </div>
   );
 }
-

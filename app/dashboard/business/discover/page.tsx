@@ -762,6 +762,11 @@ export default function BusinessWorkerDiscoveryPage() {
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
+                            {entry.profile.verification_status === "verified" ? (
+                              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">
+                                Verified
+                              </span>
+                            ) : null}
                             {entry.aggregate.averageRating !== null ? (
                               <span className="rounded-full bg-[#00A7FF]/12 px-3 py-1 text-xs font-medium text-[#0B2035]">
                                 {entry.aggregate.averageRating}/5 rating

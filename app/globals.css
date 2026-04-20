@@ -78,6 +78,30 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(78%) sepia(96%) saturate(1554%) hue-rotate(164deg)
+    brightness(102%) contrast(103%);
+  border-radius: 999px;
+  background-color: rgba(16, 215, 255, 0.12);
+  padding: 0.35rem;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(16, 215, 255, 0.2);
+}
+
 @layer base {
   .bg-white {
     background-color: var(--bg-surface) !important;

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -14,7 +15,13 @@ import type {
   PaymentRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
-import { formatPaymentStatus, paymentStatusClass } from "@/lib/payments";
+import {
+  formatPaymentStatus,
+  formatPayoutStatus,
+  paymentStatusClass,
+  payoutStatusClass,
+  isBookingPaid,
+} from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
 
 export default function BusinessPastBookingsPage() {
@@ -96,7 +103,7 @@ export default function BusinessPastBookingsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <p className="section-label">Past Bookings</p>
+          <p className="section-label">Payments</p>
           <Skeleton className="mt-4 h-10 w-56" />
         </div>
         <div className="space-y-4">
@@ -115,10 +122,13 @@ export default function BusinessPastBookingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="section-label">Past Bookings</p>
+          <p className="section-label">Payments</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Booking history
+            Payment history
           </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
+            Review completed bookings, charge states, and payout progress in one place.
+          </p>
         </div>
         <span className="status-badge status-badge--rating">{pastBookings.length}</span>
       </div>
@@ -132,13 +142,33 @@ export default function BusinessPastBookingsPage() {
               worker={workersById[booking.worker_id]}
               paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
               paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
+              payoutLabel={
+                paymentsByBookingId[booking.id]
+                  ? formatPayoutStatus(paymentsByBookingId[booking.id].payout_status)
+                  : undefined
+              }
+              payoutTone={
+                paymentsByBookingId[booking.id]
+                  ? payoutStatusClass(paymentsByBookingId[booking.id].payout_status)
+                  : undefined
+              }
+              actions={
+                booking.status === "completed" && !isBookingPaid(paymentsByBookingId[booking.id]) ? (
+                  <Link
+                    href={`/dashboard/business/bookings/${booking.id}/pay`}
+                    className="primary-btn w-full px-5 sm:w-auto"
+                  >
+                    Pay shift
+                  </Link>
+                ) : undefined
+              }
             />
           ))}
         </div>
       ) : (
         <BusinessEmptyState
-          title="No past bookings yet"
-          description="Completed, declined, cancelled, and older shifts will collect here."
+          title="No payments yet"
+          description="Completed, cancelled, declined, and older bookings will collect here with their payment state."
         />
       )}
     </div>

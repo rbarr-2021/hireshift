@@ -9,6 +9,7 @@ import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { sanitiseAppRedirectPath } from "@/lib/auth-client";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
+import { getUkMinimumRateMessage, isBelowUkMinimumHourlyRate } from "@/lib/pay-rules";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
@@ -659,6 +660,9 @@ export function WorkerProfileForm({
     if (stepId === "work") {
       if (!hourlyRate.trim()) return "Hourly rate is required.";
       if (Number(hourlyRate) <= 0) return "Add a valid hourly rate.";
+      if (isBelowUkMinimumHourlyRate(Number(hourlyRate))) {
+        return getUkMinimumRateMessage();
+      }
       if (!yearsExperience.trim()) return "Years of experience is required.";
       return null;
     }
@@ -1084,7 +1088,7 @@ export function WorkerProfileForm({
 
       setMessage(
         mode === "onboarding"
-          ? "Worker profile completed."
+          ? "Worker profile completed. Complete shifts, build trust, and get paid fast."
           : "Worker profile saved successfully.",
       );
 
@@ -1145,7 +1149,7 @@ export function WorkerProfileForm({
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
                 {mode === "onboarding"
-                  ? "Complete your profile in a few short steps."
+                  ? "Complete your profile in a few short steps. Your completed shifts move through confirmation and payout automatically."
                   : isManageAvailability
                     ? "Update the dates you can work."
                     : "Update your profile details."}
@@ -1382,7 +1386,7 @@ export function WorkerProfileForm({
                   </label>
                   <input
                     type="number"
-                    min={0}
+                    min={12.71}
                     step="0.50"
                     value={hourlyRate}
                     onChange={(event) => setHourlyRate(event.target.value)}
@@ -1390,6 +1394,9 @@ export function WorkerProfileForm({
                     placeholder="18.50"
                     required
                   />
+                  <p className="mt-2 text-xs text-stone-500">
+                    Keep this at or above the current UK minimum of GBP 12.71/hr.
+                  </p>
                 </div>
 
                 <div>

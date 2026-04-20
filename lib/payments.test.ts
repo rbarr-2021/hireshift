@@ -42,6 +42,15 @@ const paidPayment: PaymentRecord = {
   platform_fee_gbp: 24,
   worker_payout_gbp: 160,
   status: "captured",
+  payout_status: "awaiting_shift_completion",
+  shift_completed_at: null,
+  shift_completion_confirmed_by: null,
+  payout_approved_at: null,
+  payout_approved_by: null,
+  payout_sent_at: null,
+  dispute_reason: null,
+  disputed_at: null,
+  payout_hold_reason: null,
   created_at: "",
   updated_at: "",
 };
@@ -61,4 +70,3 @@ describe("payments helpers", () => {
     expect(formatBookingLifecycleLabel(baseBooking, paidPayment)).toBe("Confirmed");
   });
 });
-

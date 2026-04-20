@@ -7,6 +7,7 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
 import { useToast } from "@/components/ui/toast-provider";
+import { hasClientAdminAccess } from "@/lib/admin-access-client";
 import {
   getResetPasswordRedirectUrl,
   getRoleEntryPath,
@@ -141,6 +142,21 @@ export default function Login() {
         return;
       }
 
+      const adminAccess = await hasClientAdminAccess(resolved.appUser.id);
+
+      if (adminAccess) {
+        const redirectTarget = getPendingRedirect();
+        setMessage("Login successful. Redirecting to admin.");
+        clearPostAuthIntent();
+        router.push(redirectTarget ?? "/admin");
+        showToast({
+          title: "Admin access granted",
+          description: "You're signed in and ready to manage KruVii.",
+          tone: "success",
+        });
+        return;
+      }
+
       if (!hasSelectedRole(resolved.appUser)) {
         const redirectTarget = getPendingRedirect();
         setMessage("Login successful. Choose whether you are looking for work or hiring staff.");
@@ -160,6 +176,7 @@ export default function Login() {
       const redirectTarget = getPendingRedirect();
 
       if (!resolved.appUser.onboarding_complete && resolved.appUser.role === "worker") {
+
         setMessage("Login successful. Browse shifts now, and complete your profile when you take your first one.");
         showToast({
           title: "Browse shifts",

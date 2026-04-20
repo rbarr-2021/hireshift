@@ -1,10 +1,9 @@
-import { AuthGuard } from "@/components/auth/auth-guard";
+import { AdminGuard } from "@/components/auth/admin-guard";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthGuard requireOnboarding>{children}</AuthGuard>;
+  return <AdminGuard>{children}</AdminGuard>;
 }
-

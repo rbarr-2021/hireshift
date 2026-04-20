@@ -22,7 +22,16 @@ import {
   type WorkerProfileRecord,
   type WorkerReliabilityRecord,
 } from "@/lib/models";
-import { formatPaymentStatus, paymentStatusClass } from "@/lib/payments";
+import {
+  formatPaymentStatus,
+  formatPayoutStatus,
+  getLastPaidPayout,
+  getPayoutSupportCopy,
+  getUpcomingPayout,
+  getWorkerShiftStage,
+  paymentStatusClass,
+  payoutStatusClass,
+} from "@/lib/payments";
 import {
   formatBlockedUntil,
   formatReliabilityStatus,
@@ -56,12 +65,16 @@ function BookingCard({
   business,
   actions,
   payment,
+  showDetailLink = false,
 }: {
   booking: BookingRecord;
   business?: BusinessSnapshot;
   actions?: React.ReactNode;
   payment?: PaymentRecord | null;
+  showDetailLink?: boolean;
 }) {
+  const shiftStage = getWorkerShiftStage(booking, payment ?? null);
+
   return (
     <article className="panel-soft p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -81,6 +94,11 @@ function BookingCard({
           {payment ? (
             <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass(payment.status)}`}>
               {formatPaymentStatus(payment.status)}
+            </span>
+          ) : null}
+          {payment ? (
+            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutStatusClass(payment.payout_status)}`}>
+              {formatPayoutStatus(payment.payout_status)}
             </span>
           ) : null}
         </div>
@@ -105,15 +123,32 @@ function BookingCard({
         </p>
         <p>
           <span className="font-medium text-stone-900">Status:</span>{" "}
-          {formatBookingStatus(booking.status)}
+          {shiftStage}
         </p>
       </div>
+      {payment ? (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+          {getPayoutSupportCopy(payment.payout_status)}
+        </p>
+      ) : null}
       {booking.notes ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.notes}
         </p>
       ) : null}
-      {actions ? <div className="mt-4 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
+      {actions || showDetailLink ? (
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          {actions}
+          {showDetailLink ? (
+            <Link
+              href={`/dashboard/worker/bookings/${booking.id}`}
+              className="secondary-btn w-full px-5 sm:w-auto"
+            >
+              View details
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -274,12 +309,30 @@ export default function WorkerDashboardPage() {
     [bookings],
   );
 
+  const paidBookings = useMemo(
+    () =>
+      bookings.filter(
+        (booking) => paymentsByBookingId[booking.id]?.payout_status === "paid",
+      ),
+    [bookings, paymentsByBookingId],
+  );
+
   const upcomingShifts = useMemo(
     () =>
       acceptedJobs
         .filter((booking) => !isPastBooking(booking))
         .slice(0, 3),
     [acceptedJobs],
+  );
+
+  const upcomingPayout = useMemo(
+    () => getUpcomingPayout(bookings, paymentsByBookingId),
+    [bookings, paymentsByBookingId],
+  );
+
+  const lastPaidPayout = useMemo(
+    () => getLastPaidPayout(bookings, paymentsByBookingId),
+    [bookings, paymentsByBookingId],
   );
 
   const reloadBooking = async (bookingId: string) => {
@@ -437,8 +490,7 @@ export default function WorkerDashboardPage() {
             Manage incoming booking requests and confirmed shifts
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Keep your profile current, respond to booking requests quickly, and stay
-            on top of every accepted shift in one view.
+            Keep your profile current, respond to booking requests quickly, and track when each completed shift moves through approval and payout.
           </p>
         </div>
         <Link
@@ -484,6 +536,39 @@ export default function WorkerDashboardPage() {
             {reliability?.active_strikes ?? 0} strikes | {reliability?.completed_shifts_count ?? 0} completed
           </p>
         </section>
+        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-sm font-medium text-stone-500">Upcoming payout</p>
+              <p className="mt-2 text-2xl font-semibold text-stone-900">
+                {upcomingPayout ? formatCurrency(upcomingPayout.payment.worker_payout_gbp) : "None yet"}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {upcomingPayout
+                  ? `${businessesById[upcomingPayout.booking.business_id]?.name || "Business"} | ${formatPayoutStatus(upcomingPayout.payment.payout_status)}`
+                  : "Your next approved shift payout will show here."}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stone-500">Last payout</p>
+              <p className="mt-2 text-2xl font-semibold text-stone-900">
+                {lastPaidPayout ? formatCurrency(lastPaidPayout.payment.worker_payout_gbp) : "None yet"}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {lastPaidPayout
+                  ? `${businessesById[lastPaidPayout.booking.business_id]?.name || "Business"} | paid`
+                  : "Completed shifts move here once payout is sent."}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stone-500">Paid shifts</p>
+              <p className="mt-2 text-2xl font-semibold text-stone-900">{paidBookings.length}</p>
+              <p className="mt-2 text-sm text-stone-600">
+                Fast payout still follows confirmed shift completion and approval.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
@@ -500,6 +585,7 @@ export default function WorkerDashboardPage() {
                   booking={booking}
                   business={businessesById[booking.business_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  showDetailLink
                   actions={
                     <>
                       <button
@@ -544,6 +630,7 @@ export default function WorkerDashboardPage() {
                   booking={booking}
                   business={businessesById[booking.business_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  showDetailLink
                   actions={
                     !isPastBooking(booking) ? (
                       <button
@@ -580,6 +667,7 @@ export default function WorkerDashboardPage() {
                   booking={booking}
                   business={businessesById[booking.business_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  showDetailLink
                 />
               ))
             ) : (
@@ -622,10 +710,9 @@ export default function WorkerDashboardPage() {
         </section>
 
         <section className="panel-soft p-5 sm:p-6">
-          <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
+          <h2 className="text-xl font-semibold text-stone-900">Payments</h2>
           <div className="info-banner mt-4">
-            Keep your availability fresh, respond to requests quickly, and add
-            strong supporting documents so businesses trust your profile faster.
+            Complete shifts, build trust, and get paid fast. Your completed shifts move through confirmation and payout automatically.
           </div>
         </section>
       </div>

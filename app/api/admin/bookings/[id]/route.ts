@@ -84,9 +84,11 @@ export async function PATCH(
 
   const body = (await request.json().catch(() => null)) as { status?: string } | null;
   const nextStatus = body?.status;
+  const payoutAction = (body as { payoutAction?: string; reason?: string } | null)?.payoutAction;
+  const actionReason = (body as { payoutAction?: string; reason?: string } | null)?.reason?.trim() || null;
 
-  if (!nextStatus) {
-    return NextResponse.json({ error: "Choose a booking status." }, { status: 400 });
+  if (!nextStatus && !payoutAction) {
+    return NextResponse.json({ error: "Choose an admin action." }, { status: 400 });
   }
 
   const { id } = await context.params;
@@ -134,16 +136,71 @@ export async function PATCH(
       event_metadata: { recorded_by: actor.authUser.id, source: "admin" },
     });
   } else if (
+    nextStatus &&
     (nextStatus === "declined" && booking.status === "pending") ||
     (nextStatus === "cancelled" && (booking.status === "pending" || booking.status === "accepted")) ||
     (nextStatus === "accepted" && booking.status === "pending")
   ) {
     await supabaseAdmin.from("bookings").update({ status: nextStatus }).eq("id", booking.id);
-  } else {
+  } else if (nextStatus) {
     return NextResponse.json(
       { error: "That admin status change is not supported for this booking yet." },
       { status: 409 },
     );
+  }
+
+  if (payoutAction) {
+    if (!payment) {
+      return NextResponse.json({ error: "No payment record found for this booking." }, { status: 404 });
+    }
+
+    if (payoutAction === "approve_payout") {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "approved_for_payout",
+          payout_approved_at: new Date().toISOString(),
+          payout_approved_by: actor.authUser.id,
+          dispute_reason: null,
+          disputed_at: null,
+          payout_hold_reason: null,
+        })
+        .eq("id", payment.id);
+    } else if (payoutAction === "mark_paid") {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "paid",
+          payout_sent_at: new Date().toISOString(),
+          status: payment.status === "captured" ? "released" : payment.status,
+          dispute_reason: null,
+          disputed_at: null,
+          payout_hold_reason: null,
+        })
+        .eq("id", payment.id);
+    } else if (payoutAction === "dispute") {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "disputed",
+          dispute_reason: actionReason || "Issue flagged by admin.",
+          disputed_at: new Date().toISOString(),
+        })
+        .eq("id", payment.id);
+    } else if (payoutAction === "hold") {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "on_hold",
+          payout_hold_reason: actionReason || "Payout placed on hold by admin.",
+        })
+        .eq("id", payment.id);
+    } else {
+      return NextResponse.json(
+        { error: "That payout action is not supported." },
+        { status: 409 },
+      );
+    }
   }
 
   const summary = await getAdminSummary(booking.id);

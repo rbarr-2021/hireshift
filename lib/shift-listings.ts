@@ -22,6 +22,21 @@ export function getRemainingShiftPositions(listing: ShiftListingRecord) {
   return Math.max(0, listing.open_positions - listing.claimed_positions);
 }
 
+function normaliseTime(value: string) {
+  return value.length === 5 ? `${value}:00` : value;
+}
+
+export function getShiftListingStartDateTime(listing: Pick<ShiftListingRecord, "shift_date" | "start_time">) {
+  return new Date(`${listing.shift_date}T${normaliseTime(listing.start_time)}`);
+}
+
+export function hasShiftListingStarted(
+  listing: Pick<ShiftListingRecord, "shift_date" | "start_time">,
+  now = new Date(),
+) {
+  return getShiftListingStartDateTime(listing).getTime() <= now.getTime();
+}
+
 export function formatShiftListingStatus(status: ShiftListingRecord["status"]) {
   const labels: Record<ShiftListingRecord["status"], string> = {
     open: "Open",
@@ -48,10 +63,15 @@ export function matchesShiftFilters(input: {
   date: string;
   location: string;
   maxRate: string;
+  now?: Date;
 }) {
-  const { listing, query, date, location, maxRate } = input;
+  const { listing, query, date, location, maxRate, now } = input;
 
   if (listing.status !== "open") {
+    return false;
+  }
+
+  if (hasShiftListingStarted(listing, now)) {
     return false;
   }
 

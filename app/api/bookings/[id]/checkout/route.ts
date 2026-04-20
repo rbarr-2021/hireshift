@@ -35,9 +35,9 @@ export async function POST(
     return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   }
 
-  if (booking.status !== "accepted") {
+  if (!(booking.status === "accepted" || booking.status === "completed")) {
     return NextResponse.json(
-      { error: "This booking can only be paid once the worker has accepted it." },
+      { error: "This booking can only be paid once the worker has accepted or completed the shift." },
       { status: 409 },
     );
   }
@@ -160,6 +160,15 @@ export async function POST(
       platform_fee_gbp: pricing.platformFeeGbp,
       worker_payout_gbp: pricing.workerPayGbp,
       status: "pending",
+      payout_status: "pending_confirmation",
+      shift_completed_at: null,
+      shift_completion_confirmed_by: null,
+      payout_approved_at: null,
+      payout_approved_by: null,
+      payout_sent_at: null,
+      dispute_reason: null,
+      disputed_at: null,
+      payout_hold_reason: null,
       stripe_checkout_session_id: checkoutSession.id,
       stripe_checkout_url: checkoutSession.url,
       stripe_checkout_expires_at: checkoutSession.expires_at
@@ -171,4 +180,3 @@ export async function POST(
 
   return NextResponse.json({ url: checkoutSession.url });
 }
-

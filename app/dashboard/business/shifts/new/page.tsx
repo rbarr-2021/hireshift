@@ -7,6 +7,7 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { ShiftTimeRangePicker } from "@/components/forms/shift-time-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
+import { getUkMinimumRateMessage, isBelowUkMinimumHourlyRate } from "@/lib/pay-rules";
 import type {
   BusinessProfileRecord,
   ShiftListingRecord,
@@ -204,6 +205,11 @@ export default function NewShiftListingPage() {
       return;
     }
 
+    if (isBelowUkMinimumHourlyRate(numericRate)) {
+      setMessage(getUkMinimumRateMessage());
+      return;
+    }
+
     const numericOpenPositions = Number(openPositions);
 
     if (Number.isNaN(numericOpenPositions) || numericOpenPositions < 1) {
@@ -384,7 +390,7 @@ export default function NewShiftListingPage() {
                 <span className="font-medium text-stone-900">Hourly rate (GBP)</span>
                 <input
                   type="number"
-                  min="1"
+                  min="12.71"
                   step="0.50"
                   value={hourlyRate}
                   onChange={(event) => setHourlyRate(event.target.value)}
@@ -392,6 +398,9 @@ export default function NewShiftListingPage() {
                   placeholder="18.50"
                   required
                 />
+                <p className="text-xs text-stone-500">
+                  Keep this at or above the current UK minimum of GBP 12.71/hr.
+                </p>
               </label>
               <div className="sm:col-span-2">
                 <ShiftTimeRangePicker

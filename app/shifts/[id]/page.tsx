@@ -18,10 +18,12 @@ import type {
   BusinessProfileRecord,
   ShiftListingRecord,
   UserRecord,
+  WorkerProfileRecord,
   WorkerReliabilityRecord,
 } from "@/lib/models";
 import {
   formatShiftListingStatus,
+  hasShiftListingStarted,
   getRemainingShiftPositions,
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
@@ -54,6 +56,7 @@ export default function ShiftDetailPage() {
   const [listing, setListing] = useState<ShiftListingRecord | null>(null);
   const [business, setBusiness] = useState<BusinessSummary | null>(null);
   const [workerAlreadyBooked, setWorkerAlreadyBooked] = useState(false);
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
   const [reliability, setReliability] = useState<WorkerReliabilityRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [taking, setTaking] = useState(false);
@@ -106,7 +109,16 @@ export default function ShiftDetailPage() {
             .maybeSingle<WorkerReliabilityRecord>()
         : Promise.resolve({ data: null, error: null });
 
-      const [userResult, profileResult, bookingResult, reliabilityResult] = await Promise.all([
+      const workerProfileResultPromise = appUser?.id
+        ? supabase
+            .from("worker_profiles")
+            .select("*")
+            .eq("user_id", appUser.id)
+            .maybeSingle<WorkerProfileRecord>()
+        : Promise.resolve({ data: null, error: null });
+
+      const [userResult, profileResult, bookingResult, reliabilityResult, workerProfileResult] =
+        await Promise.all([
         supabase.from("users").select("*").eq("id", data.business_id).maybeSingle<UserRecord>(),
         supabase
           .from("business_profiles")
@@ -115,6 +127,7 @@ export default function ShiftDetailPage() {
           .maybeSingle<BusinessProfileRecord>(),
         bookingResultPromise,
         reliabilityResultPromise,
+        workerProfileResultPromise,
       ]);
 
       if (!active) {
@@ -137,11 +150,14 @@ export default function ShiftDetailPage() {
         ((bookingResult.data as { id: string }[] | null) ?? []).length > 0;
       setWorkerAlreadyBooked(hasExistingBooking);
       setReliability(reliabilityResult.data ?? null);
+      setWorkerProfile(workerProfileResult.data ?? null);
 
       if (intentTake && appUser?.onboarding_complete) {
         setMessage(
           isWorkerBlocked(reliabilityResult.data ?? null)
             ? `Your account is temporarily unable to take new shifts until ${formatBlockedUntil(reliabilityResult.data?.blocked_until) ?? "a later date"}.`
+            : workerProfileResult.data?.verification_status !== "verified"
+            ? "Verify your identity before taking your first shift."
             : hasExistingBooking
             ? "You've already taken this shift."
             : "Profile complete - you're ready to take this shift.",
@@ -175,6 +191,19 @@ export default function ShiftDetailPage() {
       showToast({
         title: "Complete your profile to take this shift",
         description: "Just a few details before your first shift. You only need to do this once.",
+        tone: "info",
+      });
+      router.push(`/profile/setup/worker?redirect=${encodeURIComponent(targetPath)}`);
+      return;
+    }
+
+    if (workerProfile?.verification_status !== "verified") {
+      const nextMessage =
+        "Verify your identity before taking your first shift. Add your photo ID and right-to-work document in your worker profile.";
+      setMessage(nextMessage);
+      showToast({
+        title: "Verification needed",
+        description: nextMessage,
         tone: "info",
       });
       router.push(`/profile/setup/worker?redirect=${encodeURIComponent(targetPath)}`);
@@ -249,6 +278,11 @@ export default function ShiftDetailPage() {
     return hours > 0 ? `${hours} hours` : "";
   }, [listing]);
 
+  const listingStarted = useMemo(
+    () => (listing ? hasShiftListingStarted(listing) : false),
+    [listing],
+  );
+
   if (loading) {
     return (
       <section className="public-section">
@@ -271,6 +305,22 @@ export default function ShiftDetailPage() {
           </p>
           <Link href="/shifts" className="primary-btn mt-6 px-6">
             Browse shifts
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (listingStarted) {
+    return (
+      <section className="public-section">
+        <div className="mobile-empty-state">
+          <h1 className="text-2xl font-semibold text-stone-900">Shift no longer available</h1>
+          <p className="mt-3 text-sm text-stone-600">
+            This listing has already started, so it is no longer visible for worker claims.
+          </p>
+          <Link href="/shifts" className="primary-btn mt-6 px-6">
+            Browse current shifts
           </Link>
         </div>
       </section>
@@ -334,6 +384,8 @@ export default function ShiftDetailPage() {
               {appUser?.onboarding_complete
                 ? isWorkerBlocked(reliability)
                   ? `You are temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`
+                  : workerProfile?.verification_status !== "verified"
+                  ? "Verify your identity once before your first confirmed shift, then you can take work without this extra step."
                   : "You are shift-ready. Take this shift now and it will move straight into your accepted work."
                 : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
             </p>
@@ -344,7 +396,10 @@ export default function ShiftDetailPage() {
                 disabled={
                   taking ||
                   isWorkerBlocked(reliability) ||
+                  (Boolean(appUser?.onboarding_complete) &&
+                    workerProfile?.verification_status !== "verified") ||
                   workerAlreadyBooked ||
+                  listingStarted ||
                   listing.status !== "open" ||
                   getRemainingShiftPositions(listing) === 0
                 }
@@ -354,8 +409,13 @@ export default function ShiftDetailPage() {
                   ? "Taking shift..."
                   : workerAlreadyBooked
                     ? "Already taken"
+                  : listingStarted
+                    ? "Shift started"
                   : isWorkerBlocked(reliability)
                     ? "Temporarily blocked"
+                  : appUser?.onboarding_complete &&
+                    workerProfile?.verification_status !== "verified"
+                    ? "Verify ID to take shift"
                   : appUser?.onboarding_complete
                     ? "Take shift"
                     : "Complete profile to take shift"}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
@@ -55,6 +56,7 @@ function getDateOffsetValue(offsetDays: number) {
 }
 
 export default function WorkerShiftBrowsePage() {
+  const router = useRouter();
   const { appUser } = useAuthState();
   const [filters, setFilters] = useState(initialFilters);
   const [listings, setListings] = useState<ShiftListingRecord[]>([]);
@@ -152,6 +154,20 @@ export default function WorkerShiftBrowsePage() {
       )?.id ?? null,
     [filters.date],
   );
+
+  useEffect(() => {
+    if (loading || errorMessage) {
+      return;
+    }
+
+    if (!appUser || appUser.onboarding_complete) {
+      return;
+    }
+
+    if (listings.length === 0) {
+      router.replace("/profile/setup/worker");
+    }
+  }, [appUser, errorMessage, listings.length, loading, router]);
 
   return (
     <section className="public-section space-y-8">

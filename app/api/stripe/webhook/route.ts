@@ -20,6 +20,7 @@ async function updatePaymentSucceeded(event: Stripe.CheckoutSessionCompletedEven
     .from("payments")
     .update({
       status: "captured",
+      payout_status: "awaiting_shift_completion",
       stripe_checkout_session_id: session.id,
       stripe_checkout_url: null,
       stripe_checkout_expires_at: session.expires_at
@@ -53,6 +54,8 @@ async function updatePaymentFailed(
     .from("payments")
     .update({
       status: "failed",
+      payout_status: "on_hold",
+      payout_hold_reason: "Payment could not be completed.",
       stripe_payment_intent_id: paymentIntentId,
     })
     .eq("booking_id", bookingId);
@@ -99,4 +102,3 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ received: true });
 }
-

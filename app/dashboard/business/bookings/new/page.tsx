@@ -12,6 +12,7 @@ import {
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
+import { getUkMinimumRateMessage, isBelowUkMinimumHourlyRate } from "@/lib/pay-rules";
 import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import type {
   BookingRecord,
@@ -230,6 +231,11 @@ export default function BookingEntryPage() {
       return;
     }
 
+    if (isBelowUkMinimumHourlyRate(numericRate)) {
+      setMessage(getUkMinimumRateMessage());
+      return;
+    }
+
     setSaving(true);
     setMessage(null);
 
@@ -393,13 +399,16 @@ export default function BookingEntryPage() {
                 <span className="font-medium text-stone-900">Hourly rate (GBP)</span>
                 <input
                   type="number"
-                  min="1"
+                  min="12.71"
                   step="0.5"
                   value={rate}
                   onChange={(event) => setRate(event.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
                   required
                 />
+                <p className="text-xs text-stone-500">
+                  Keep this at or above the current UK minimum of GBP 12.71/hr.
+                </p>
               </label>
               <div className="sm:col-span-2">
                 <ShiftTimeRangePicker

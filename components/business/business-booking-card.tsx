@@ -6,7 +6,11 @@ import {
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
-import { formatBookingLifecycleLabel, paymentStatusClass } from "@/lib/payments";
+import {
+  formatBookingLifecycleLabel,
+  paymentStatusClass,
+  payoutStatusClass,
+} from "@/lib/payments";
 import type { BookingRecord } from "@/lib/models";
 
 function formatCurrency(value: number) {
@@ -29,12 +33,16 @@ export function BusinessBookingCard({
   actions,
   paymentLabel,
   paymentTone,
+  payoutLabel,
+  payoutTone,
 }: {
   booking: BookingRecord;
   worker?: WorkerSnapshot;
   actions?: React.ReactNode;
   paymentLabel?: string;
   paymentTone?: string;
+  payoutLabel?: string;
+  payoutTone?: string;
 }) {
   return (
     <article className="panel-soft p-4 sm:p-5">
@@ -59,6 +67,13 @@ export function BusinessBookingCard({
               className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentTone ?? paymentStatusClass("pending")}`}
             >
               {paymentLabel}
+            </span>
+          ) : null}
+          {payoutLabel ? (
+            <span
+              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutTone ?? payoutStatusClass("pending_confirmation")}`}
+            >
+              {payoutLabel}
             </span>
           ) : null}
         </div>

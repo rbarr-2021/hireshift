@@ -6,6 +6,7 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
+import { hasClientAdminAccess } from "@/lib/admin-access-client";
 import {
   getRoleEntryPath,
   hasSelectedRole,
@@ -185,6 +186,25 @@ export default function RoleSelect() {
         const data = await getOrCreateAppUserRow(user);
 
         if (!active) {
+          return;
+        }
+
+        const adminAccess = await hasClientAdminAccess(user.id);
+
+        if (!active) {
+          return;
+        }
+
+        if (adminAccess) {
+          console.info("[auth] redirect decision", {
+            reason: "role-select-to-admin",
+            pathname: "/role-select",
+            hasSession,
+            authUserId: user.id,
+            role: data.role,
+            target: "/admin",
+          });
+          router.replace("/admin");
           return;
         }
 

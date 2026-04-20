@@ -27,7 +27,15 @@ import { calculateBusinessProfileCompletion } from "@/lib/business-discovery";
 import {
   buildWorkerSnapshots,
 } from "@/lib/business-bookings";
-import { formatPaymentStatus, isBookingPaid, paymentStatusClass } from "@/lib/payments";
+import {
+  formatPaymentStatus,
+  formatPayoutStatus,
+  getPayoutSupportCopy,
+  isBookingPaid,
+  paymentStatusClass,
+  payoutStatusClass,
+} from "@/lib/payments";
+import { fetchWithSession } from "@/lib/route-client";
 import {
   formatShiftListingStatus,
   getRemainingShiftPositions,
@@ -158,6 +166,21 @@ export default function BusinessDashboardPage() {
     [bookings],
   );
 
+  const payoutApprovals = useMemo(
+    () =>
+      bookings.filter((booking) => {
+        const payment = paymentsByBookingId[booking.id];
+        return (
+          Boolean(payment) &&
+          (booking.status === "accepted" || booking.status === "completed") &&
+          ["awaiting_shift_completion", "awaiting_business_approval", "approved_for_payout", "disputed", "on_hold"].includes(
+            payment?.payout_status ?? "",
+          )
+        );
+      }),
+    [bookings, paymentsByBookingId],
+  );
+
   const openShiftListings = useMemo(
     () => shiftListings.filter((listing) => listing.status === "open"),
     [shiftListings],
@@ -176,6 +199,46 @@ export default function BusinessDashboardPage() {
       .maybeSingle<BookingRecord>();
 
     return data ?? null;
+  };
+
+  const reloadPayment = async (bookingId: string) => {
+    const { data } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .maybeSingle<PaymentRecord>();
+
+    return data ?? null;
+  };
+
+  const syncBookingState = async (bookingId: string) => {
+    const [refreshedBooking, refreshedPayment] = await Promise.all([
+      reloadBooking(bookingId),
+      reloadPayment(bookingId),
+    ]);
+
+    if (refreshedBooking) {
+      setBookings((current) =>
+        current.map((booking) => (booking.id === bookingId ? refreshedBooking : booking)),
+      );
+    }
+
+    setPaymentsByBookingId((current) => {
+      if (!refreshedPayment) {
+        if (!current[bookingId]) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next[bookingId];
+        return next;
+      }
+
+      return {
+        ...current,
+        [bookingId]: refreshedPayment,
+      };
+    });
   };
 
   const handleRecordOutcome = async (
@@ -218,6 +281,59 @@ export default function BusinessDashboardPage() {
     });
   };
 
+  const handlePayoutAction = async (
+    bookingId: string,
+    action: "mark_complete" | "approve_payout" | "flag_issue",
+  ) => {
+    setActioningId(bookingId);
+
+    try {
+      const response = await fetchWithSession(`/api/bookings/${bookingId}/payout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          reason: action === "flag_issue" ? "Issue raised by business after the shift." : undefined,
+        }),
+      });
+
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to update payout status.");
+      }
+
+      await syncBookingState(bookingId);
+      showToast({
+        title:
+          action === "mark_complete"
+            ? "Shift marked complete"
+            : action === "approve_payout"
+              ? "Payout approved"
+              : "Issue flagged",
+        description:
+          action === "mark_complete"
+            ? "The shift is now ready for payout approval."
+            : action === "approve_payout"
+              ? "This payout is approved for release."
+              : "This booking has been moved into dispute review.",
+        tone: action === "flag_issue" ? "info" : "success",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update payout status.";
+      showToast({
+        title: "Update failed",
+        description: message,
+        tone: "error",
+      });
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-8">
@@ -250,8 +366,7 @@ export default function BusinessDashboardPage() {
             Manage worker requests and confirmed shifts
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Discovery helps you shortlist workers, and bookings keep every request,
-            response, and upcoming shift in one place.
+            Discovery helps you fill shifts quickly, while payout controls keep every completed booking clear, tracked, and ready for fast release.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -301,6 +416,17 @@ export default function BusinessDashboardPage() {
         <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
+              <p className="text-sm font-medium text-stone-500">Payout approvals</p>
+              <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutApprovals.length}</p>
+            </div>
+            <p className="max-w-xl text-sm leading-6 text-stone-600">
+              Worker payout is released only after shift completion is confirmed, keeping instant pay fast but still protected for both sides.
+            </p>
+          </div>
+        </section>
+        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
               <p className="text-sm font-medium text-stone-500">Open shift listings</p>
               <p className="mt-2 text-3xl font-semibold text-stone-900">{openShiftListings.length}</p>
             </div>
@@ -327,6 +453,16 @@ export default function BusinessDashboardPage() {
                   worker={workersById[booking.worker_id]}
                   paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
+                  payoutLabel={
+                    paymentsByBookingId[booking.id]
+                      ? formatPayoutStatus(paymentsByBookingId[booking.id].payout_status)
+                      : undefined
+                  }
+                  payoutTone={
+                    paymentsByBookingId[booking.id]
+                      ? payoutStatusClass(paymentsByBookingId[booking.id].payout_status)
+                      : undefined
+                  }
                 />
               ))
             ) : (
@@ -354,6 +490,16 @@ export default function BusinessDashboardPage() {
                   worker={workersById[booking.worker_id]}
                   paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
+                  payoutLabel={
+                    paymentsByBookingId[booking.id]
+                      ? formatPayoutStatus(paymentsByBookingId[booking.id].payout_status)
+                      : undefined
+                  }
+                  payoutTone={
+                    paymentsByBookingId[booking.id]
+                      ? payoutStatusClass(paymentsByBookingId[booking.id].payout_status)
+                      : undefined
+                  }
                   actions={
                     <>
                       {!isBookingPaid(paymentsByBookingId[booking.id]) ? (
@@ -366,7 +512,7 @@ export default function BusinessDashboardPage() {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => void handleRecordOutcome(booking.id, "completed")}
+                        onClick={() => void handlePayoutAction(booking.id, "mark_complete")}
                         disabled={actioningId === booking.id}
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                       >
@@ -395,6 +541,71 @@ export default function BusinessDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="panel-soft p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-stone-900">Post-shift approvals</h2>
+            <span className="status-badge status-badge--ready">{payoutApprovals.length}</span>
+          </div>
+          <div className="mt-4 space-y-4">
+            {payoutApprovals.length > 0 ? (
+              payoutApprovals.slice(0, 4).map((booking) => {
+                const payment = paymentsByBookingId[booking.id];
+
+                return (
+                  <BusinessBookingCard
+                    key={booking.id}
+                    booking={booking}
+                    worker={workersById[booking.worker_id]}
+                    paymentLabel={formatPaymentStatus(payment?.status ?? "pending")}
+                    paymentTone={paymentStatusClass(payment?.status ?? "pending")}
+                    payoutLabel={payment ? formatPayoutStatus(payment.payout_status) : undefined}
+                    payoutTone={payment ? payoutStatusClass(payment.payout_status) : undefined}
+                    actions={
+                      <>
+                        {booking.status !== "completed" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handlePayoutAction(booking.id, "mark_complete")}
+                            disabled={actioningId === booking.id}
+                            className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                          >
+                            {actioningId === booking.id ? "Updating..." : "Mark shift complete"}
+                          </button>
+                        ) : null}
+                        {payment?.payout_status !== "approved_for_payout" && payment?.payout_status !== "paid" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handlePayoutAction(booking.id, "approve_payout")}
+                            disabled={actioningId === booking.id || booking.status !== "completed"}
+                            className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                          >
+                            Approve payout
+                          </button>
+                        ) : null}
+                        {payment?.payout_status !== "disputed" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handlePayoutAction(booking.id, "flag_issue")}
+                            disabled={actioningId === booking.id}
+                            className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                          >
+                            Flag issue
+                          </button>
+                        ) : null}
+                      </>
+                    }
+                  />
+                );
+              })
+            ) : (
+              <BusinessEmptyState
+                title="No payouts waiting on you"
+                description="After a shift ends, confirm completion here so approved payouts can move quickly."
+              />
+            )}
+          </div>
+        </section>
+
         <section className="panel-soft p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-stone-900">Shift listings</h2>
@@ -481,9 +692,7 @@ export default function BusinessDashboardPage() {
         <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
           <div className="info-banner mt-4">
-            Keep your venue profile accurate so workers trust your requests, then use
-            discovery to fill urgent gaps, or post open shift listings so workers can
-            raise their hand before you shortlist anyone.
+            {getPayoutSupportCopy("awaiting_business_approval")}
           </div>
         </section>
       </div>

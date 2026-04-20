@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
-import { paymentStatusClass } from "@/lib/payments";
+import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 
 type AdminBookingDetail = {
@@ -26,13 +26,20 @@ type AdminBookingDetail = {
   };
   payment: {
     status: string;
+    payout_status: string;
     stripe_payment_intent_id: string | null;
     stripe_checkout_session_id: string | null;
+    shift_completed_at: string | null;
+    payout_approved_at: string | null;
+    payout_sent_at: string | null;
+    dispute_reason: string | null;
+    payout_hold_reason: string | null;
   } | null;
   workerName: string;
   businessName: string;
   lifecycleLabel: string;
   paymentLabel: string;
+  payoutLabel: string;
 };
 
 function formatCurrency(value: number) {
@@ -87,7 +94,19 @@ export default function AdminBookingDetailPage() {
     };
   }, [bookingId, showToast]);
 
-  const updateStatus = async (status: string) => {
+  const updateBooking = async ({
+    status,
+    payoutAction,
+    reason,
+    successTitle,
+    successDescription,
+  }: {
+    status?: string;
+    payoutAction?: string;
+    reason?: string;
+    successTitle: string;
+    successDescription: string;
+  }) => {
     setUpdating(true);
 
     try {
@@ -96,7 +115,7 @@ export default function AdminBookingDetailPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, payoutAction, reason }),
       });
       const payload = (await response.json()) as { error?: string; item?: AdminBookingDetail };
 
@@ -106,8 +125,8 @@ export default function AdminBookingDetailPage() {
 
       setItem(payload.item);
       showToast({
-        title: "Booking updated",
-        description: `Status changed to ${payload.item.lifecycleLabel}.`,
+        title: successTitle,
+        description: successDescription,
         tone: "success",
       });
     } catch (error) {
@@ -171,6 +190,11 @@ export default function AdminBookingDetailPage() {
             <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass((item.payment?.status ?? "pending") as never)}`}>
               {item.paymentLabel}
             </span>
+            {item.payment ? (
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutStatusClass(item.payment.payout_status as never)}`}>
+                {item.payoutLabel}
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-5 grid gap-4 text-sm text-stone-600 sm:grid-cols-2">
@@ -187,17 +211,45 @@ export default function AdminBookingDetailPage() {
             {item.payment?.stripe_payment_intent_id ? (
               <p className="sm:col-span-2"><span className="font-medium text-stone-900">Payment intent:</span> {item.payment.stripe_payment_intent_id}</p>
             ) : null}
+            {item.payment?.shift_completed_at ? (
+              <p><span className="font-medium text-stone-900">Shift completed:</span> {new Date(item.payment.shift_completed_at).toLocaleString("en-GB")}</p>
+            ) : null}
+            {item.payment?.payout_approved_at ? (
+              <p><span className="font-medium text-stone-900">Payout approved:</span> {new Date(item.payment.payout_approved_at).toLocaleString("en-GB")}</p>
+            ) : null}
+            {item.payment?.payout_sent_at ? (
+              <p><span className="font-medium text-stone-900">Paid out:</span> {new Date(item.payment.payout_sent_at).toLocaleString("en-GB")}</p>
+            ) : null}
+            {item.payment?.dispute_reason ? (
+              <p className="sm:col-span-2"><span className="font-medium text-stone-900">Dispute reason:</span> {item.payment.dispute_reason}</p>
+            ) : null}
+            {item.payment?.payout_hold_reason ? (
+              <p className="sm:col-span-2"><span className="font-medium text-stone-900">Hold reason:</span> {item.payment.payout_hold_reason}</p>
+            ) : null}
           </div>
         </section>
 
         <section className="panel-soft p-5 sm:p-6">
-          <h2 className="text-xl font-semibold text-stone-900">Admin actions</h2>
+          <h2 className="text-xl font-semibold text-stone-900">Booking actions</h2>
           <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" disabled={updating} onClick={() => void updateStatus("accepted")} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark accepted</button>
-            <button type="button" disabled={updating} onClick={() => void updateStatus("declined")} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark declined</button>
-            <button type="button" disabled={updating} onClick={() => void updateStatus("cancelled")} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Cancel booking</button>
-            <button type="button" disabled={updating} onClick={() => void updateStatus("completed")} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark completed</button>
-            <button type="button" disabled={updating} onClick={() => void updateStatus("no_show")} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark no-show</button>
+            <button type="button" disabled={updating} onClick={() => void updateBooking({ status: "accepted", successTitle: "Booking updated", successDescription: "Booking marked as accepted." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark accepted</button>
+            <button type="button" disabled={updating} onClick={() => void updateBooking({ status: "declined", successTitle: "Booking updated", successDescription: "Booking marked as declined." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark declined</button>
+            <button type="button" disabled={updating} onClick={() => void updateBooking({ status: "cancelled", successTitle: "Booking updated", successDescription: "Booking cancelled." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Cancel booking</button>
+            <button type="button" disabled={updating} onClick={() => void updateBooking({ status: "completed", successTitle: "Booking updated", successDescription: "Booking marked as completed." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark completed</button>
+            <button type="button" disabled={updating} onClick={() => void updateBooking({ status: "no_show", successTitle: "Booking updated", successDescription: "Booking marked as no-show." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark no-show</button>
+          </div>
+        </section>
+
+        <section className="panel-soft p-5 sm:p-6">
+          <h2 className="text-xl font-semibold text-stone-900">Payout actions</h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            Fast payout still stays protected. Approve once the shift is confirmed, hold or dispute if something needs checking, then mark paid when funds are sent.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "approve_payout", successTitle: "Payout approved", successDescription: "This booking is now ready for payout." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Approve payout</button>
+            <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "hold", reason: "Manual review before payout release.", successTitle: "Payout placed on hold", successDescription: "This payout is now on hold for review." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Place on hold</button>
+            <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "dispute", reason: "Issue flagged during post-shift review.", successTitle: "Booking disputed", successDescription: "The payout has been moved into dispute." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Flag dispute</button>
+            <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "mark_paid", successTitle: "Payout marked as paid", successDescription: "Worker payout has been recorded as sent." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark paid</button>
           </div>
         </section>
       </div>

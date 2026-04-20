@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerAuthListener, supabase } from "@/lib/supabase";
+import { hasClientAdminAccess } from "@/lib/admin-access-client";
 import { getRoleEntryPath, hasSelectedRole, resolveAuthState } from "@/lib/auth-client";
 import { clearSessionHintCookie } from "@/lib/session-hint";
 import type { UserRecord } from "@/lib/models";
@@ -15,6 +16,7 @@ type SiteHeaderProps = {
 export function SiteHeader({ compact = false }: SiteHeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<UserRecord | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -28,6 +30,9 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
       }
 
       setUser(resolved?.appUser ?? null);
+      setIsAdmin(
+        resolved?.appUser ? await hasClientAdminAccess(resolved.appUser.id) : false,
+      );
     };
 
     void loadUser();
@@ -37,6 +42,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
         clearSessionHintCookie();
         if (active) {
           setUser(null);
+          setIsAdmin(false);
         }
         return;
       }
@@ -44,6 +50,9 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
       const resolved = await resolveAuthState();
       if (active) {
         setUser(resolved?.appUser ?? null);
+        setIsAdmin(
+          resolved?.appUser ? await hasClientAdminAccess(resolved.appUser.id) : false,
+        );
       }
     });
 
@@ -61,7 +70,9 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
   };
 
   const dashboardHref =
-    user && hasSelectedRole(user)
+    isAdmin
+      ? "/admin"
+      : user && hasSelectedRole(user)
       ? getRoleEntryPath(user.role, user.onboarding_complete)
       : "/role-select";
 

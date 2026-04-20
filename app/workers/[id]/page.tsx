@@ -210,6 +210,9 @@ export default function WorkerPublicProfilePage() {
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {profile.verification_status === "verified" ? (
+                    <span className="status-badge status-badge--ready">Verified</span>
+                  ) : null}
                   {aggregate.averageRating !== null ? (
                     <span className="status-badge status-badge--rating">
                       {aggregate.averageRating}/5 from {aggregate.reviewCount} review
@@ -371,7 +374,11 @@ export default function WorkerPublicProfilePage() {
                 </p>
                 <p>
                   <span className="font-medium text-stone-900">Profile status:</span>{" "}
-                  {profile.verification_status}
+                  {profile.verification_status === "verified"
+                    ? "Verified"
+                    : profile.verification_status === "rejected"
+                    ? "Changes required"
+                    : "Pending review"}
                 </p>
                 <p>
                   <span className="font-medium text-stone-900">Published rate:</span>{" "}

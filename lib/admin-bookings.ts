@@ -5,7 +5,11 @@ import type {
   PaymentRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
-import { formatBookingLifecycleLabel, formatPaymentStatus } from "@/lib/payments";
+import {
+  formatBookingLifecycleLabel,
+  formatPaymentStatus,
+  formatPayoutStatus,
+} from "@/lib/payments";
 
 export type AdminBookingSummary = {
   booking: BookingRecord;
@@ -14,6 +18,7 @@ export type AdminBookingSummary = {
   businessName: string;
   lifecycleLabel: string;
   paymentLabel: string;
+  payoutLabel: string;
 };
 
 export function buildAdminBookingSummaries(input: {
@@ -47,7 +52,7 @@ export function buildAdminBookingSummaries(input: {
         businessProfile?.business_name || businessUser?.display_name || "Business",
       lifecycleLabel: formatBookingLifecycleLabel(booking, payment),
       paymentLabel: payment ? formatPaymentStatus(payment.status) : "Unpaid",
+      payoutLabel: payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation",
     };
   });
 }
-

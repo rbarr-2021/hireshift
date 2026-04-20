@@ -74,7 +74,13 @@ export async function GET(request: NextRequest) {
   });
 
   if (paymentFilter) {
-    items = items.filter((item) => (item.payment?.status ?? "pending") === paymentFilter);
+    items = items.filter((item) => {
+      if (item.payment?.status === paymentFilter) {
+        return true;
+      }
+
+      return (item.payment?.payout_status ?? "pending_confirmation") === paymentFilter;
+    });
   }
 
   if (query) {
@@ -96,12 +102,11 @@ export async function GET(request: NextRequest) {
 
   const counts = {
     pending: items.filter((item) => item.booking.status === "pending").length,
-    confirmed: items.filter(
-      (item) => item.booking.status === "accepted" && item.payment?.status === "captured",
-    ).length,
+    approved: items.filter((item) => item.payment?.payout_status === "approved_for_payout").length,
     completed: items.filter((item) => item.booking.status === "completed").length,
-    unpaid: items.filter((item) => !item.payment || item.payment.status === "pending").length,
-    paid: items.filter((item) => item.payment?.status === "captured").length,
+    disputed: items.filter((item) => item.payment?.payout_status === "disputed").length,
+    onHold: items.filter((item) => item.payment?.payout_status === "on_hold").length,
+    paid: items.filter((item) => item.payment?.payout_status === "paid").length,
   };
 
   return NextResponse.json({ items, counts });

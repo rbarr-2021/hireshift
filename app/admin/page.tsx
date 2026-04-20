@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
-import { paymentStatusClass } from "@/lib/payments";
+import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 
 type AdminBookingItem = {
@@ -23,11 +23,13 @@ type AdminBookingItem = {
   };
   payment: {
     status: string;
+    payout_status: string;
   } | null;
   workerName: string;
   businessName: string;
   lifecycleLabel: string;
   paymentLabel: string;
+  payoutLabel: string;
 };
 
 function formatCurrency(value: number) {
@@ -43,9 +45,10 @@ export default function AdminBookingsPage() {
   const [items, setItems] = useState<AdminBookingItem[]>([]);
   const [counts, setCounts] = useState({
     pending: 0,
-    confirmed: 0,
+    approved: 0,
     completed: 0,
-    unpaid: 0,
+    disputed: 0,
+    onHold: 0,
     paid: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -80,7 +83,16 @@ export default function AdminBookingsPage() {
 
         if (active) {
           setItems(payload.items ?? []);
-          setCounts(payload.counts ?? counts);
+          setCounts(
+            payload.counts ?? {
+              pending: 0,
+              approved: 0,
+              completed: 0,
+              disputed: 0,
+              onHold: 0,
+              paid: 0,
+            },
+          );
         }
       } catch (nextError) {
         const message =
@@ -107,14 +119,15 @@ export default function AdminBookingsPage() {
     return () => {
       active = false;
     };
-  }, [counts, payment, query, showToast, status]);
+  }, [payment, query, showToast, status]);
 
   const statCards = useMemo(
     () => [
       { label: "Pending", value: counts.pending },
-      { label: "Confirmed", value: counts.confirmed },
+      { label: "Approved", value: counts.approved },
       { label: "Completed", value: counts.completed },
-      { label: "Unpaid", value: counts.unpaid },
+      { label: "Disputed", value: counts.disputed },
+      { label: "On hold", value: counts.onHold },
       { label: "Paid", value: counts.paid },
     ],
     [counts],
@@ -135,7 +148,7 @@ export default function AdminBookingsPage() {
           </Link>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           {statCards.map((card) => (
             <section key={card.label} className="panel-soft p-5">
               <p className="text-sm font-medium text-stone-500">{card.label}</p>
@@ -172,7 +185,11 @@ export default function AdminBookingsPage() {
             >
               <option value="">All payment states</option>
               <option value="pending">Unpaid</option>
-              <option value="captured">Paid</option>
+              <option value="captured">Charge captured</option>
+              <option value="approved_for_payout">Approved for payout</option>
+              <option value="paid">Paid out</option>
+              <option value="disputed">Disputed</option>
+              <option value="on_hold">On hold</option>
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
             </select>
@@ -225,6 +242,11 @@ export default function AdminBookingsPage() {
                       <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass((item.payment?.status ?? "pending") as never)}`}>
                         {item.paymentLabel}
                       </span>
+                      {item.payment ? (
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutStatusClass(item.payment.payout_status as never)}`}>
+                          {item.payoutLabel}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

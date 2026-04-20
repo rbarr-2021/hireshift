@@ -1,4 +1,9 @@
-import type { BookingRecord, PaymentRecord, PaymentStatus } from "@/lib/models";
+import type {
+  BookingRecord,
+  PaymentRecord,
+  PaymentStatus,
+  PayoutStatus,
+} from "@/lib/models";
 
 export function formatPaymentStatus(status: PaymentStatus) {
   const labels: Record<PaymentStatus, string> = {
@@ -21,6 +26,34 @@ export function paymentStatusClass(status: PaymentStatus) {
     released: "bg-stone-200 text-stone-800",
     refunded: "bg-stone-200 text-stone-800",
     failed: "bg-red-100 text-red-900",
+  };
+
+  return classes[status];
+}
+
+export function formatPayoutStatus(status: PayoutStatus) {
+  const labels: Record<PayoutStatus, string> = {
+    pending_confirmation: "Pending confirmation",
+    awaiting_shift_completion: "Awaiting shift completion",
+    awaiting_business_approval: "Awaiting business approval",
+    approved_for_payout: "Approved for payout",
+    paid: "Paid",
+    disputed: "Disputed",
+    on_hold: "On hold",
+  };
+
+  return labels[status];
+}
+
+export function payoutStatusClass(status: PayoutStatus) {
+  const classes: Record<PayoutStatus, string> = {
+    pending_confirmation: "status-badge",
+    awaiting_shift_completion: "status-badge status-badge--rating",
+    awaiting_business_approval: "status-badge status-badge--rating",
+    approved_for_payout: "status-badge status-badge--ready",
+    paid: "status-badge status-badge--ready",
+    disputed: "bg-red-100 text-red-900",
+    on_hold: "bg-amber-100 text-amber-900",
   };
 
   return classes[status];
@@ -66,3 +99,134 @@ export function formatBookingLifecycleLabel(
   return labels[booking.status];
 }
 
+export function getWorkerShiftStage(
+  booking: BookingRecord,
+  payment?: PaymentRecord | null,
+) {
+  if (payment?.payout_status === "paid") {
+    return "Paid";
+  }
+
+  if (payment?.payout_status === "disputed") {
+    return "Disputed";
+  }
+
+  if (payment?.payout_status === "on_hold") {
+    return "On hold";
+  }
+
+  if (payment?.payout_status === "approved_for_payout") {
+    return "Approved for Payout";
+  }
+
+  if (payment?.payout_status === "awaiting_business_approval") {
+    return "Awaiting Business Approval";
+  }
+
+  if (payment?.payout_status === "awaiting_shift_completion") {
+    return "Awaiting Shift Completion";
+  }
+
+  if (booking.status === "pending") {
+    return "Booked";
+  }
+
+  if (booking.status === "accepted") {
+    return isBookingPaid(payment) ? "In Progress" : "Confirmed";
+  }
+
+  if (booking.status === "completed") {
+    return "Awaiting Business Approval";
+  }
+
+  if (booking.status === "cancelled") {
+    return "Cancelled";
+  }
+
+  if (booking.status === "declined") {
+    return "Rejected";
+  }
+
+  if (booking.status === "no_show") {
+    return "Disputed";
+  }
+
+  return "Booked";
+}
+
+export function getPayoutSupportCopy(payment?: PaymentRecord | PayoutStatus | null) {
+  const payoutStatus =
+    typeof payment === "string" ? payment : payment?.payout_status ?? null;
+
+  if (!payoutStatus) {
+    return "Payout starts once the shift is paid and later confirmed complete.";
+  }
+
+  if (payoutStatus === "pending_confirmation") {
+    return "Payout will begin once the booking has been paid and the shift is completed.";
+  }
+
+  if (payoutStatus === "awaiting_shift_completion") {
+    return "Payout is waiting for the shift to be completed.";
+  }
+
+  if (payoutStatus === "awaiting_business_approval") {
+    return "The shift is complete. Payout is waiting for business approval.";
+  }
+
+  if (payoutStatus === "approved_for_payout") {
+    return "Payout has been approved and is ready to be sent.";
+  }
+
+  if (payoutStatus === "paid") {
+    return "This payout has been sent.";
+  }
+
+  if (payoutStatus === "disputed") {
+    return "Payout is paused while an issue is reviewed.";
+  }
+
+  return "Payout is temporarily on hold while this booking is reviewed.";
+}
+
+export function getUpcomingPayout(
+  bookings: BookingRecord[],
+  paymentsByBookingId: Record<string, PaymentRecord>,
+) {
+  for (const booking of bookings) {
+    const payment = paymentsByBookingId[booking.id];
+
+    if (
+      payment &&
+      (payment.payout_status === "approved_for_payout" ||
+        payment.payout_status === "awaiting_business_approval" ||
+        payment.payout_status === "awaiting_shift_completion")
+    ) {
+      return { booking, payment };
+    }
+  }
+
+  return null;
+}
+
+export function getLastPaidPayout(
+  bookings: BookingRecord[],
+  paymentsByBookingId: Record<string, PaymentRecord>,
+) {
+  const paidPairs = bookings
+    .map((booking) => ({
+      booking,
+      payment: paymentsByBookingId[booking.id],
+    }))
+    .filter(
+      (entry): entry is { booking: BookingRecord; payment: PaymentRecord } =>
+        Boolean(entry.payment) && entry.payment.payout_status === "paid",
+    )
+    .sort((left, right) => {
+      const leftTime = left.payment.payout_sent_at ? Date.parse(left.payment.payout_sent_at) : 0;
+      const rightTime = right.payment.payout_sent_at ? Date.parse(right.payment.payout_sent_at) : 0;
+      return rightTime - leftTime;
+    });
+
+  return paidPairs[0] ?? null;
+}

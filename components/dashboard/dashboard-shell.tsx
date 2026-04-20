@@ -9,6 +9,7 @@ import type { UserRecord } from "@/lib/models";
 
 const workerLinks = [
   { href: "/dashboard/worker", label: "Overview", mobileLabel: "Home" },
+  { href: "/dashboard/worker/payments", label: "Payments", mobileLabel: "Pay" },
   { href: "/shifts", label: "Browse Shifts", mobileLabel: "Shifts" },
   { href: "/dashboard/worker/availability", label: "Availability", mobileLabel: "Avail" },
   { href: "/dashboard/worker/settings", label: "Settings", mobileLabel: "Settings" },
@@ -16,6 +17,7 @@ const workerLinks = [
 
 const businessLinks = [
   { href: "/dashboard/business", label: "Overview", mobileLabel: "Home" },
+  { href: "/dashboard/business/payments", label: "Payments", mobileLabel: "Pay" },
   { href: "/dashboard/business/shifts/new", label: "Post Shift", mobileLabel: "Post" },
   { href: "/dashboard/business/profile", label: "Manage Profile", mobileLabel: "Profile" },
   { href: "/dashboard/business/discover", label: "Discover Workers", mobileLabel: "Discover" },
@@ -121,7 +123,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
           <nav className="mt-6 hidden space-y-2 lg:block">
             {links.map((link) => {
-              const active = pathname === link.href;
+              const active =
+                pathname === link.href ||
+                (link.href === "/dashboard/business/payments" && pathname.startsWith("/dashboard/business/bookings"));
 
               return (
                 <Link
@@ -154,7 +158,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/5 bg-black/88 px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-3xl items-center justify-around gap-2">
           {links.map((link) => {
-            const active = pathname === link.href;
+            const active =
+              pathname === link.href ||
+              (link.href === "/dashboard/business/payments" && pathname.startsWith("/dashboard/business/bookings"));
             return (
               <Link
                 key={link.href}

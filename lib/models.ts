@@ -265,6 +265,15 @@ export const PAYMENT_STATUSES = [
   "refunded",
   "failed",
 ] as const;
+export const PAYOUT_STATUSES = [
+  "pending_confirmation",
+  "awaiting_shift_completion",
+  "awaiting_business_approval",
+  "approved_for_payout",
+  "paid",
+  "disputed",
+  "on_hold",
+] as const;
 export const SHIFT_LISTING_STATUSES = ["open", "claimed", "cancelled"] as const;
 export const WORKER_AVAILABILITY_STATUSES = [
   "available",
@@ -315,6 +324,7 @@ export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 export type ShiftListingStatus = (typeof SHIFT_LISTING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type WorkerAvailabilityStatus = (typeof WORKER_AVAILABILITY_STATUSES)[number];
@@ -523,6 +533,15 @@ export type PaymentRecord = {
   platform_fee_gbp: number;
   worker_payout_gbp: number;
   status: PaymentStatus;
+  payout_status: PayoutStatus;
+  shift_completed_at: string | null;
+  shift_completion_confirmed_by: string | null;
+  payout_approved_at: string | null;
+  payout_approved_by: string | null;
+  payout_sent_at: string | null;
+  dispute_reason: string | null;
+  disputed_at: string | null;
+  payout_hold_reason: string | null;
   created_at: string;
   updated_at: string;
 };
