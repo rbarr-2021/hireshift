@@ -16,11 +16,13 @@ import { processOwnNotificationJobs } from "@/lib/notifications/client";
 import {
   type BookingRecord,
   type BusinessProfileRecord,
+  type PaymentRecord,
   type UserRecord,
   type WorkerAvailabilitySlotRecord,
   type WorkerProfileRecord,
   type WorkerReliabilityRecord,
 } from "@/lib/models";
+import { formatPaymentStatus, paymentStatusClass } from "@/lib/payments";
 import {
   formatBlockedUntil,
   formatReliabilityStatus,
@@ -53,10 +55,12 @@ function BookingCard({
   booking,
   business,
   actions,
+  payment,
 }: {
   booking: BookingRecord;
   business?: BusinessSnapshot;
   actions?: React.ReactNode;
+  payment?: PaymentRecord | null;
 }) {
   return (
     <article className="panel-soft p-4 sm:p-5">
@@ -70,9 +74,16 @@ function BookingCard({
             {business?.location ? ` | ${business.location}` : ""}
           </p>
         </div>
-        <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}>
-          {formatBookingStatus(booking.status)}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}>
+            {formatBookingStatus(booking.status)}
+          </span>
+          {payment ? (
+            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass(payment.status)}`}>
+              {formatPaymentStatus(payment.status)}
+            </span>
+          ) : null}
+        </div>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
         <p>
@@ -136,6 +147,7 @@ export default function WorkerDashboardPage() {
   const [profile, setProfile] = useState<WorkerProfileRecord | null>(null);
   const [availabilitySlots, setAvailabilitySlots] = useState<WorkerAvailabilitySlotRecord[]>([]);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [reliability, setReliability] = useState<WorkerReliabilityRecord | null>(null);
   const [businessesById, setBusinessesById] = useState<Record<string, BusinessSnapshot>>({});
   const [loading, setLoading] = useState(true);
@@ -178,8 +190,10 @@ export default function WorkerDashboardPage() {
       }
 
       const nextBookings = (bookingsResult.data as BookingRecord[] | null) ?? [];
+      const bookingIds = nextBookings.map((booking) => booking.id);
       const businessIds = [...new Set(nextBookings.map((booking) => booking.business_id))];
       let nextBusinessMap: Record<string, BusinessSnapshot> = {};
+      let nextPaymentsByBookingId: Record<string, PaymentRecord> = {};
 
       if (businessIds.length > 0) {
         const [businessUsersResult, businessProfilesResult] = await Promise.all([
@@ -206,9 +220,19 @@ export default function WorkerDashboardPage() {
         }, {});
       }
 
+      if (bookingIds.length > 0) {
+        const paymentsResult = await supabase.from("payments").select("*").in("booking_id", bookingIds);
+        const nextPayments = (paymentsResult.data as PaymentRecord[] | null) ?? [];
+        nextPaymentsByBookingId = nextPayments.reduce<Record<string, PaymentRecord>>((accumulator, payment) => {
+          accumulator[payment.booking_id] = payment;
+          return accumulator;
+        }, {});
+      }
+
       setProfile(profileResult.data ?? null);
       setAvailabilitySlots((availabilityResult.data as WorkerAvailabilitySlotRecord[] | null) ?? []);
       setBookings(nextBookings);
+      setPaymentsByBookingId(nextPaymentsByBookingId);
       setReliability(reliabilityResult.data ?? null);
       setBusinessesById(nextBusinessMap);
       setLoading(false);
@@ -475,6 +499,7 @@ export default function WorkerDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   business={businessesById[booking.business_id]}
+                  payment={paymentsByBookingId[booking.id]}
                   actions={
                     <>
                       <button
@@ -518,6 +543,7 @@ export default function WorkerDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   business={businessesById[booking.business_id]}
+                  payment={paymentsByBookingId[booking.id]}
                   actions={
                     !isPastBooking(booking) ? (
                       <button
@@ -553,6 +579,7 @@ export default function WorkerDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   business={businessesById[booking.business_id]}
+                  payment={paymentsByBookingId[booking.id]}
                 />
               ))
             ) : (

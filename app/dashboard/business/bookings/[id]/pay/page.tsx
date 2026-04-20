@@ -1,0 +1,273 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast-provider";
+import {
+  calculateBookingDurationHours,
+  formatBookingDate,
+  formatBookingTimeRange,
+} from "@/lib/bookings";
+import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
+import { formatPaymentStatus } from "@/lib/payments";
+import { buildBookingPricingSnapshot } from "@/lib/pricing";
+import { fetchWithSession } from "@/lib/route-client";
+import { supabase } from "@/lib/supabase";
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+export default function BusinessBookingPaymentPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const bookingId = params.id as string;
+  const [booking, setBooking] = useState<BookingRecord | null>(null);
+  const [payment, setPayment] = useState<PaymentRecord | null>(null);
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [startingCheckout, setStartingCheckout] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadBooking = async () => {
+      const { data: bookingData } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("id", bookingId)
+        .maybeSingle<BookingRecord>();
+
+      if (!bookingData || !active) {
+        setLoading(false);
+        return;
+      }
+
+      const [paymentResult, workerProfileResult] = await Promise.all([
+        supabase.from("payments").select("*").eq("booking_id", bookingData.id).maybeSingle<PaymentRecord>(),
+        supabase
+          .from("worker_profiles")
+          .select("*")
+          .eq("user_id", bookingData.worker_id)
+          .maybeSingle<WorkerProfileRecord>(),
+      ]);
+
+      if (!active) {
+        return;
+      }
+
+      setBooking(bookingData);
+      setPayment(paymentResult.data ?? null);
+      setWorkerProfile(workerProfileResult.data ?? null);
+      setLoading(false);
+    };
+
+    void loadBooking();
+
+    return () => {
+      active = false;
+    };
+  }, [bookingId]);
+
+  const pricing = useMemo(() => {
+    if (!booking) {
+      return buildBookingPricingSnapshot(0);
+    }
+
+    const duration =
+      booking.shift_duration_hours ||
+      calculateBookingDurationHours(
+        booking.start_time,
+        booking.end_time,
+        booking.shift_date,
+        booking.shift_end_date,
+      );
+    const subtotal = Number((duration * booking.hourly_rate_gbp).toFixed(2));
+    return buildBookingPricingSnapshot(subtotal);
+  }, [booking]);
+
+  const handleCheckout = async () => {
+    if (!booking || startingCheckout) {
+      return;
+    }
+
+    setStartingCheckout(true);
+
+    try {
+      const response = await fetchWithSession(`/api/bookings/${booking.id}/checkout`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string; url?: string };
+
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Unable to start payment right now.");
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to start payment right now.";
+      showToast({
+        title: "Payment unavailable",
+        description: message,
+        tone: "error",
+      });
+      setStartingCheckout(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="panel-soft p-5 sm:p-6">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="mt-4 h-10 w-72" />
+          <Skeleton className="mt-3 h-4 w-56" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="panel-soft p-5 sm:p-6">
+            <Skeleton className="h-56 w-full" />
+          </div>
+          <div className="panel-soft p-5 sm:p-6">
+            <Skeleton className="h-56 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!booking) {
+    return (
+      <div className="mobile-empty-state">
+        <h1 className="text-2xl font-semibold text-stone-900">Booking not found</h1>
+        <p className="mt-3 text-sm leading-6 text-stone-600">
+          We could not load this booking for payment.
+        </p>
+        <Link href="/dashboard/business" className="primary-btn mt-6 px-6">
+          Back to dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  const bookingReadyForPayment = booking.status === "accepted";
+  const paymentLabel = payment ? formatPaymentStatus(payment.status) : "Unpaid";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="section-label">Booking payment</p>
+          <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
+            Review and pay
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
+            Confirm the shift details and pay through secure Stripe checkout.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link href="/dashboard/business" className="secondary-btn w-full px-6 sm:w-auto">
+            Back to dashboard
+          </Link>
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="secondary-btn w-full px-6 sm:w-auto"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="panel-soft p-5 sm:p-6">
+          <h2 className="text-xl font-semibold text-stone-900">Shift summary</h2>
+          <div className="mt-5 grid gap-4 text-sm text-stone-600 sm:grid-cols-2">
+            <p>
+              <span className="font-medium text-stone-900">Worker:</span>{" "}
+              {workerProfile?.job_role || booking.requested_role_label || "Hospitality worker"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Date:</span>{" "}
+              {formatBookingDate(booking.shift_date)}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Time:</span>{" "}
+              {formatBookingTimeRange(
+                booking.start_time,
+                booking.end_time,
+                booking.shift_date,
+                booking.shift_end_date,
+              )}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Location:</span> {booking.location}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Hourly rate:</span>{" "}
+              {formatCurrency(booking.hourly_rate_gbp)}/hr
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Payment status:</span> {paymentLabel}
+            </p>
+          </div>
+          {booking.notes ? (
+            <p className="mt-5 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+              {booking.notes}
+            </p>
+          ) : null}
+        </section>
+
+        <aside className="panel-soft p-5 sm:p-6">
+          <h2 className="text-xl font-semibold text-stone-900">Totals</h2>
+          <div className="mt-5 space-y-3 text-sm text-stone-600">
+            <div className="flex items-center justify-between gap-4">
+              <span>Worker pay</span>
+              <span className="font-medium text-stone-900">{formatCurrency(pricing.workerPayGbp)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>KruVii fee</span>
+              <span className="font-medium text-stone-900">{formatCurrency(pricing.platformFeeGbp)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-white/10 pt-3">
+              <span className="font-medium text-stone-900">Total due</span>
+              <span className="text-lg font-semibold text-stone-900">
+                {formatCurrency(pricing.businessTotalGbp)}
+              </span>
+            </div>
+          </div>
+
+          {!bookingReadyForPayment ? (
+            <div className="info-banner mt-5">
+              Payment becomes available after the worker accepts the booking request.
+            </div>
+          ) : payment?.status === "captured" || payment?.status === "released" ? (
+            <div className="info-banner mt-5">This booking has already been paid.</div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => void handleCheckout()}
+                disabled={startingCheckout}
+                className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {startingCheckout ? "Redirecting..." : "Continue to secure checkout"}
+              </button>
+              <p className="text-xs leading-5 text-stone-500">
+                Checkout is hosted by Stripe. Payment confirmation updates the linked booking automatically.
+              </p>
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
+

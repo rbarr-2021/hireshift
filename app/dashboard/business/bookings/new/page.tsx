@@ -12,6 +12,7 @@ import {
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
+import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import type {
   BookingRecord,
   BusinessProfileRecord,
@@ -166,10 +167,14 @@ export default function BookingEntryPage() {
     const numericRate = Number(rate);
 
     if (!durationHours || Number.isNaN(numericRate) || numericRate <= 0) {
-      return 0;
+      return {
+        workerPayGbp: 0,
+        platformFeeGbp: 0,
+        businessTotalGbp: 0,
+      };
     }
 
-    return Number((durationHours * numericRate).toFixed(2));
+    return buildBookingPricingSnapshot(durationHours * numericRate);
   }, [durationHours, rate]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -234,14 +239,16 @@ export default function BookingEntryPage() {
       shift_date: date,
       shift_end_date: shiftEndDate,
       shift_listing_id: null,
+      requested_role_label: workerProfile.job_role,
+      shift_duration_hours: durationHours,
       start_time: startTime,
       end_time: endTime,
       hourly_rate_gbp: numericRate,
       location: businessLocation,
       notes: notes.trim() || null,
       status: "pending",
-      total_amount_gbp: totalAmount,
-      platform_fee_gbp: 0,
+      total_amount_gbp: totalAmount.businessTotalGbp,
+      platform_fee_gbp: totalAmount.platformFeeGbp,
     };
 
     console.info("[booking-create] insert payload", {
@@ -476,11 +483,25 @@ export default function BookingEntryPage() {
                 </span>
               </p>
               <p>
-                Total before commission:{" "}
-                <span className="font-medium text-stone-900">{formatCurrency(totalAmount)}</span>
+                Worker pay:{" "}
+                <span className="font-medium text-stone-900">
+                  {formatCurrency(totalAmount.workerPayGbp)}
+                </span>
+              </p>
+              <p>
+                KruVii fee:{" "}
+                <span className="font-medium text-stone-900">
+                  {formatCurrency(totalAmount.platformFeeGbp)}
+                </span>
+              </p>
+              <p>
+                Business total:{" "}
+                <span className="font-medium text-stone-900">
+                  {formatCurrency(totalAmount.businessTotalGbp)}
+                </span>
               </p>
               <p className="info-banner mt-4">
-                Requests start as pending and appear in the worker dashboard instantly.
+                Requests start as pending. Once accepted, you can complete payment securely.
               </p>
             </div>
           </section>

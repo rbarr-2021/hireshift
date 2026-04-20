@@ -3,23 +3,31 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  bookingStatusClass,
   formatBookingDate,
-  formatBookingStatus,
   formatBookingTimeRange,
   isPastBooking,
 } from "@/lib/bookings";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
+import {
+  BusinessBookingCard,
+  BusinessEmptyState,
+  type WorkerSnapshot,
+} from "@/components/business/business-booking-card";
 import type {
   BookingRecord,
   BusinessProfileRecord,
   MarketplaceUserRecord,
+  PaymentRecord,
   ShiftListingRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import { calculateBusinessProfileCompletion } from "@/lib/business-discovery";
+import {
+  buildWorkerSnapshots,
+} from "@/lib/business-bookings";
+import { formatPaymentStatus, isBookingPaid, paymentStatusClass } from "@/lib/payments";
 import {
   formatShiftListingStatus,
   getRemainingShiftPositions,
@@ -40,99 +48,12 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-type WorkerSnapshot = {
-  name: string;
-  role: string;
-  city: string;
-};
-
-function BookingCard({
-  booking,
-  worker,
-  actions,
-}: {
-  booking: BookingRecord;
-  worker?: WorkerSnapshot;
-  actions?: React.ReactNode;
-}) {
-  return (
-    <article className="panel-soft p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-base font-semibold text-stone-900">
-            {worker?.name || "Worker request"}
-          </p>
-          <p className="mt-1 text-sm text-stone-600">
-            {worker?.role || "Hospitality worker"}
-            {worker?.city ? ` | ${worker.city}` : ""}
-          </p>
-        </div>
-        <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}>
-          {formatBookingStatus(booking.status)}
-        </span>
-      </div>
-      <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
-        <p>
-          <span className="font-medium text-stone-900">Shift:</span>{" "}
-          {formatBookingDate(booking.shift_date)}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Time:</span>{" "}
-          {formatBookingTimeRange(
-            booking.start_time,
-            booking.end_time,
-            booking.shift_date,
-            booking.shift_end_date,
-          )}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Rate:</span>{" "}
-          {formatCurrency(booking.hourly_rate_gbp)}/hr
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Total:</span>{" "}
-          {formatCurrency(booking.total_amount_gbp)}
-        </p>
-      </div>
-      {booking.notes ? (
-        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-          {booking.notes}
-        </p>
-      ) : null}
-      {actions ? <div className="mt-4 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
-    </article>
-  );
-}
-
-function EmptyState({
-  title,
-  description,
-  actionHref,
-  actionLabel,
-}: {
-  title: string;
-  description: string;
-  actionHref?: string;
-  actionLabel?: string;
-}) {
-  return (
-    <div className="mobile-empty-state">
-      <h3 className="text-lg font-semibold text-stone-900">{title}</h3>
-      <p className="mt-3 text-sm leading-6 text-stone-600">{description}</p>
-      {actionHref && actionLabel ? (
-        <Link href={actionHref} className="primary-btn mt-5 px-6">
-          {actionLabel}
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
 export default function BusinessDashboardPage() {
   const { showToast } = useToast();
   const [profile, setProfile] = useState<BusinessProfileRecord | null>(null);
   const [workerCount, setWorkerCount] = useState(0);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [shiftListings, setShiftListings] = useState<ShiftListingRecord[]>([]);
   const [workersById, setWorkersById] = useState<Record<string, WorkerSnapshot>>({});
   const [loading, setLoading] = useState(true);
@@ -176,8 +97,10 @@ export default function BusinessDashboardPage() {
       }
 
       const nextBookings = (bookingsResult.data as BookingRecord[] | null) ?? [];
+      const bookingIds = nextBookings.map((booking) => booking.id);
       const workerIds = [...new Set(nextBookings.map((booking) => booking.worker_id))];
       let nextWorkerMap: Record<string, WorkerSnapshot> = {};
+      let nextPaymentsByBookingId: Record<string, PaymentRecord> = {};
 
       if (workerIds.length > 0) {
         const [workerUsersResult, workerProfilesResult] = await Promise.all([
@@ -188,16 +111,18 @@ export default function BusinessDashboardPage() {
         const workerUsers = (workerUsersResult.data as MarketplaceUserRecord[] | null) ?? [];
         const workerProfiles = (workerProfilesResult.data as WorkerProfileRecord[] | null) ?? [];
 
-        nextWorkerMap = workerIds.reduce<Record<string, WorkerSnapshot>>((accumulator, workerId) => {
-          const nextUser = workerUsers.find((candidate) => candidate.id === workerId);
-          const nextProfile = workerProfiles.find((candidate) => candidate.user_id === workerId);
+        nextWorkerMap = buildWorkerSnapshots({
+          workerIds,
+          workerUsers,
+          workerProfiles,
+        });
+      }
 
-          accumulator[workerId] = {
-            name: nextUser?.display_name || nextProfile?.job_role || "Worker",
-            role: nextProfile?.job_role || "Hospitality worker",
-            city: nextProfile?.city || "",
-          };
-
+      if (bookingIds.length > 0) {
+        const paymentsResult = await supabase.from("payments").select("*").in("booking_id", bookingIds);
+        const nextPayments = (paymentsResult.data as PaymentRecord[] | null) ?? [];
+        nextPaymentsByBookingId = nextPayments.reduce<Record<string, PaymentRecord>>((accumulator, payment) => {
+          accumulator[payment.booking_id] = payment;
           return accumulator;
         }, {});
       }
@@ -205,6 +130,7 @@ export default function BusinessDashboardPage() {
       setProfile(profileResult.data ?? null);
       setWorkerCount(((workersResult.data as Pick<WorkerProfileRecord, "user_id">[] | null) ?? []).length);
       setBookings(nextBookings);
+      setPaymentsByBookingId(nextPaymentsByBookingId);
       setShiftListings((shiftListingsResult.data as ShiftListingRecord[] | null) ?? []);
       setWorkersById(nextWorkerMap);
       setLoading(false);
@@ -229,19 +155,6 @@ export default function BusinessDashboardPage() {
 
   const upcomingBookings = useMemo(
     () => bookings.filter((booking) => booking.status === "accepted" && !isPastBooking(booking)),
-    [bookings],
-  );
-
-  const pastBookings = useMemo(
-    () =>
-      bookings.filter(
-        (booking) =>
-          booking.status === "completed" ||
-          booking.status === "no_show" ||
-          booking.status === "cancelled" ||
-          booking.status === "declined" ||
-          isPastBooking(booking),
-      ),
     [bookings],
   );
 
@@ -408,14 +321,16 @@ export default function BusinessDashboardPage() {
           <div className="mt-4 space-y-4">
             {pendingRequests.length > 0 ? (
               pendingRequests.map((booking) => (
-                <BookingCard
+                <BusinessBookingCard
                   key={booking.id}
                   booking={booking}
                   worker={workersById[booking.worker_id]}
+                  paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
+                  paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
                 />
               ))
             ) : (
-              <EmptyState
+              <BusinessEmptyState
                 title="No pending requests"
                 description="When you send booking requests, they will appear here until the worker responds."
                 actionHref="/dashboard/business/discover"
@@ -433,12 +348,22 @@ export default function BusinessDashboardPage() {
           <div className="mt-4 space-y-4">
             {upcomingBookings.length > 0 ? (
               upcomingBookings.map((booking) => (
-                <BookingCard
+                <BusinessBookingCard
                   key={booking.id}
                   booking={booking}
                   worker={workersById[booking.worker_id]}
+                  paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
+                  paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   actions={
                     <>
+                      {!isBookingPaid(paymentsByBookingId[booking.id]) ? (
+                        <Link
+                          href={`/dashboard/business/bookings/${booking.id}/pay`}
+                          className="primary-btn w-full px-5 sm:w-auto"
+                        >
+                          Pay now
+                        </Link>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void handleRecordOutcome(booking.id, "completed")}
@@ -460,32 +385,9 @@ export default function BusinessDashboardPage() {
                 />
               ))
             ) : (
-              <EmptyState
+              <BusinessEmptyState
                 title="No confirmed shifts yet"
                 description="Accepted booking requests will show up here with the confirmed date, time, and rate."
-              />
-            )}
-          </div>
-        </section>
-
-        <section className="panel-soft p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-stone-900">Past bookings</h2>
-            <span className="status-badge status-badge--rating">{pastBookings.length}</span>
-          </div>
-          <div className="mt-4 space-y-4">
-            {pastBookings.length > 0 ? (
-              pastBookings.map((booking) => (
-                <BookingCard
-                  key={booking.id}
-                  booking={booking}
-                  worker={workersById[booking.worker_id]}
-                />
-              ))
-            ) : (
-              <EmptyState
-                title="No past shifts yet"
-                description="Completed, declined, cancelled, and older shifts will collect here for easy tracking."
               />
             )}
           </div>
@@ -534,7 +436,7 @@ export default function BusinessDashboardPage() {
                 </article>
               ))
             ) : (
-              <EmptyState
+              <BusinessEmptyState
                 title="No shift listings yet"
                 description="Create your first open shift so workers can discover it before you send direct booking requests."
                 actionHref="/dashboard/business/shifts/new"

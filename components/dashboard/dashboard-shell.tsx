@@ -19,12 +19,15 @@ const businessLinks = [
   { href: "/dashboard/business/shifts/new", label: "Post Shift", mobileLabel: "Post" },
   { href: "/dashboard/business/profile", label: "Manage Profile", mobileLabel: "Profile" },
   { href: "/dashboard/business/discover", label: "Discover Workers", mobileLabel: "Discover" },
+  { href: "/dashboard/business/bookings", label: "Past Bookings", mobileLabel: "Past" },
 ];
+const adminLink = { href: "/admin", label: "Admin", mobileLabel: "Admin" };
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<UserRecord | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -45,8 +48,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         .eq("id", authUser.id)
         .maybeSingle<UserRecord>();
 
+      const { data: adminAccess } = await supabase
+        .from("admin_users")
+        .select("user_id")
+        .eq("user_id", authUser.id)
+        .maybeSingle<{ user_id: string }>();
+
       if (active) {
         setUser(data ?? null);
+        setIsAdmin(Boolean(adminAccess));
       }
     };
 
@@ -57,7 +67,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const links = user?.role === "business" ? businessLinks : workerLinks;
+  const baseLinks = user?.role === "business" ? businessLinks : workerLinks;
+  const links = isAdmin ? [...baseLinks, adminLink] : baseLinks;
 
   const handleSignOut = async () => {
     setBusy(true);
