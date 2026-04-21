@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
 import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
+import { clearSessionHintCookie } from "@/lib/session-hint";
+import { supabase } from "@/lib/supabase";
 
 type AdminBookingItem = {
   booking: {
@@ -40,7 +43,92 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function isPastShift(item: AdminBookingItem) {
+  const endDate = item.booking.shift_end_date || item.booking.shift_date;
+  const endDateTime = new Date(`${endDate}T${item.booking.end_time}:00`);
+  return Number.isFinite(endDateTime.getTime()) && endDateTime.getTime() < Date.now();
+}
+
+function isLiveShift(item: AdminBookingItem) {
+  return (
+    ["pending", "accepted"].includes(item.booking.status) &&
+    !isPastShift(item) &&
+    item.payment?.payout_status !== "disputed" &&
+    item.payment?.payout_status !== "on_hold"
+  );
+}
+
+function needsAdminReview(item: AdminBookingItem) {
+  return (
+    item.payment?.payout_status === "awaiting_business_approval" ||
+    item.payment?.payout_status === "approved_for_payout" ||
+    item.payment?.payout_status === "pending_confirmation" ||
+    item.payment?.payout_status === "awaiting_shift_completion"
+  );
+}
+
+function isDisputeItem(item: AdminBookingItem) {
+  return (
+    item.payment?.payout_status === "disputed" ||
+    item.payment?.payout_status === "on_hold" ||
+    item.booking.status === "no_show"
+  );
+}
+
+function renderBookingList(items: AdminBookingItem[]) {
+  return (
+    <div className="space-y-4">
+      {items.map((item) => (
+        <article key={item.booking.id} className="rounded-[2rem] border border-white/10 bg-black/40 p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-lg font-semibold text-stone-100">
+                {item.businessName} {"->"} {item.workerName}
+              </p>
+              <p className="mt-2 text-sm text-stone-400">
+                {item.booking.requested_role_label || "Hospitality shift"} | {formatBookingDate(item.booking.shift_date)} |{" "}
+                {formatBookingTimeRange(
+                  item.booking.start_time,
+                  item.booking.end_time,
+                  item.booking.shift_date,
+                  item.booking.shift_end_date,
+                )}
+              </p>
+              <p className="mt-2 text-sm text-stone-400">{item.booking.location}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(item.booking.status as never)}`}>
+                {item.lifecycleLabel}
+              </span>
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass((item.payment?.status ?? "pending") as never)}`}>
+                {item.paymentLabel}
+              </span>
+              {item.payment ? (
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutStatusClass(item.payment.payout_status as never)}`}>
+                  {item.payoutLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-stone-400">
+              Total {formatCurrency(item.booking.total_amount_gbp)} | Fee {formatCurrency(item.booking.platform_fee_gbp)}
+            </div>
+            <Link
+              href={`/admin/bookings/${item.booking.id}`}
+              className="primary-btn w-full px-6 sm:w-auto"
+            >
+              View booking
+            </Link>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminBookingsPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [items, setItems] = useState<AdminBookingItem[]>([]);
   const [counts, setCounts] = useState({
@@ -56,6 +144,7 @@ export default function AdminBookingsPage() {
   const [status, setStatus] = useState("");
   const [payment, setPayment] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -133,6 +222,53 @@ export default function AdminBookingsPage() {
     [counts],
   );
 
+  const groupedItems = useMemo(
+    () => ({
+      live: items.filter(isLiveShift),
+      review: items.filter(needsAdminReview),
+      disputes: items.filter(isDisputeItem),
+      past: items.filter((item) => isPastShift(item) || ["completed", "cancelled", "declined"].includes(item.booking.status)),
+    }),
+    [items],
+  );
+
+  const categoryCards = useMemo(
+    () => [
+      {
+        label: "Live shifts",
+        value: groupedItems.live.length,
+        tone: "status-badge status-badge--ready",
+        description: "Current and upcoming bookings",
+      },
+      {
+        label: "Needs review",
+        value: groupedItems.review.length,
+        tone: "status-badge status-badge--rating",
+        description: "Awaiting payout or completion checks",
+      },
+      {
+        label: "Disputes",
+        value: groupedItems.disputes.length,
+        tone: "status-badge",
+        description: "Held, disputed, or no-show items",
+      },
+      {
+        label: "Past shifts",
+        value: groupedItems.past.length,
+        tone: "status-badge",
+        description: "Finished or closed bookings",
+      },
+    ],
+    [groupedItems.disputes.length, groupedItems.live.length, groupedItems.past.length, groupedItems.review.length],
+  );
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    clearSessionHintCookie();
+    router.replace("/login");
+  };
+
   return (
     <div className="min-h-screen bg-black px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -143,9 +279,19 @@ export default function AdminBookingsPage() {
               Booking operations
             </h1>
           </div>
-          <Link href="/dashboard/business" className="secondary-btn w-full px-6 sm:w-auto">
-            Back to dashboard
-          </Link>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Link href="/dashboard/business" className="secondary-btn w-full px-6 sm:w-auto">
+              Back to dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="secondary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {signingOut ? "Signing out..." : "Log out"}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
@@ -153,6 +299,21 @@ export default function AdminBookingsPage() {
             <section key={card.label} className="panel-soft p-5">
               <p className="text-sm font-medium text-stone-500">{card.label}</p>
               <p className="mt-2 text-3xl font-semibold text-stone-900">{card.value}</p>
+            </section>
+          ))}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {categoryCards.map((card) => (
+            <section key={card.label} className="panel-soft p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-stone-500">{card.label}</p>
+                  <p className="mt-2 text-3xl font-semibold text-stone-900">{card.value}</p>
+                </div>
+                <span className={card.tone}>{card.label}</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-stone-600">{card.description}</p>
             </section>
           ))}
         </div>
@@ -216,52 +377,62 @@ export default function AdminBookingsPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {items.map((item) => (
-                <article key={item.booking.id} className="rounded-[2rem] border border-white/10 bg-black/40 p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-lg font-semibold text-stone-100">
-                        {item.businessName} {"->"} {item.workerName}
-                      </p>
-                      <p className="mt-2 text-sm text-stone-400">
-                        {item.booking.requested_role_label || "Hospitality shift"} | {formatBookingDate(item.booking.shift_date)} |{" "}
-                        {formatBookingTimeRange(
-                          item.booking.start_time,
-                          item.booking.end_time,
-                          item.booking.shift_date,
-                          item.booking.shift_end_date,
-                        )}
-                      </p>
-                      <p className="mt-2 text-sm text-stone-400">{item.booking.location}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(item.booking.status as never)}`}>
-                        {item.lifecycleLabel}
-                      </span>
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass((item.payment?.status ?? "pending") as never)}`}>
-                        {item.paymentLabel}
-                      </span>
-                      {item.payment ? (
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutStatusClass(item.payment.payout_status as never)}`}>
-                          {item.payoutLabel}
-                        </span>
-                      ) : null}
-                    </div>
+            <div className="space-y-6">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold text-stone-900">Live shifts</h2>
+                  <span className="status-badge status-badge--ready">{groupedItems.live.length}</span>
+                </div>
+                {groupedItems.live.length > 0 ? (
+                  renderBookingList(groupedItems.live)
+                ) : (
+                  <div className="rounded-[1.75rem] border border-white/10 bg-black/30 px-5 py-4 text-sm text-stone-500">
+                    No live shifts match the current filters.
                   </div>
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-stone-400">
-                      Total {formatCurrency(item.booking.total_amount_gbp)} | Fee {formatCurrency(item.booking.platform_fee_gbp)}
-                    </div>
-                    <Link
-                      href={`/admin/bookings/${item.booking.id}`}
-                      className="primary-btn w-full px-6 sm:w-auto"
-                    >
-                      View booking
-                    </Link>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold text-stone-900">Needs review</h2>
+                  <span className="status-badge status-badge--rating">{groupedItems.review.length}</span>
+                </div>
+                {groupedItems.review.length > 0 ? (
+                  renderBookingList(groupedItems.review)
+                ) : (
+                  <div className="rounded-[1.75rem] border border-white/10 bg-black/30 px-5 py-4 text-sm text-stone-500">
+                    No review items match the current filters.
                   </div>
-                </article>
-              ))}
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold text-stone-900">Disputes</h2>
+                  <span className="status-badge">{groupedItems.disputes.length}</span>
+                </div>
+                {groupedItems.disputes.length > 0 ? (
+                  renderBookingList(groupedItems.disputes)
+                ) : (
+                  <div className="rounded-[1.75rem] border border-white/10 bg-black/30 px-5 py-4 text-sm text-stone-500">
+                    No disputes match the current filters.
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold text-stone-900">Past shifts</h2>
+                  <span className="status-badge">{groupedItems.past.length}</span>
+                </div>
+                {groupedItems.past.length > 0 ? (
+                  renderBookingList(groupedItems.past)
+                ) : (
+                  <div className="rounded-[1.75rem] border border-white/10 bg-black/30 px-5 py-4 text-sm text-stone-500">
+                    No past shifts match the current filters.
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </section>

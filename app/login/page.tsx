@@ -81,6 +81,11 @@ export default function Login() {
 
     if (nextMessage === "session-required") {
       setMessage("Please log in to continue.");
+      return;
+    }
+
+    if (nextMessage === "suspended") {
+      setMessage("This account has been suspended. Contact KruVii support for help.");
     }
   }, []);
 
@@ -139,6 +144,22 @@ export default function Login() {
           tone: "error",
         });
         router.push("/login");
+        return;
+      }
+
+      if (resolved.appUser.suspended_at) {
+        await supabase.auth.signOut();
+        clearSessionHintCookie();
+        const nextMessage =
+          resolved.appUser.suspended_reason?.trim() ||
+          "This account has been suspended. Contact KruVii support for help.";
+        setMessage(nextMessage);
+        showToast({
+          title: "Account suspended",
+          description: nextMessage,
+          tone: "error",
+        });
+        router.push("/login?message=suspended");
         return;
       }
 

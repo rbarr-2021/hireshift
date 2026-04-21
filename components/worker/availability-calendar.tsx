@@ -99,21 +99,22 @@ function statusBadgeClass(status: WorkerAvailabilityStatus) {
 }
 
 function statusCardClass(status: WorkerAvailabilityStatus, active: boolean) {
-  const base = "rounded-2xl border px-4 py-4 text-left transition";
+  const base =
+    "rounded-2xl border px-4 py-4 text-left transition shadow-[0_12px_30px_rgba(2,8,23,0.22)]";
 
   if (active && status === "available") {
-    return `${base} border-[rgba(166,255,52,0.35)] bg-[rgba(166,255,52,0.12)]`;
+    return `${base} border-[rgba(166,255,52,0.5)] bg-[rgba(166,255,52,0.22)]`;
   }
 
   if (active && status === "partial") {
-    return `${base} border-[rgba(16,215,255,0.35)] bg-[rgba(16,215,255,0.12)]`;
+    return `${base} border-[rgba(16,215,255,0.5)] bg-[rgba(16,215,255,0.2)]`;
   }
 
   if (active && status === "unavailable") {
-    return `${base} border-[rgba(255,82,82,0.28)] bg-[rgba(255,82,82,0.12)]`;
+    return `${base} border-[rgba(255,82,82,0.45)] bg-[rgba(255,82,82,0.18)]`;
   }
 
-  return `${base} border-white/10 bg-black/35 hover:border-[#00A7FF]/30 hover:bg-black/45`;
+  return `${base} border-white/10 bg-black/40 hover:border-[#00A7FF]/30 hover:bg-black/50`;
 }
 
 function calendarCellClass(status?: WorkerAvailabilityStatus, selected = false, today = false) {
@@ -375,10 +376,9 @@ export function AvailabilityCalendar({
       {selectedStatus === "available" || selectedStatus === "partial" ? (
         <div className="mt-6 space-y-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4 sm:p-5">
           <div>
-            <p className="text-sm font-medium text-stone-100">Hours for this day</p>
+            <p className="text-sm font-medium text-stone-100">Hours</p>
             <p className="mt-1 text-sm leading-6 text-stone-500">
-              Choose the time window you can cover. If the end time is earlier than the
-              start time, we will treat it as an overnight shift.
+              If the end time is earlier than the start time, it saves as overnight.
             </p>
           </div>
 
@@ -432,8 +432,7 @@ export function AvailabilityCalendar({
               </span>
             </div>
             <p className="max-w-2xl text-sm leading-6 text-stone-500">
-              Pick a date, choose whether you are fully available, partly available,
-              or unavailable, then adjust hours only when you need them.
+              Pick a day, then set your status.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -465,99 +464,100 @@ export function AvailabilityCalendar({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 lg:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => handleStatusChange("available")}
-            className={statusCardClass("available", selectedStatus === "available")}
-          >
-            <p className="text-sm font-semibold text-stone-100">Available all day</p>
-            <p className="mt-2 text-sm leading-6 text-stone-500">
-              Best for open availability or long shift coverage.
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleStatusChange("partial")}
-            className={statusCardClass("partial", selectedStatus === "partial")}
-          >
-            <p className="text-sm font-semibold text-stone-100">Available specific hours</p>
-            <p className="mt-2 text-sm leading-6 text-stone-500">
-              Set the exact time window you can work on this date.
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleStatusChange("unavailable")}
-            className={statusCardClass("unavailable", selectedStatus === "unavailable")}
-          >
-            <p className="text-sm font-semibold text-stone-100">Unavailable</p>
-            <p className="mt-2 text-sm leading-6 text-stone-500">
-              Mark this date as off so businesses know not to expect you.
-            </p>
-          </button>
-        </div>
+        <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_270px] xl:items-start">
+          <div className="rounded-[1.75rem] border border-white/10 bg-black/35 p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold text-stone-100">
+                {formatMonthLabel(visibleMonth)}
+              </h3>
+              <div className="hidden flex-wrap gap-2 sm:flex">
+                <span className="text-xs uppercase tracking-[0.16em] text-stone-500">
+                  Tap a day to edit
+                </span>
+              </div>
+            </div>
 
-        <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/35 p-3 sm:p-4">
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="text-lg font-semibold text-stone-100">
-              {formatMonthLabel(visibleMonth)}
-            </h3>
-            <div className="hidden flex-wrap gap-2 sm:flex">
-              <span className="text-xs uppercase tracking-[0.16em] text-stone-500">
-                Tap a day to edit
-              </span>
+            <div className="mt-4 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:text-xs">
+              {WEEKDAY_LABELS.map((label) => (
+                <span key={label}>{label}</span>
+              ))}
+            </div>
+
+            <div className="mt-3 grid grid-cols-7 gap-2">
+              {calendarDays.map((day) => {
+                const dateKey = getDateKey(day);
+                const entry = entryMap[dateKey];
+                const isSelected = dateKey === selectedDateKey;
+                const isToday = dateKey === todayKey;
+                const inMonth = isSameMonth(day, visibleMonth);
+
+                return (
+                  <button
+                    key={dateKey}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDateKey(dateKey);
+                      setVisibleMonth(startOfMonth(day));
+                      setMobileEditorOpen(true);
+                    }}
+                    className={calendarCellClass(entry?.status, isSelected, isToday)}
+                  >
+                    <span
+                      className={`text-sm font-semibold sm:text-base ${
+                        inMonth ? "text-stone-100" : "text-stone-500"
+                      }`}
+                    >
+                      {day.getDate()}
+                    </span>
+                    {isToday ? (
+                      <span className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#10D7FF]">
+                        Today
+                      </span>
+                    ) : null}
+                    {entry ? (
+                      <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-stone-700">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${calendarDotClass(entry.status)}`}
+                        />
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:text-xs">
-            {WEEKDAY_LABELS.map((label) => (
-              <span key={label}>{label}</span>
-            ))}
-          </div>
-
-          <div className="mt-3 grid grid-cols-7 gap-2">
-            {calendarDays.map((day) => {
-              const dateKey = getDateKey(day);
-              const entry = entryMap[dateKey];
-              const isSelected = dateKey === selectedDateKey;
-              const isToday = dateKey === todayKey;
-              const inMonth = isSameMonth(day, visibleMonth);
-
-              return (
-                <button
-                  key={dateKey}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDateKey(dateKey);
-                    setVisibleMonth(startOfMonth(day));
-                    setMobileEditorOpen(true);
-                  }}
-                  className={calendarCellClass(entry?.status, isSelected, isToday)}
-                >
-                  <span
-                    className={`text-sm font-semibold sm:text-base ${
-                      inMonth ? "text-stone-100" : "text-stone-500"
-                    }`}
-                  >
-                    {day.getDate()}
-                  </span>
-                  {isToday ? (
-                    <span className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#10D7FF]">
-                      Today
-                    </span>
-                  ) : null}
-                  {entry ? (
-                    <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-stone-700">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${calendarDotClass(entry.status)}`}
-                      />
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+          <aside className="rounded-[1.75rem] border border-white/10 bg-black/35 p-4 sm:p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+              Set selected day
+            </p>
+            <div className="mt-4 space-y-3">
+              <button
+                type="button"
+                onClick={() => handleStatusChange("available")}
+                className={statusCardClass("available", selectedStatus === "available")}
+              >
+                <p className="text-base font-semibold text-stone-100">Available all day</p>
+                <p className="mt-2 text-sm text-stone-400">Open for shifts</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusChange("partial")}
+                className={statusCardClass("partial", selectedStatus === "partial")}
+              >
+                <p className="text-base font-semibold text-stone-100">Specific hours</p>
+                <p className="mt-2 text-sm text-stone-400">Choose a time range</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusChange("unavailable")}
+                className={statusCardClass("unavailable", selectedStatus === "unavailable")}
+              >
+                <p className="text-base font-semibold text-stone-100">Unavailable</p>
+                <p className="mt-2 text-sm text-stone-400">Not taking work</p>
+              </button>
+            </div>
+          </aside>
         </div>
       </div>
 

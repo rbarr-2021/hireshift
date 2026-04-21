@@ -35,6 +35,11 @@ async function loadAppUser(userId: string) {
   return data ?? null;
 }
 
+async function clearSuspendedSession() {
+  await supabase.auth.signOut();
+  clearSessionHintCookie();
+}
+
 async function restoreSessionFromUrl() {
   if (typeof window === "undefined") {
     return;
@@ -138,6 +143,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const nextAppUser = await loadAppUser(user.id);
+
+    if (nextAppUser?.suspended_at) {
+      await clearSuspendedSession();
+      setHasSession(false);
+      setAuthUserId(null);
+      setAppUser(null);
+      console.info("[auth] redirect decision", {
+        reason: "suspended-user",
+        pathname: typeof window !== "undefined" ? window.location.pathname : "",
+      });
+      return null;
+    }
+
     setAuthUserId(user.id);
     setAppUser(nextAppUser);
     console.info("[auth] session restored", {

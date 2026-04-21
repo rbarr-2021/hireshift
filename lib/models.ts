@@ -371,6 +371,8 @@ export type UserRecord = {
   phone: string | null;
   whatsapp_opt_in: boolean;
   onboarding_complete: boolean;
+  suspended_at: string | null;
+  suspended_reason: string | null;
   created_at: string;
   updated_at: string;
 };
