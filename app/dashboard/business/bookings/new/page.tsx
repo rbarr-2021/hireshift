@@ -12,7 +12,12 @@ import {
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
-import { getUkMinimumRateMessage, isBelowUkMinimumHourlyRate } from "@/lib/pay-rules";
+import {
+  CURRENT_UK_MINIMUM_HOURLY_RATE_GBP,
+  getUkMinimumRateMessage,
+  getUkMinimumRateValidationMessage,
+  isBelowUkMinimumHourlyRate,
+} from "@/lib/pay-rules";
 import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import type {
   BookingRecord,
@@ -85,6 +90,7 @@ export default function BookingEntryPage() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [rate, setRate] = useState("");
+  const [rateError, setRateError] = useState("");
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -232,9 +238,12 @@ export default function BookingEntryPage() {
     }
 
     if (isBelowUkMinimumHourlyRate(numericRate)) {
+      setRateError(getUkMinimumRateMessage());
       setMessage(getUkMinimumRateMessage());
       return;
     }
+
+    setRateError("");
 
     setSaving(true);
     setMessage(null);
@@ -399,13 +408,24 @@ export default function BookingEntryPage() {
                 <span className="font-medium text-stone-900">Hourly rate (GBP)</span>
                 <input
                   type="number"
-                  min="12.71"
-                  step="0.5"
+                  min={CURRENT_UK_MINIMUM_HOURLY_RATE_GBP}
+                  step="0.01"
                   value={rate}
-                  onChange={(event) => setRate(event.target.value)}
+                  onChange={(event) => {
+                    setRate(event.target.value);
+                    setRateError(
+                      getUkMinimumRateValidationMessage(event.currentTarget.value),
+                    );
+                  }}
+                  onBlur={(event) =>
+                    setRateError(
+                      getUkMinimumRateValidationMessage(event.currentTarget.value),
+                    )
+                  }
                   className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
                   required
                 />
+                {rateError ? <p className="field-error">{rateError}</p> : null}
                 <p className="text-xs text-stone-500">
                   Keep this at or above the current UK minimum of GBP 12.71/hr.
                 </p>

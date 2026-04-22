@@ -567,6 +567,8 @@ export type ShiftListingRecord = {
   hourly_rate_gbp: number;
   location: string;
   city: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
   open_positions: number;
   claimed_positions: number;
   status: ShiftListingStatus;

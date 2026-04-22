@@ -9,7 +9,12 @@ import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { sanitiseAppRedirectPath } from "@/lib/auth-client";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
-import { getUkMinimumRateMessage, isBelowUkMinimumHourlyRate } from "@/lib/pay-rules";
+import {
+  CURRENT_UK_MINIMUM_HOURLY_RATE_GBP,
+  getUkMinimumRateValidationMessage,
+  getUkMinimumRateMessage,
+  isBelowUkMinimumHourlyRate,
+} from "@/lib/pay-rules";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
@@ -340,6 +345,7 @@ export function WorkerProfileForm({
   const [additionalRoleIds, setAdditionalRoleIds] = useState<string[]>([]);
   const [bio, setBio] = useState("");
   const [hourlyRate, setHourlyRate] = useState<string>("");
+  const [hourlyRateError, setHourlyRateError] = useState("");
   const [yearsExperience, setYearsExperience] = useState<string>("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
@@ -661,8 +667,10 @@ export function WorkerProfileForm({
       if (!hourlyRate.trim()) return "Hourly rate is required.";
       if (Number(hourlyRate) <= 0) return "Add a valid hourly rate.";
       if (isBelowUkMinimumHourlyRate(Number(hourlyRate))) {
+        setHourlyRateError(getUkMinimumRateMessage());
         return getUkMinimumRateMessage();
       }
+      setHourlyRateError("");
       if (!yearsExperience.trim()) return "Years of experience is required.";
       return null;
     }
@@ -1386,14 +1394,25 @@ export function WorkerProfileForm({
                   </label>
                   <input
                     type="number"
-                    min={12.71}
-                    step="0.50"
+                    min={CURRENT_UK_MINIMUM_HOURLY_RATE_GBP}
+                    step="0.01"
                     value={hourlyRate}
-                    onChange={(event) => setHourlyRate(event.target.value)}
+                    onChange={(event) => {
+                      setHourlyRate(event.target.value);
+                      setHourlyRateError(
+                        getUkMinimumRateValidationMessage(event.currentTarget.value),
+                      );
+                    }}
+                    onBlur={(event) =>
+                      setHourlyRateError(
+                        getUkMinimumRateValidationMessage(event.currentTarget.value),
+                      )
+                    }
                     className="input"
                     placeholder="18.50"
                     required
                   />
+                  {hourlyRateError ? <p className="field-error mt-2">{hourlyRateError}</p> : null}
                   <p className="mt-2 text-xs text-stone-500">
                     Keep this at or above the current UK minimum of GBP 12.71/hr.
                   </p>

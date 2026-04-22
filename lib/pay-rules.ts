@@ -16,3 +16,14 @@ export function getUkMinimumRateMessage() {
 export function isBelowUkMinimumHourlyRate(value: number) {
   return value < CURRENT_UK_MINIMUM_HOURLY_RATE_GBP;
 }
+
+export function getUkMinimumRateValidationMessage(value: string | number) {
+  const numericValue =
+    typeof value === "number" ? value : Number(String(value).trim());
+
+  if (Number.isNaN(numericValue) || numericValue >= CURRENT_UK_MINIMUM_HOURLY_RATE_GBP) {
+    return "";
+  }
+
+  return getUkMinimumRateMessage();
+}

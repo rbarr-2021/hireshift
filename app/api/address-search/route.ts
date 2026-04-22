@@ -18,6 +18,9 @@ type MapboxFeature = {
   name?: string;
   full_address?: string;
   feature_type?: string;
+  geometry?: {
+    coordinates?: [number, number];
+  };
   properties?: {
     name?: string;
     full_address?: string;
@@ -151,6 +154,8 @@ function toSuggestion(feature: MapboxFeature): AddressSuggestion | null {
     addressLine1,
     city,
     postcode,
+    latitude: feature.geometry?.coordinates?.[1] ?? null,
+    longitude: feature.geometry?.coordinates?.[0] ?? null,
   };
 }
 

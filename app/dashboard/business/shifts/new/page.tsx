@@ -7,7 +7,12 @@ import { useAuthState } from "@/components/auth/auth-provider";
 import { ShiftTimeRangePicker } from "@/components/forms/shift-time-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
-import { getUkMinimumRateMessage, isBelowUkMinimumHourlyRate } from "@/lib/pay-rules";
+import {
+  CURRENT_UK_MINIMUM_HOURLY_RATE_GBP,
+  getUkMinimumRateValidationMessage,
+  getUkMinimumRateMessage,
+  isBelowUkMinimumHourlyRate,
+} from "@/lib/pay-rules";
 import type {
   BusinessProfileRecord,
   ShiftListingRecord,
@@ -67,6 +72,29 @@ function buildBusinessLocation(profile: BusinessProfileRecord | null) {
     .join(", ");
 }
 
+async function geocodeShiftLocation(query: string) {
+  if (!query.trim()) {
+    return { latitude: null, longitude: null };
+  }
+
+  const response = await fetch(`/api/address-search?q=${encodeURIComponent(query)}`);
+  const payload = (await response.json()) as {
+    suggestions?: Array<{ latitude: number | null; longitude: number | null }>;
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Unable to look up the shift location.");
+  }
+
+  const bestMatch = payload.suggestions?.[0];
+
+  return {
+    latitude: bestMatch?.latitude ?? null,
+    longitude: bestMatch?.longitude ?? null,
+  };
+}
+
 const commonRoleSuggestions = [
   "Kitchen Porter",
   "Commis Chef",
@@ -79,6 +107,7 @@ const commonRoleSuggestions = [
   "Bartender",
   "Cocktail Bartender",
   "Event Staff",
+  "Other",
 ] as const;
 
 export default function NewShiftListingPage() {
@@ -89,13 +118,14 @@ export default function NewShiftListingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [roleLabel, setRoleLabel] = useState("");
-  const [title, setTitle] = useState("");
+  const [otherRoleLabel, setOtherRoleLabel] = useState("");
   const [description, setDescription] = useState("");
   const [shiftDateInput, setShiftDateInput] = useState("");
   const [shiftDates, setShiftDates] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("17:00");
   const [endTime, setEndTime] = useState("23:00");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [hourlyRateError, setHourlyRateError] = useState("");
   const [openPositions, setOpenPositions] = useState("1");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -147,6 +177,13 @@ export default function NewShiftListingPage() {
     [endTime, startTime],
   );
 
+  const handleHourlyRateInput = (value: string, input: HTMLInputElement) => {
+    setHourlyRate(value);
+    const nextError = getUkMinimumRateValidationMessage(value);
+    setHourlyRateError(nextError);
+    input.setCustomValidity("");
+  };
+
   const handleAddShiftDate = () => {
     if (!shiftDateInput) {
       setMessage("Choose a shift date first.");
@@ -183,6 +220,11 @@ export default function NewShiftListingPage() {
       return;
     }
 
+    if (roleLabel === "Other" && !otherRoleLabel.trim()) {
+      setMessage("Please state the role for this shift.");
+      return;
+    }
+
     if (shiftDates.length === 0) {
       setMessage("Add at least one shift date.");
       return;
@@ -206,9 +248,12 @@ export default function NewShiftListingPage() {
     }
 
     if (isBelowUkMinimumHourlyRate(numericRate)) {
+      setHourlyRateError(getUkMinimumRateMessage());
       setMessage(getUkMinimumRateMessage());
       return;
     }
+
+    setHourlyRateError("");
 
     const numericOpenPositions = Number(openPositions);
 
@@ -219,6 +264,26 @@ export default function NewShiftListingPage() {
 
     setSaving(true);
     setMessage(null);
+
+    let locationCoordinates = {
+      latitude: null as number | null,
+      longitude: null as number | null,
+    };
+
+    try {
+      locationCoordinates = await geocodeShiftLocation(businessLocation);
+    } catch (error) {
+      setSaving(false);
+      const nextMessage =
+        error instanceof Error ? error.message : "Unable to look up the shift location.";
+      setMessage(nextMessage);
+      showToast({
+        title: "Location lookup failed",
+        description: nextMessage,
+        tone: "error",
+      });
+      return;
+    }
 
     const payloads: Array<
       Omit<
@@ -233,8 +298,8 @@ export default function NewShiftListingPage() {
       >
     > = shiftDates.map((shiftDate) => ({
       business_id: authUserId,
-      role_label: roleLabel.trim(),
-      title: title.trim() || null,
+      role_label: (roleLabel === "Other" ? otherRoleLabel : roleLabel).trim(),
+      title: null,
       description: description.trim() || null,
       shift_date: shiftDate,
       shift_end_date: deriveShiftEndDate(shiftDate, startTime, endTime),
@@ -243,6 +308,8 @@ export default function NewShiftListingPage() {
       hourly_rate_gbp: numericRate,
       location: businessLocation,
       city: businessProfile?.city ?? null,
+      location_lat: locationCoordinates.latitude,
+      location_lng: locationCoordinates.longitude,
       open_positions: numericOpenPositions,
     }));
 
@@ -306,10 +373,6 @@ export default function NewShiftListingPage() {
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             Post a shift workers can browse and take
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Keep this lightweight. Add the role, date, time, rate, and a clear
-            note so workers can decide quickly if the shift is right for them.
-          </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link href="/dashboard/business" className="secondary-btn w-full px-6 sm:w-auto">
@@ -331,46 +394,40 @@ export default function NewShiftListingPage() {
         <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Shift details</h2>
           <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <label className="font-medium text-stone-900">Common roles</label>
-              <div className="flex flex-wrap gap-2">
-                {commonRoleSuggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setRoleLabel(suggestion)}
-                    className={`rounded-full px-3 py-2 text-sm font-medium transition ${
-                      roleLabel === suggestion
-                        ? "bg-stone-900 text-white"
-                        : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-                    }`}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
-                <span className="font-medium text-stone-900">Role label</span>
-                <input
+                <span className="font-medium text-stone-900">Role</span>
+                <select
                   value={roleLabel}
-                  onChange={(event) => setRoleLabel(event.target.value)}
+                  onChange={(event) => {
+                    setRoleLabel(event.target.value);
+                    if (event.target.value !== "Other") {
+                      setOtherRoleLabel("");
+                    }
+                  }}
                   className="input"
-                  placeholder="Sous Chef"
                   required
-                />
+                >
+                  <option value="">Select a role</option>
+                  {commonRoleSuggestions.map((suggestion) => (
+                    <option key={suggestion} value={suggestion}>
+                      {suggestion}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
-                <span className="font-medium text-stone-900">Listing title</span>
-                <input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  className="input"
-                  placeholder="Saturday evening service cover"
-                />
-              </label>
+              {roleLabel === "Other" ? (
+                <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                  <span className="font-medium text-stone-900">Please state</span>
+                  <input
+                    value={otherRoleLabel}
+                    onChange={(event) => setOtherRoleLabel(event.target.value)}
+                    className="input"
+                    placeholder="Senior pizza chef"
+                    required
+                  />
+                </label>
+              ) : null}
               <label className="space-y-2 text-sm text-stone-600">
                 <span className="font-medium text-stone-900">Add shift date</span>
                 <div className="flex gap-2">
@@ -385,19 +442,44 @@ export default function NewShiftListingPage() {
                     Add
                   </button>
                 </div>
+                <div className="sm:hidden">
+                  {shiftDates.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {shiftDates.map((shiftDate) => (
+                        <span
+                          key={shiftDate}
+                          className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-2 text-xs font-medium text-emerald-900"
+                        >
+                          <span aria-hidden="true">&#10003;</span>
+                          {shiftDate}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-stone-500">Added dates will show here.</p>
+                  )}
+                </div>
               </label>
               <label className="space-y-2 text-sm text-stone-600">
                 <span className="font-medium text-stone-900">Hourly rate (GBP)</span>
                 <input
                   type="number"
-                  min="12.71"
-                  step="0.50"
+                  min={CURRENT_UK_MINIMUM_HOURLY_RATE_GBP}
+                  step="0.01"
                   value={hourlyRate}
-                  onChange={(event) => setHourlyRate(event.target.value)}
+                  onChange={(event) =>
+                    handleHourlyRateInput(event.target.value, event.currentTarget)
+                  }
+                  onBlur={(event) =>
+                    setHourlyRateError(
+                      getUkMinimumRateValidationMessage(event.currentTarget.value),
+                    )
+                  }
                   className="input"
                   placeholder="18.50"
                   required
                 />
+                {hourlyRateError ? <p className="field-error">{hourlyRateError}</p> : null}
                 <p className="text-xs text-stone-500">
                   Keep this at or above the current UK minimum of GBP 12.71/hr.
                 </p>
@@ -502,9 +584,6 @@ export default function NewShiftListingPage() {
           <section className="panel-soft p-5 sm:p-6">
             <h2 className="text-xl font-semibold text-stone-900">What workers will see</h2>
             <div className="mt-4 space-y-3 text-sm text-stone-600">
-              <p className="font-medium text-stone-900">
-                {title || roleLabel || "Shift title"}
-              </p>
               <p>{roleLabel || "Role label goes here"}</p>
               <p>{businessProfile?.business_name || "Your business name"}</p>
               <p>{businessProfile?.city || "Your city"}</p>
@@ -534,11 +613,6 @@ export default function NewShiftListingPage() {
                       : `${startTime} - ${endTime}`
                     : "Set your shift hours"}
                 </span>
-              </p>
-              <p className="info-banner mt-4">
-                Open listings let workers see real opportunities quickly. We create
-                one listing per date, and each listing can hold multiple workers for
-                the same role.
               </p>
             </div>
           </section>

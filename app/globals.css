@@ -317,6 +317,13 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     color: var(--text-secondary);
   }
 
+  .field-error {
+    @apply rounded-2xl border px-3 py-2 text-xs leading-5;
+    background: rgba(255, 82, 82, 0.12);
+    border-color: rgba(255, 82, 82, 0.22);
+    color: var(--danger-text);
+  }
+
   .mobile-sticky-bar {
     @apply fixed inset-x-3 z-40 rounded-[1.4rem] border p-3 shadow-sm backdrop-blur-xl sm:inset-x-4;
     background: rgba(4, 12, 22, 0.94);

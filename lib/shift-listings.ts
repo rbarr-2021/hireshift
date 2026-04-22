@@ -1,5 +1,32 @@
 import type { ShiftListingRecord } from "@/lib/models";
 
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+export function calculateDistanceMiles(input: {
+  fromLat: number;
+  fromLng: number;
+  toLat: number;
+  toLng: number;
+}) {
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRadians(input.toLat - input.fromLat);
+  const dLng = toRadians(input.toLng - input.fromLng);
+  const lat1 = toRadians(input.fromLat);
+  const lat2 = toRadians(input.toLat);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) *
+      Math.sin(dLng / 2) *
+      Math.cos(lat1) *
+      Math.cos(lat2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusMiles * c;
+}
+
 export function deriveShiftEndDate(
   shiftDate: string,
   startTime: string,
@@ -63,9 +90,22 @@ export function matchesShiftFilters(input: {
   date: string;
   location: string;
   maxRate: string;
+  searchLatitude?: number | null;
+  searchLongitude?: number | null;
+  maxDistanceMiles?: number | null;
   now?: Date;
 }) {
-  const { listing, query, date, location, maxRate, now } = input;
+  const {
+    listing,
+    query,
+    date,
+    location,
+    maxRate,
+    searchLatitude,
+    searchLongitude,
+    maxDistanceMiles,
+    now,
+  } = input;
 
   if (listing.status !== "open") {
     return false;
@@ -97,13 +137,35 @@ export function matchesShiftFilters(input: {
   }
 
   if (location.trim()) {
-    const nextLocation = location.trim().toLowerCase();
-    const searchableLocation = [listing.location, listing.city ?? ""]
-      .join(" ")
-      .toLowerCase();
+    if (
+      searchLatitude !== null &&
+      searchLatitude !== undefined &&
+      searchLongitude !== null &&
+      searchLongitude !== undefined &&
+      maxDistanceMiles !== null &&
+      maxDistanceMiles !== undefined &&
+      listing.location_lat !== null &&
+      listing.location_lng !== null
+    ) {
+      const distanceMiles = calculateDistanceMiles({
+        fromLat: searchLatitude,
+        fromLng: searchLongitude,
+        toLat: listing.location_lat,
+        toLng: listing.location_lng,
+      });
 
-    if (!searchableLocation.includes(nextLocation)) {
-      return false;
+      if (distanceMiles > maxDistanceMiles) {
+        return false;
+      }
+    } else {
+      const nextLocation = location.trim().toLowerCase();
+      const searchableLocation = [listing.location, listing.city ?? ""]
+        .join(" ")
+        .toLowerCase();
+
+      if (!searchableLocation.includes(nextLocation)) {
+        return false;
+      }
     }
   }
 

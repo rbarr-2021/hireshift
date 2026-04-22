@@ -4,4 +4,6 @@ export type AddressSuggestion = {
   addressLine1: string;
   city: string;
   postcode: string;
+  latitude: number | null;
+  longitude: number | null;
 };

@@ -11,8 +11,6 @@ type ShiftTimeRangePickerProps = {
   className?: string;
 };
 
-const QUICK_DURATION_OPTIONS = [4, 6, 8, 10, 12] as const;
-
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
   const minutes = index % 2 === 0 ? "00" : "30";
@@ -23,21 +21,6 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
     label: value,
   };
 });
-
-function addHoursToTime(time: string, hoursToAdd: number) {
-  const [hours, minutes] = time.split(":").map(Number);
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return time;
-  }
-
-  const totalMinutes = hours * 60 + minutes + hoursToAdd * 60;
-  const wrappedMinutes = ((totalMinutes % 1440) + 1440) % 1440;
-  const nextHours = String(Math.floor(wrappedMinutes / 60)).padStart(2, "0");
-  const nextMinutes = String(wrappedMinutes % 60).padStart(2, "0");
-
-  return `${nextHours}:${nextMinutes}`;
-}
 
 export function ShiftTimeRangePicker({
   startTime,
@@ -86,25 +69,6 @@ export function ShiftTimeRangePicker({
         </label>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-stone-500">
-          Quick duration
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {QUICK_DURATION_OPTIONS.map((hours) => (
-            <button
-              key={hours}
-              type="button"
-              onClick={() => onEndTimeChange(addHoursToTime(startTime, hours))}
-              disabled={disabled}
-              className="secondary-btn px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {hours}h
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-stone-500">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-stone-100">
@@ -117,7 +81,7 @@ export function ShiftTimeRangePicker({
         <p className="mt-2 text-xs leading-5">
           {isOvernight
             ? "This will be treated as an overnight shift and saved as ending the next day."
-            : "Choose a start time, then tap a duration or set the finish time directly."}
+            : "Choose a start time and finish time directly."}
         </p>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AddressSuggestion } from "@/lib/address-search";
 
 type AddressAutocompleteProps = {
-  label: string;
+  label?: string;
   placeholder: string;
   helperText?: string;
   onSelect: (suggestion: AddressSuggestion) => void;
@@ -123,7 +123,7 @@ export function AddressAutocomplete({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-stone-700">{label}</label>
+      {label ? <label className="block text-sm font-medium text-stone-700">{label}</label> : null}
       <div ref={containerRef} className="relative">
         <input
           value={query}

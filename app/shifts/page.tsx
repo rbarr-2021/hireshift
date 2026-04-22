@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
 import type {
@@ -20,6 +21,7 @@ import {
 import {
   CURRENT_UK_MINIMUM_HOURLY_RATE_GBP,
   formatCurrency,
+  getUkMinimumRateValidationMessage,
 } from "@/lib/pay-rules";
 import { supabase } from "@/lib/supabase";
 
@@ -33,6 +35,23 @@ const QUICK_DATE_FILTERS = [
   { id: "tomorrow", label: "Tomorrow", offsetDays: 1 },
   { id: "in-two-days", label: "In 2 days", offsetDays: 2 },
 ] as const;
+
+const ROLE_FILTER_OPTIONS = [
+  "Kitchen Porter",
+  "Commis Chef",
+  "Chef de Partie",
+  "Sous Chef",
+  "Head Chef",
+  "Waiter",
+  "Waitress",
+  "Barista",
+  "Bartender",
+  "Cocktail Bartender",
+  "Event Staff",
+  "Other",
+] as const;
+
+const DISTANCE_FILTER_OPTIONS = [5, 10, 15, 25, 50] as const;
 
 const initialFilters = {
   query: "",
@@ -63,6 +82,16 @@ export default function WorkerShiftBrowsePage() {
   const router = useRouter();
   const { appUser } = useAuthState();
   const [filters, setFilters] = useState(initialFilters);
+  const [otherRoleQuery, setOtherRoleQuery] = useState("");
+  const [distanceMiles, setDistanceMiles] = useState("");
+  const [searchLocationCoords, setSearchLocationCoords] = useState<{
+    latitude: number | null;
+    longitude: number | null;
+  }>({
+    latitude: null,
+    longitude: null,
+  });
+  const [maxRateError, setMaxRateError] = useState("");
   const [listings, setListings] = useState<ShiftListingRecord[]>([]);
   const [businessesById, setBusinessesById] = useState<Record<string, ShiftCardBusiness>>({});
   const [loading, setLoading] = useState(true);
@@ -142,13 +171,26 @@ export default function WorkerShiftBrowsePage() {
       listings.filter((listing) =>
         matchesShiftFilters({
           listing,
-          query: filters.query,
+          query: filters.query === "Other" ? otherRoleQuery : filters.query,
           date: filters.date,
           location: filters.location,
           maxRate: filters.maxRate,
+          searchLatitude: searchLocationCoords.latitude,
+          searchLongitude: searchLocationCoords.longitude,
+          maxDistanceMiles: distanceMiles ? Number(distanceMiles) : null,
         }),
       ),
-    [filters.date, filters.location, filters.maxRate, filters.query, listings],
+    [
+      distanceMiles,
+      filters.date,
+      filters.location,
+      filters.maxRate,
+      filters.query,
+      listings,
+      otherRoleQuery,
+      searchLocationCoords.latitude,
+      searchLocationCoords.longitude,
+    ],
   );
 
   const selectedQuickDateId = useMemo(
@@ -180,10 +222,6 @@ export default function WorkerShiftBrowsePage() {
         <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
           See real hospitality shifts before you commit to more setup
         </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-          Browse open business shift listings now. You only need to complete
-          your worker details when you take your first shift.
-        </p>
         {!appUser?.onboarding_complete ? (
           <div className="info-banner mt-6">
             Just a few details before your first shift. You can browse freely now
@@ -193,17 +231,35 @@ export default function WorkerShiftBrowsePage() {
       </div>
 
       <div className="panel-soft p-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-2 text-sm text-stone-600">
-            <span className="font-medium text-stone-900">Role or venue</span>
-            <input
+            <span className="font-medium text-stone-900">Role</span>
+            <select
               value={filters.query}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, query: event.target.value }))
-              }
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setFilters((current) => ({ ...current, query: nextValue }));
+                if (nextValue !== "Other") {
+                  setOtherRoleQuery("");
+                }
+              }}
               className="input"
-              placeholder="Chef, bar, Belfast..."
-            />
+            >
+              <option value="">All roles</option>
+              {ROLE_FILTER_OPTIONS.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+            {filters.query === "Other" ? (
+              <input
+                value={otherRoleQuery}
+                onChange={(event) => setOtherRoleQuery(event.target.value)}
+                className="input"
+                placeholder="Please state"
+              />
+            ) : null}
           </label>
           <label className="space-y-2 text-sm text-stone-600">
             <span className="font-medium text-stone-900">Date</span>
@@ -265,16 +321,35 @@ export default function WorkerShiftBrowsePage() {
               </div>
             </div>
           </label>
-          <label className="space-y-2 text-sm text-stone-600">
+          <div className="space-y-2 text-sm text-stone-600">
             <span className="font-medium text-stone-900">Location</span>
-            <input
-              value={filters.location}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, location: event.target.value }))
-              }
-              className="input"
-              placeholder="Newcastle"
+            <AddressAutocomplete
+              label=""
+              placeholder="Belfast"
+              helperText="Pick an area, then choose how far you are willing to travel."
+              onSelect={(suggestion) => {
+                setFilters((current) => ({ ...current, location: suggestion.label }));
+                setSearchLocationCoords({
+                  latitude: suggestion.latitude,
+                  longitude: suggestion.longitude,
+                });
+              }}
             />
+          </div>
+          <label className="space-y-2 text-sm text-stone-600">
+            <span className="font-medium text-stone-900">Distance</span>
+            <select
+              value={distanceMiles}
+              onChange={(event) => setDistanceMiles(event.target.value)}
+              className="input"
+            >
+              <option value="">Any distance</option>
+              {DISTANCE_FILTER_OPTIONS.map((distance) => (
+                <option key={distance} value={distance}>
+                  {distance} miles
+                </option>
+              ))}
+            </select>
           </label>
           <label className="space-y-2 text-sm text-stone-600">
             <span className="font-medium text-stone-900">Max hourly rate</span>
@@ -283,12 +358,21 @@ export default function WorkerShiftBrowsePage() {
               min={CURRENT_UK_MINIMUM_HOURLY_RATE_GBP}
               step="0.01"
               value={filters.maxRate}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, maxRate: event.target.value }))
+              onChange={(event) => {
+                setFilters((current) => ({ ...current, maxRate: event.target.value }));
+                setMaxRateError(
+                  getUkMinimumRateValidationMessage(event.currentTarget.value),
+                );
+              }}
+              onBlur={(event) =>
+                setMaxRateError(
+                  getUkMinimumRateValidationMessage(event.currentTarget.value),
+                )
               }
               className="input"
-              placeholder="25"
+              placeholder=""
             />
+            {maxRateError ? <p className="field-error">{maxRateError}</p> : null}
             <p className="text-xs text-stone-500">
               Starts from {formatCurrency(CURRENT_UK_MINIMUM_HOURLY_RATE_GBP)}.
             </p>

@@ -489,9 +489,6 @@ export default function WorkerDashboardPage() {
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             Manage incoming booking requests and confirmed shifts
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Keep your profile current, respond to booking requests quickly, and track when each completed shift moves through approval and payout.
-          </p>
         </div>
         <Link
           href="/dashboard/worker/availability"

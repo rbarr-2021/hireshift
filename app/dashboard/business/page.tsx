@@ -359,35 +359,12 @@ export default function BusinessDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
         <div>
           <p className="section-label">Business Dashboard</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             Manage worker requests and confirmed shifts
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Discovery helps you fill shifts quickly, while payout controls keep every completed booking clear, tracked, and ready for fast release.
-          </p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <Link
-            href="/dashboard/business/profile"
-            className="secondary-btn w-full px-6 sm:w-auto"
-          >
-            Edit profile
-          </Link>
-          <Link
-            href="/dashboard/business/discover"
-            className="primary-btn w-full px-6 sm:w-auto"
-          >
-            Discover workers
-          </Link>
-          <Link
-            href="/dashboard/business/shifts/new"
-            className="secondary-btn w-full px-6 sm:w-auto"
-          >
-            Post a shift
-          </Link>
         </div>
       </div>
 
