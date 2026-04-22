@@ -442,7 +442,7 @@ export default function NewShiftListingPage() {
                     Add
                   </button>
                 </div>
-                <div className="sm:hidden">
+                <div>
                   {shiftDates.length > 0 ? (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {shiftDates.map((shiftDate) => (
