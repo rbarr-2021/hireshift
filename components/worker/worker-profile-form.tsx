@@ -1563,20 +1563,39 @@ export function WorkerProfileForm({
               <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                 <div>
                   <h2 className="text-lg font-semibold text-stone-900">Documents</h2>
-                  <p className="mt-2 text-sm leading-6 text-stone-600">Optional.</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">
+                    Optional uploads to strengthen your profile faster.
+                  </p>
                 </div>
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-sky-200 bg-sky-50 px-4 py-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-sky-950">Optional documents</p>
+                        <p className="mt-1 text-sm text-sky-900">
+                          You can finish setup without these and add them later.
+                        </p>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-900">
+                        Optional
+                      </span>
+                    </div>
+                  </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   {DOCUMENT_TYPES.map((documentType) => (
-                    <div key={documentType} className="rounded-3xl border border-stone-200 bg-stone-50 p-4">
+                    <div key={documentType} className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-stone-900">{DOCUMENT_LABELS[documentType]}</p>
-                          <p className="mt-1 text-xs text-stone-500">Optional supporting document</p>
+                          <p className="mt-1 text-xs text-stone-500">Add if you have it ready.</p>
                         </div>
                         {existingDocuments[documentType] ? (
                           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">Uploaded</span>
                         ) : (
-                          <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-700">Optional</span>
+                          <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-sky-900">
+                            Optional
+                          </span>
                         )}
                       </div>
                       <div className="mt-4">
@@ -1587,6 +1606,7 @@ export function WorkerProfileForm({
                       </div>
                     </div>
                   ))}
+                </div>
                 </div>
               </section>
             ) : null}

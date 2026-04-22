@@ -344,13 +344,8 @@ export default function RoleSelect() {
           Choose your path
         </p>
         <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
-          Are you looking for work or hiring staff?
+          Choose your account
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-          Your choice shapes the rest of onboarding and the dashboard experience.
-          You can change this later in the database if the product needs an admin
-          override.
-        </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <button
@@ -362,11 +357,9 @@ export default function RoleSelect() {
                 : "border-stone-200 bg-stone-50 text-stone-900 hover:border-stone-400"
             }`}
           >
-            <p className="text-lg font-semibold">Worker</p>
-            <p className="mt-2 text-sm leading-6 opacity-80">
-              Start browsing available shifts now, then complete a few details
-              before you take your first one.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Worker</p>
+            <p className="mt-3 text-xl font-semibold">Find shifts</p>
+            <p className="mt-2 text-sm opacity-80">Select here</p>
           </button>
           <button
             type="button"
@@ -377,11 +370,9 @@ export default function RoleSelect() {
                 : "border-stone-200 bg-stone-50 text-stone-900 hover:border-stone-400"
             }`}
           >
-            <p className="text-lg font-semibold">Business</p>
-            <p className="mt-2 text-sm leading-6 opacity-80">
-              Set up your venue details so you can search, book, and manage
-              temporary hospitality staff.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Business</p>
+            <p className="mt-3 text-xl font-semibold">Book staff</p>
+            <p className="mt-2 text-sm opacity-80">Select here</p>
           </button>
         </div>
 

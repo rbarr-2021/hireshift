@@ -62,6 +62,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [sector, setSector] = useState<BusinessSector | "">(BUSINESS_SECTORS[0]);
+  const [otherSector, setOtherSector] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
@@ -101,7 +102,13 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
 
       if (profile) {
         setBusinessName(profile.business_name);
-        setSector(profile.sector as BusinessSector);
+        if (BUSINESS_SECTORS.includes(profile.sector as BusinessSector)) {
+          setSector(profile.sector as BusinessSector);
+          setOtherSector("");
+        } else {
+          setSector("Other");
+          setOtherSector(profile.sector);
+        }
         setContactName(profile.contact_name ?? appUser?.display_name ?? "");
         setPhone(
           normaliseInternationalPhoneNumber(profile.phone ?? appUser?.phone ?? "") ??
@@ -134,7 +141,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       calculateBusinessProfileCompletion({
         user_id: user?.id ?? "",
         business_name: businessName,
-        sector: sector || "",
+        sector: sector === "Other" ? otherSector.trim() : sector || "",
         contact_name: contactName || null,
         phone: phone || null,
         address_line_1: addressLine1,
@@ -152,6 +159,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       city,
       contactName,
       description,
+      otherSector,
       phone,
       postcode,
       sector,
@@ -162,6 +170,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const validate = () => {
     if (!businessName.trim()) return "Business name is required.";
     if (!sector) return "Business sector is required.";
+    if (sector === "Other" && !otherSector.trim()) return "Enter your business sector.";
     if (!contactName.trim()) return "Contact name is required.";
     if (phone.trim() && !normaliseInternationalPhoneNumber(phone)) {
       return "Enter the contact phone in international format, for example +447700900123.";
@@ -203,7 +212,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       const businessProfilePayload = {
         user_id: authUser.id,
         business_name: businessName.trim(),
-        sector,
+        sector: sector === "Other" ? otherSector.trim() : sector,
         contact_name: contactName.trim(),
         phone: normaliseInternationalPhoneNumber(phone),
         address_line_1: addressLine1.trim(),
@@ -334,7 +343,11 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             <label className="mb-2 block text-sm font-medium text-stone-700">
               Business sector
             </label>
-            <select value={sector} onChange={(e) => setSector(e.target.value as BusinessSector)} className="input">
+            <select
+              value={sector}
+              onChange={(e) => setSector(e.target.value as BusinessSector)}
+              className="input"
+            >
               <option value="">Select a sector</option>
               {BUSINESS_SECTORS.map((option) => (
                 <option key={option} value={option}>
@@ -343,6 +356,21 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               ))}
             </select>
           </div>
+
+          {sector === "Other" ? (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-stone-700">
+                Your sector
+              </label>
+              <input
+                value={otherSector}
+                onChange={(e) => setOtherSector(e.target.value)}
+                className="input"
+                placeholder="Private members club"
+                required
+              />
+            </div>
+          ) : null}
 
           <div>
             <label className="mb-2 block text-sm font-medium text-stone-700">

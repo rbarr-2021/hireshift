@@ -299,7 +299,7 @@ export default function NewShiftListingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-44 sm:pb-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="section-label">Open shift listing</p>
@@ -480,7 +480,10 @@ export default function NewShiftListingPage() {
               </button>
             </div>
 
-            <div className="mobile-sticky-bar flex flex-col gap-3 sm:hidden">
+            <div
+              className="mobile-sticky-bar flex flex-col gap-3 sm:hidden"
+              style={{ bottom: "max(5.75rem, calc(env(safe-area-inset-bottom) + 5.75rem))" }}
+            >
               <div className="text-sm text-stone-500">
                 Workers will only see this listing while it is still open.
               </div>

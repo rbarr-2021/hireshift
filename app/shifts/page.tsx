@@ -17,6 +17,10 @@ import {
   matchesShiftFilters,
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
+import {
+  CURRENT_UK_MINIMUM_HOURLY_RATE_GBP,
+  formatCurrency,
+} from "@/lib/pay-rules";
 import { supabase } from "@/lib/supabase";
 
 type ShiftCardBusiness = {
@@ -276,7 +280,8 @@ export default function WorkerShiftBrowsePage() {
             <span className="font-medium text-stone-900">Max hourly rate</span>
             <input
               type="number"
-              min={0}
+              min={CURRENT_UK_MINIMUM_HOURLY_RATE_GBP}
+              step="0.01"
               value={filters.maxRate}
               onChange={(event) =>
                 setFilters((current) => ({ ...current, maxRate: event.target.value }))
@@ -284,6 +289,9 @@ export default function WorkerShiftBrowsePage() {
               className="input"
               placeholder="25"
             />
+            <p className="text-xs text-stone-500">
+              Starts from {formatCurrency(CURRENT_UK_MINIMUM_HOURLY_RATE_GBP)}.
+            </p>
           </label>
         </div>
       </div>

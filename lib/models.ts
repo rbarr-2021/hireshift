@@ -246,6 +246,7 @@ export const BUSINESS_SECTORS = [
   "Hotel",
   "Catering",
   "Event Company",
+  "Other",
 ] as const;
 
 export const APPROVAL_STATUSES = ["pending", "verified", "rejected"] as const;
