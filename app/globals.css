@@ -184,6 +184,18 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 }
 
 @layer components {
+  .display-headline {
+    font-family:
+      "Iowan Old Style",
+      "Palatino Linotype",
+      "Book Antiqua",
+      "Cormorant Garamond",
+      Georgia,
+      serif;
+    letter-spacing: -0.03em;
+    font-weight: 600;
+  }
+
   .input {
     @apply w-full min-w-0 rounded-2xl border px-4 py-3 outline-none;
     border-color: var(--border-subtle);

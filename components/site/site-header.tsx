@@ -78,7 +78,7 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-black/72 backdrop-blur-xl">
-      <div className="public-section flex items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
+      <div className="public-section flex items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-0 sm:py-4">
         <Link href="/" className="flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-stone-100 text-base font-semibold text-stone-900 sm:h-11 sm:w-11 sm:text-lg">
             K
@@ -122,25 +122,25 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
         <div className="flex shrink-0 items-center gap-2 md:hidden">
           {user ? (
             <>
-              <Link href={dashboardHref} className="secondary-btn min-w-[96px] px-3">
+              <Link href={dashboardHref} className="secondary-btn min-w-[88px] px-3">
                 {hasSelectedRole(user) ? "Dashboard" : "Role"}
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
                 disabled={busy}
-                className="secondary-btn min-w-[96px] px-3"
+                className="secondary-btn min-w-[88px] px-3"
               >
                 {busy ? "..." : "Log out"}
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" className="secondary-btn min-w-[84px] px-3">
+              <Link href="/login" className="secondary-btn min-w-[78px] px-3">
                 Log in
               </Link>
-              <Link href="/signup" className="primary-btn min-w-[84px] px-3">
-                Join
+              <Link href="/signup" className="primary-btn min-w-[118px] px-3">
+                Create account
               </Link>
             </>
           )}

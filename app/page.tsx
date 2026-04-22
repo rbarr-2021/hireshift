@@ -1,27 +1,44 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site/site-header";
-
-const simpleSteps = [
-  {
-    title: "Businesses post shifts",
-    body: "List the cover you need and keep bookings in one place.",
-  },
-  {
-    title: "Workers take the right shifts",
-    body: "Browse live hospitality work and accept shifts quickly.",
-  },
-  {
-    title: "KruVii tracks the flow",
-    body: "Bookings, completion, and payout stay clear for both sides.",
-  },
-];
 
 export default function HomePage() {
   return (
     <>
       <SiteHeader />
       <main className="public-shell pt-6 sm:pt-8">
-        <section className="public-section">
+        <section className="public-section sm:hidden">
+          <div className="panel px-5 py-8">
+            <div className="mx-auto max-w-md text-center">
+              <p className="display-headline text-[2.2rem] leading-[0.95] text-stone-900">
+                Work on your own terms. Take control.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-stone-600">
+                Fast hospitality shifts for workers. Reliable cover for businesses.
+              </p>
+              <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-white/8 bg-[#07111f] shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+                <Image
+                  src="/hero-mobile-hospitality-food.png"
+                  alt="Fast-paced hospitality food service in a live kitchen"
+                  width={720}
+                  height={520}
+                  className="h-44 w-full object-cover object-center"
+                  priority
+                />
+              </div>
+              <div className="mt-8 grid gap-3">
+                <Link href="/signup?role=worker" className="primary-btn w-full px-8">
+                  Find Shift
+                </Link>
+                <Link href="/signup?role=business" className="secondary-btn w-full px-8">
+                  Book Staff
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="public-section hidden sm:block">
           <div className="panel px-5 py-10 sm:px-8 sm:py-12 lg:px-14 lg:py-16">
             <div className="mx-auto max-w-4xl">
               <p className="section-label">KruVii</p>
@@ -46,9 +63,22 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="public-section mt-8">
+        <section className="public-section mt-8 hidden sm:block">
           <div className="grid gap-4 lg:grid-cols-3">
-            {simpleSteps.map((step) => (
+            {[
+              {
+                title: "Businesses post shifts",
+                body: "List the cover you need and keep bookings in one place.",
+              },
+              {
+                title: "Workers take the right shifts",
+                body: "Browse live hospitality work and accept shifts quickly.",
+              },
+              {
+                title: "KruVii tracks the flow",
+                body: "Bookings, completion, and payout stay clear for both sides.",
+              },
+            ].map((step) => (
               <div key={step.title} className="panel-soft p-5 sm:p-6">
                 <h2 className="text-xl font-semibold text-stone-900">{step.title}</h2>
                 <p className="mt-3 text-sm leading-7 text-stone-600">{step.body}</p>
