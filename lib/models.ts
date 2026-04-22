@@ -405,6 +405,12 @@ export type WorkerProfileRecord = {
   availability_summary: string | null;
   profile_photo_url: string | null;
   profile_photo_path: string | null;
+  stripe_connect_account_id: string | null;
+  stripe_connect_details_submitted: boolean;
+  stripe_connect_payouts_enabled: boolean;
+  stripe_connect_charges_enabled: boolean;
+  stripe_connect_onboarding_completed_at: string | null;
+  stripe_connect_last_synced_at: string | null;
   work_history: WorkHistoryItem[];
   verification_status: ApprovalStatus;
   created_at: string;

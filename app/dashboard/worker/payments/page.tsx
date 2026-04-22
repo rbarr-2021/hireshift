@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
@@ -8,6 +9,7 @@ import type {
   BusinessProfileRecord,
   PaymentRecord,
   UserRecord,
+  WorkerProfileRecord,
 } from "@/lib/models";
 import {
   formatPaymentStatus,
@@ -19,7 +21,9 @@ import {
   payoutStatusClass,
 } from "@/lib/payments";
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/toast-provider";
 
 type BusinessSnapshot = {
   name: string;
@@ -35,10 +39,16 @@ function formatCurrency(value: number) {
 }
 
 export default function WorkerPaymentsPage() {
+  const searchParams = useSearchParams();
+  const { showToast } = useToast();
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [businessesById, setBusinessesById] = useState<Record<string, BusinessSnapshot>>({});
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [openingDashboard, setOpeningDashboard] = useState(false);
+  const [refreshingStripeStatus, setRefreshingStripeStatus] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -58,6 +68,12 @@ export default function WorkerPaymentsPage() {
         .eq("worker_id", user.id)
         .order("shift_date", { ascending: false })
         .order("start_time", { ascending: false });
+
+      const workerProfileResult = await supabase
+        .from("worker_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle<WorkerProfileRecord>();
 
       if (!active) {
         return;
@@ -104,6 +120,7 @@ export default function WorkerPaymentsPage() {
 
       setBookings(nextBookings);
       setBusinessesById(nextBusinesses);
+      setWorkerProfile(workerProfileResult.data ?? null);
       setPaymentsByBookingId(
         nextPayments.reduce<Record<string, PaymentRecord>>((accumulator, payment) => {
           accumulator[payment.booking_id] = payment;
@@ -119,6 +136,91 @@ export default function WorkerPaymentsPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const stripeQuery = searchParams.get("stripe");
+
+    if (!workerProfile?.stripe_connect_account_id && stripeQuery !== "connected") {
+      return;
+    }
+
+    let active = true;
+
+    const syncStripeStatus = async () => {
+      setRefreshingStripeStatus(true);
+
+      try {
+        const response = await fetchWithSession("/api/worker/payout-account/refresh", {
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          connected?: boolean;
+          detailsSubmitted?: boolean;
+          payoutsEnabled?: boolean;
+          chargesEnabled?: boolean;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Unable to refresh payout status.");
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setWorkerProfile((current) =>
+          current
+            ? {
+                ...current,
+                stripe_connect_details_submitted: payload.detailsSubmitted ?? false,
+                stripe_connect_payouts_enabled: payload.payoutsEnabled ?? false,
+                stripe_connect_charges_enabled: payload.chargesEnabled ?? false,
+                stripe_connect_last_synced_at: new Date().toISOString(),
+                stripe_connect_onboarding_completed_at:
+                  payload.detailsSubmitted && payload.payoutsEnabled
+                    ? current.stripe_connect_onboarding_completed_at ?? new Date().toISOString()
+                    : current.stripe_connect_onboarding_completed_at,
+              }
+            : current,
+        );
+
+        if (stripeQuery === "connected") {
+          showToast({
+            title: payload.payoutsEnabled
+              ? "Stripe payouts connected"
+              : "Finish Stripe setup",
+            description: payload.payoutsEnabled
+              ? "Your payout account is ready for completed shift payments."
+              : "Stripe still needs a few payout details before we can send funds automatically.",
+            tone: payload.payoutsEnabled ? "success" : "info",
+          });
+        }
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : "Unable to refresh payout status.";
+        showToast({
+          title: "Payout status unavailable",
+          description: message,
+          tone: "error",
+        });
+      } finally {
+        if (active) {
+          setRefreshingStripeStatus(false);
+        }
+      }
+    };
+
+    void syncStripeStatus();
+
+    return () => {
+      active = false;
+    };
+  }, [searchParams, showToast, workerProfile?.stripe_connect_account_id]);
 
   const upcomingPayout = useMemo(
     () => getUpcomingPayout(bookings, paymentsByBookingId),
@@ -138,6 +240,65 @@ export default function WorkerPaymentsPage() {
       }),
     [bookings, paymentsByBookingId],
   );
+
+  const payoutAccountConnected = Boolean(workerProfile?.stripe_connect_account_id);
+  const payoutAccountReady = Boolean(
+    workerProfile?.stripe_connect_account_id &&
+      workerProfile.stripe_connect_details_submitted &&
+      workerProfile.stripe_connect_payouts_enabled,
+  );
+
+  const handleConnectPayouts = async () => {
+    setConnecting(true);
+
+    try {
+      const response = await fetchWithSession("/api/worker/payout-account/onboard", {
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string; url?: string };
+
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Unable to open Stripe payout setup.");
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to open Stripe payout setup.";
+      showToast({
+        title: "Stripe setup unavailable",
+        description: message,
+        tone: "error",
+      });
+      setConnecting(false);
+    }
+  };
+
+  const handleOpenStripeDashboard = async () => {
+    setOpeningDashboard(true);
+
+    try {
+      const response = await fetchWithSession("/api/worker/payout-account/dashboard", {
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string; url?: string };
+
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Unable to open Stripe dashboard.");
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to open Stripe dashboard.";
+      showToast({
+        title: "Stripe dashboard unavailable",
+        description: message,
+        tone: "error",
+      });
+      setOpeningDashboard(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -176,6 +337,81 @@ export default function WorkerPaymentsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-medium text-stone-500">Stripe payout account</p>
+              <p className="mt-2 text-2xl font-semibold text-stone-900">
+                {payoutAccountReady
+                  ? "Ready for automatic payout"
+                  : payoutAccountConnected
+                    ? "Finish payout setup"
+                    : "Connect payouts"}
+              </p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
+                {payoutAccountReady
+                  ? "Completed shifts can now move from approval to Stripe payout automatically."
+                  : payoutAccountConnected
+                    ? "Your Stripe account exists, but a few payout details still need to be completed before we can send funds."
+                    : "Connect your payout details once through Stripe so approved shifts can be paid out automatically."}
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void handleConnectPayouts()}
+                disabled={connecting}
+                className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {connecting
+                  ? "Opening Stripe..."
+                  : payoutAccountConnected
+                    ? "Finish Stripe setup"
+                    : "Connect with Stripe"}
+              </button>
+              {payoutAccountConnected ? (
+                <button
+                  type="button"
+                  onClick={() => void handleOpenStripeDashboard()}
+                  disabled={openingDashboard}
+                  className="secondary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  {openingDashboard ? "Opening..." : "Manage payout details"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className={payoutAccountConnected ? "status-badge status-badge--ready" : "status-badge"}>
+              {payoutAccountConnected ? "Stripe account linked" : "Not linked"}
+            </span>
+            <span
+              className={
+                workerProfile?.stripe_connect_details_submitted
+                  ? "status-badge status-badge--ready"
+                  : "status-badge status-badge--rating"
+              }
+            >
+              {workerProfile?.stripe_connect_details_submitted
+                ? "Details submitted"
+                : "Details still needed"}
+            </span>
+            <span
+              className={
+                workerProfile?.stripe_connect_payouts_enabled
+                  ? "status-badge status-badge--ready"
+                  : "status-badge status-badge--rating"
+              }
+            >
+              {workerProfile?.stripe_connect_payouts_enabled
+                ? "Automatic payouts enabled"
+                : "Payouts not enabled yet"}
+            </span>
+            {refreshingStripeStatus ? (
+              <span className="status-badge status-badge--rating">Refreshing status</span>
+            ) : null}
+          </div>
+        </section>
         <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Upcoming payout</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">
@@ -246,6 +482,11 @@ export default function WorkerPaymentsPage() {
                 <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                   {getPayoutSupportCopy(payment ?? null)}
                 </p>
+                {payment?.payout_hold_reason ? (
+                  <p className="mt-3 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                    {payment.payout_hold_reason}
+                  </p>
+                ) : null}
 
                 <div className="mt-4">
                   <Link href={`/dashboard/worker/bookings/${booking.id}`} className="secondary-btn w-full px-5 sm:w-auto">

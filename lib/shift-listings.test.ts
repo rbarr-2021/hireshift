@@ -175,7 +175,7 @@ describe("shift listing helpers", () => {
         maxRate: "",
         searchLatitude: 54.5970,
         searchLongitude: -5.9305,
-        maxDistanceMiles: 0.1,
+        maxDistanceMiles: 0.01,
         now: new Date("2026-04-18T10:00:00"),
       }),
     ).toBe(false);

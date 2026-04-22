@@ -8,6 +8,7 @@ import type {
   WorkerProfileRecord,
 } from "@/lib/models";
 import { getRouteActor, isAdminUser } from "@/lib/route-access";
+import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -166,6 +167,38 @@ export async function PATCH(
           payout_hold_reason: null,
         })
         .eq("id", payment.id);
+
+      const { data: workerProfile } = await supabaseAdmin
+        .from("worker_profiles")
+        .select("*")
+        .eq("user_id", booking.worker_id)
+        .maybeSingle<WorkerProfileRecord>();
+
+      if (workerProfile) {
+        try {
+          await tryAutomaticWorkerPayoutTransfer({
+            payment: {
+              ...payment,
+              payout_status: "approved_for_payout",
+              payout_approved_at: new Date().toISOString(),
+              payout_approved_by: actor.authUser.id,
+              payout_hold_reason: null,
+              dispute_reason: null,
+              disputed_at: null,
+            },
+            workerProfile,
+          });
+        } catch {
+          await supabaseAdmin
+            .from("payments")
+            .update({
+              payout_status: "on_hold",
+              payout_hold_reason:
+                "Automatic Stripe payout could not be completed yet. Review the worker payout account and retry.",
+            })
+            .eq("id", payment.id);
+        }
+      }
     } else if (payoutAction === "mark_paid") {
       await supabaseAdmin
         .from("payments")
