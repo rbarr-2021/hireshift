@@ -39,6 +39,8 @@ import { fetchWithSession } from "@/lib/route-client";
 import {
   formatShiftListingStatus,
   getRemainingShiftPositions,
+  isLiveShiftListing,
+  isUnfulfilledShiftListing,
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
 
@@ -192,13 +194,34 @@ export default function BusinessDashboardPage() {
   );
 
   const openShiftListings = useMemo(
-    () => shiftListings.filter((listing) => listing.status === "open"),
+    () => shiftListings.filter((listing) => isLiveShiftListing(listing)),
     [shiftListings],
   );
 
   const claimedShiftListings = useMemo(
     () => shiftListings.filter((listing) => listing.status === "claimed"),
     [shiftListings],
+  );
+
+  const unfulfilledShiftListings = useMemo(
+    () => shiftListings.filter((listing) => isUnfulfilledShiftListing(listing)),
+    [shiftListings],
+  );
+
+  const visibleShiftListings = useMemo(
+    () => [
+      ...openShiftListings,
+      ...claimedShiftListings,
+      ...unfulfilledShiftListings,
+      ...shiftListings.filter(
+        (listing) =>
+          listing.status === "cancelled" &&
+          !openShiftListings.some((item) => item.id === listing.id) &&
+          !claimedShiftListings.some((item) => item.id === listing.id) &&
+          !unfulfilledShiftListings.some((item) => item.id === listing.id),
+      ),
+    ],
+    [claimedShiftListings, openShiftListings, shiftListings, unfulfilledShiftListings],
   );
 
   const reloadBooking = async (bookingId: string) => {
@@ -421,11 +444,12 @@ export default function BusinessDashboardPage() {
         <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-stone-500">Open shift listings</p>
+              <p className="text-sm font-medium text-stone-500">Live shift listings</p>
               <p className="mt-2 text-3xl font-semibold text-stone-900">{openShiftListings.length}</p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-stone-500">
               <span>{claimedShiftListings.length} claimed</span>
+              <span>{unfulfilledShiftListings.length} unfilled</span>
               <span>{shiftListings.length} total listings</span>
             </div>
           </div>
@@ -618,8 +642,11 @@ export default function BusinessDashboardPage() {
             </Link>
           </div>
           <div className="mt-4 space-y-4">
-            {shiftListings.length > 0 ? (
-              shiftListings.slice(0, 4).map((listing) => (
+            {visibleShiftListings.length > 0 ? (
+              visibleShiftListings.slice(0, 4).map((listing) => {
+                const isUnfulfilled = isUnfulfilledShiftListing(listing);
+
+                return (
                 <article key={listing.id} className="rounded-3xl border border-white/10 bg-black/40 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
@@ -630,8 +657,12 @@ export default function BusinessDashboardPage() {
                         {formatBookingDate(listing.shift_date)} | {formatBookingTimeRange(listing.start_time, listing.end_time, listing.shift_date, listing.shift_end_date)}
                       </p>
                     </div>
-                    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${shiftListingStatusClass(listing.status)}`}>
-                      {formatShiftListingStatus(listing.status)}
+                    <span
+                      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                        isUnfulfilled ? "status-badge" : shiftListingStatusClass(listing.status)
+                      }`}
+                    >
+                      {isUnfulfilled ? "Unfilled" : formatShiftListingStatus(listing.status)}
                     </span>
                   </div>
                   <div className="mt-3 grid gap-2 text-sm text-stone-400 sm:grid-cols-2">
@@ -649,7 +680,8 @@ export default function BusinessDashboardPage() {
                     </p>
                   </div>
                 </article>
-              ))
+              );
+              })
             ) : (
               <BusinessEmptyState
                 title="No shift listings yet"

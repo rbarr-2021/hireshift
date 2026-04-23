@@ -64,6 +64,24 @@ export function hasShiftListingStarted(
   return getShiftListingStartDateTime(listing).getTime() <= now.getTime();
 }
 
+export function isUnfulfilledShiftListing(
+  listing: Pick<
+    ShiftListingRecord,
+    "shift_date" | "start_time" | "status" | "claimed_positions" | "open_positions"
+  >,
+  now = new Date(),
+) {
+  return (
+    listing.status === "open" &&
+    hasShiftListingStarted(listing, now) &&
+    Math.max(0, listing.open_positions - listing.claimed_positions) > 0
+  );
+}
+
+export function isLiveShiftListing(listing: ShiftListingRecord, now = new Date()) {
+  return listing.status === "open" && !hasShiftListingStarted(listing, now);
+}
+
 export function formatShiftListingStatus(status: ShiftListingRecord["status"]) {
   const labels: Record<ShiftListingRecord["status"], string> = {
     open: "Open",

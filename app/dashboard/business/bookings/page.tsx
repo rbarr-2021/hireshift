@@ -13,6 +13,7 @@ import type {
   BookingRecord,
   MarketplaceUserRecord,
   PaymentRecord,
+  ShiftListingRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import {
@@ -23,9 +24,18 @@ import {
   isBookingPaid,
 } from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
+import {
+  formatBookingDate,
+  formatBookingTimeRange,
+} from "@/lib/bookings";
+import {
+  getRemainingShiftPositions,
+  isUnfulfilledShiftListing,
+} from "@/lib/shift-listings";
 
 export default function BusinessPastBookingsPage() {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [unfulfilledListings, setUnfulfilledListings] = useState<ShiftListingRecord[]>([]);
   const [workersById, setWorkersById] = useState<Record<string, WorkerSnapshot>>({});
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [loading, setLoading] = useState(true);
@@ -44,6 +54,13 @@ export default function BusinessPastBookingsPage() {
 
       const bookingsResult = await supabase
         .from("bookings")
+        .select("*")
+        .eq("business_id", user.id)
+        .order("shift_date", { ascending: false })
+        .order("start_time", { ascending: false });
+
+      const shiftListingsResult = await supabase
+        .from("shift_listings")
         .select("*")
         .eq("business_id", user.id)
         .order("shift_date", { ascending: false })
@@ -85,6 +102,11 @@ export default function BusinessPastBookingsPage() {
       }
 
       setBookings(nextBookings);
+      setUnfulfilledListings(
+        ((shiftListingsResult.data as ShiftListingRecord[] | null) ?? []).filter((listing) =>
+          isUnfulfilledShiftListing(listing),
+        ),
+      );
       setWorkersById(nextWorkerMap);
       setPaymentsByBookingId(nextPaymentsByBookingId);
       setLoading(false);
@@ -130,8 +152,55 @@ export default function BusinessPastBookingsPage() {
             Review completed bookings, charge states, and payout progress in one place.
           </p>
         </div>
-        <span className="status-badge status-badge--rating">{pastBookings.length}</span>
+        <span className="status-badge status-badge--rating">
+          {pastBookings.length + unfulfilledListings.length}
+        </span>
       </div>
+
+      {unfulfilledListings.length > 0 ? (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-stone-900">Unfilled shifts</h2>
+            <span className="status-badge">{unfulfilledListings.length}</span>
+          </div>
+          {unfulfilledListings.map((listing) => (
+            <article key={listing.id} className="panel-soft p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-lg font-semibold text-stone-900">
+                    {listing.title || listing.role_label}
+                  </p>
+                  <p className="mt-1 text-sm text-stone-600">
+                    {formatBookingDate(listing.shift_date)} |{" "}
+                    {formatBookingTimeRange(
+                      listing.start_time,
+                      listing.end_time,
+                      listing.shift_date,
+                      listing.shift_end_date,
+                    )}
+                  </p>
+                  <p className="mt-1 text-sm text-stone-600">{listing.location}</p>
+                </div>
+                <span className="status-badge">Unfilled</span>
+              </div>
+              <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
+                <p>
+                  <span className="font-medium text-stone-900">Positions unfilled:</span>{" "}
+                  {getRemainingShiftPositions(listing)}
+                </p>
+                <p>
+                  <span className="font-medium text-stone-900">Posted:</span>{" "}
+                  {listing.open_positions}
+                </p>
+                <p>
+                  <span className="font-medium text-stone-900">Claimed:</span>{" "}
+                  {listing.claimed_positions}
+                </p>
+              </div>
+            </article>
+          ))}
+        </section>
+      ) : null}
 
       {pastBookings.length > 0 ? (
         <div className="space-y-4">
@@ -165,12 +234,12 @@ export default function BusinessPastBookingsPage() {
             />
           ))}
         </div>
-      ) : (
+      ) : unfulfilledListings.length === 0 ? (
         <BusinessEmptyState
           title="No payments yet"
           description="Completed, cancelled, declined, and older bookings will collect here with their payment state."
         />
-      )}
+      ) : null}
     </div>
   );
 }

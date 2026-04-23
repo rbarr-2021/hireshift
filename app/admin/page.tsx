@@ -6,9 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import type { ShiftListingRecord } from "@/lib/models";
 import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 import { clearSessionHintCookie } from "@/lib/session-hint";
+import { getRemainingShiftPositions } from "@/lib/shift-listings";
 import { supabase } from "@/lib/supabase";
 
 type AdminBookingItem = {
@@ -33,6 +35,11 @@ type AdminBookingItem = {
   lifecycleLabel: string;
   paymentLabel: string;
   payoutLabel: string;
+};
+
+type AdminUnfulfilledListingItem = {
+  listing: ShiftListingRecord;
+  businessName: string;
 };
 
 function formatCurrency(value: number) {
@@ -127,10 +134,56 @@ function renderBookingList(items: AdminBookingItem[]) {
   );
 }
 
+function renderUnfulfilledListingList(items: AdminUnfulfilledListingItem[]) {
+  return (
+    <div className="space-y-4">
+      {items.map((item) => (
+        <article key={item.listing.id} className="rounded-[2rem] border border-white/10 bg-black/40 p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-lg font-semibold text-stone-100">
+                {item.businessName} {"->"} {item.listing.role_label}
+              </p>
+              <p className="mt-2 text-sm text-stone-400">
+                {formatBookingDate(item.listing.shift_date)} |{" "}
+                {formatBookingTimeRange(
+                  item.listing.start_time,
+                  item.listing.end_time,
+                  item.listing.shift_date,
+                  item.listing.shift_end_date,
+                )}
+              </p>
+              <p className="mt-2 text-sm text-stone-400">{item.listing.location}</p>
+            </div>
+            <span className="inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] status-badge">
+              Unfilled
+            </span>
+          </div>
+          <div className="mt-4 grid gap-2 text-sm text-stone-400 sm:grid-cols-3">
+            <p>
+              <span className="font-medium text-stone-100">Positions:</span>{" "}
+              {getRemainingShiftPositions(item.listing)} unfilled
+            </p>
+            <p>
+              <span className="font-medium text-stone-100">Posted:</span>{" "}
+              {item.listing.open_positions} total
+            </p>
+            <p>
+              <span className="font-medium text-stone-100">Claimed:</span>{" "}
+              {item.listing.claimed_positions}
+            </p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminBookingsPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const [items, setItems] = useState<AdminBookingItem[]>([]);
+  const [unfulfilledListings, setUnfulfilledListings] = useState<AdminUnfulfilledListingItem[]>([]);
   const [counts, setCounts] = useState({
     pending: 0,
     approved: 0,
@@ -164,6 +217,7 @@ export default function AdminBookingsPage() {
           error?: string;
           items?: AdminBookingItem[];
           counts?: typeof counts;
+          unfulfilledListings?: AdminUnfulfilledListingItem[];
         };
 
         if (!response.ok) {
@@ -172,6 +226,7 @@ export default function AdminBookingsPage() {
 
         if (active) {
           setItems(payload.items ?? []);
+          setUnfulfilledListings(payload.unfulfilledListings ?? []);
           setCounts(
             payload.counts ?? {
               pending: 0,
@@ -254,12 +309,18 @@ export default function AdminBookingsPage() {
       },
       {
         label: "Past shifts",
-        value: groupedItems.past.length,
+        value: groupedItems.past.length + unfulfilledListings.length,
         tone: "status-badge",
-        description: "Finished or closed bookings",
+        description: "Finished bookings and unfilled listings",
       },
     ],
-    [groupedItems.disputes.length, groupedItems.live.length, groupedItems.past.length, groupedItems.review.length],
+    [
+      groupedItems.disputes.length,
+      groupedItems.live.length,
+      groupedItems.past.length,
+      groupedItems.review.length,
+      unfulfilledListings.length,
+    ],
   );
 
   const handleSignOut = async () => {
@@ -416,6 +477,20 @@ export default function AdminBookingsPage() {
                 ) : (
                   <div className="rounded-[1.75rem] border border-white/10 bg-black/30 px-5 py-4 text-sm text-stone-500">
                     No disputes match the current filters.
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold text-stone-900">Unfulfilled</h2>
+                  <span className="status-badge">{unfulfilledListings.length}</span>
+                </div>
+                {unfulfilledListings.length > 0 ? (
+                  renderUnfulfilledListingList(unfulfilledListings)
+                ) : (
+                  <div className="rounded-[1.75rem] border border-white/10 bg-black/30 px-5 py-4 text-sm text-stone-500">
+                    No unfilled past listings match the current filters.
                   </div>
                 )}
               </section>

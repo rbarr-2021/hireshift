@@ -16,6 +16,8 @@ export type AdminBookingSummary = {
   payment: PaymentRecord | null;
   workerName: string;
   businessName: string;
+  workerPayoutReady: boolean;
+  workerStripeAccountLinked: boolean;
   lifecycleLabel: string;
   paymentLabel: string;
   payoutLabel: string;
@@ -50,6 +52,12 @@ export function buildAdminBookingSummaries(input: {
         workerUser?.display_name || workerProfile?.job_role || "Worker",
       businessName:
         businessProfile?.business_name || businessUser?.display_name || "Business",
+      workerPayoutReady: Boolean(
+        workerProfile?.stripe_connect_account_id &&
+          workerProfile.stripe_connect_details_submitted &&
+          workerProfile.stripe_connect_payouts_enabled,
+      ),
+      workerStripeAccountLinked: Boolean(workerProfile?.stripe_connect_account_id),
       lifecycleLabel: formatBookingLifecycleLabel(booking, payment),
       paymentLabel: payment ? formatPaymentStatus(payment.status) : "Unpaid",
       payoutLabel: payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation",
