@@ -12,8 +12,8 @@ type AvailabilityCalendarProps = {
   onChange: (entries: WorkerAvailabilityRecord[]) => void;
 };
 
-const DEFAULT_ALL_DAY_START = "00:00";
-const DEFAULT_ALL_DAY_END = "23:59";
+const DEFAULT_ALL_DAY_START = "09:00";
+const DEFAULT_ALL_DAY_END = "17:00";
 const DEFAULT_PARTIAL_START = "09:00";
 const DEFAULT_PARTIAL_END = "17:00";
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -50,6 +50,14 @@ function formatLongDate(value: string) {
     month: "long",
     year: "numeric",
   }).format(parseDateKey(value));
+}
+
+function formatSelectedDateLabel(dateKeys: string[]) {
+  if (dateKeys.length === 1) {
+    return formatLongDate(dateKeys[0]);
+  }
+
+  return `${dateKeys.length} days selected`;
 }
 
 function formatMonthLabel(date: Date) {
@@ -219,7 +227,7 @@ export function AvailabilityCalendar({
 }: AvailabilityCalendarProps) {
   const todayKey = getDateKey(new Date());
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(new Date()));
-  const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [selectedDateKeys, setSelectedDateKeys] = useState([todayKey]);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
 
   const entryMap = useMemo(
@@ -231,8 +239,18 @@ export function AvailabilityCalendar({
     [entries],
   );
 
+  const selectedDateKey = selectedDateKeys[selectedDateKeys.length - 1] ?? todayKey;
   const selectedEntry = entryMap[selectedDateKey];
-  const selectedStatus = selectedEntry?.status ?? null;
+  const selectedStatuses = selectedDateKeys
+    .map((dateKey) => entryMap[dateKey]?.status ?? null)
+    .filter((status): status is WorkerAvailabilityStatus => Boolean(status));
+  const selectedStatus =
+    selectedStatuses.length > 0 && selectedStatuses.every((status) => status === selectedStatuses[0])
+      ? selectedStatuses[0]
+      : null;
+  const hasMixedSelection =
+    selectedDateKeys.length > 1 &&
+    new Set(selectedDateKeys.map((dateKey) => entryMap[dateKey]?.status ?? "unset")).size > 1;
   const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
 
   const counts = useMemo(
@@ -256,28 +274,34 @@ export function AvailabilityCalendar({
     status: WorkerAvailabilityStatus,
     startTime: string | null,
     endTime: string | null,
+    dateKeys = selectedDateKeys,
   ) => {
-    let startDateTime: string | null = null;
-    let endDateTime: string | null = null;
+    const nextEntries = dateKeys.reduce((currentEntries, dateKey) => {
+      const existingEntry = entryMap[dateKey];
+      let startDateTime: string | null = null;
+      let endDateTime: string | null = null;
 
-    if (status !== "unavailable" && startTime && endTime && !isZeroLength(startTime, endTime)) {
-      const range = buildDateTimeRange(selectedDateKey, startTime, endTime);
-      startDateTime = range.startDateTime;
-      endDateTime = range.endDateTime;
-    }
+      if (status !== "unavailable" && startTime && endTime && !isZeroLength(startTime, endTime)) {
+        const range = buildDateTimeRange(dateKey, startTime, endTime);
+        startDateTime = range.startDateTime;
+        endDateTime = range.endDateTime;
+      }
 
-    const nextEntry: WorkerAvailabilityRecord = {
-      id: selectedEntry?.id ?? `draft-${selectedDateKey}`,
-      worker_id: selectedEntry?.worker_id ?? "",
-      availability_date: selectedDateKey,
-      status,
-      start_datetime: startDateTime,
-      end_datetime: endDateTime,
-      created_at: selectedEntry?.created_at ?? "",
-      updated_at: selectedEntry?.updated_at ?? "",
-    };
+      const nextEntry: WorkerAvailabilityRecord = {
+        id: existingEntry?.id ?? `draft-${dateKey}`,
+        worker_id: existingEntry?.worker_id ?? "",
+        availability_date: dateKey,
+        status,
+        start_datetime: startDateTime,
+        end_datetime: endDateTime,
+        created_at: existingEntry?.created_at ?? "",
+        updated_at: existingEntry?.updated_at ?? "",
+      };
 
-    onChange(upsertEntry(entries, nextEntry));
+      return upsertEntry(currentEntries, nextEntry);
+    }, entries);
+
+    onChange(nextEntries);
   };
 
   const handleStatusChange = (status: WorkerAvailabilityStatus) => {
@@ -324,7 +348,19 @@ export function AvailabilityCalendar({
   };
 
   const clearSelectedDate = () => {
-    onChange(entries.filter((entry) => entry.availability_date !== selectedDateKey));
+    onChange(
+      entries.filter((entry) => !selectedDateKeys.includes(entry.availability_date)),
+    );
+  };
+
+  const handleDateSelect = (dateKey: string) => {
+    setSelectedDateKeys((current) => {
+      if (current.includes(dateKey)) {
+        return current.length === 1 ? current : current.filter((entry) => entry !== dateKey);
+      }
+
+      return [...current, dateKey].sort();
+    });
   };
 
   const selectedDayEditor = (
@@ -333,10 +369,12 @@ export function AvailabilityCalendar({
         <div>
           <p className="text-sm font-medium text-stone-500">Selected day</p>
           <h3 className="mt-1 text-xl font-semibold text-stone-100">
-            {formatLongDate(selectedDateKey)}
+            {formatSelectedDateLabel(selectedDateKeys)}
           </h3>
           <div className="mt-3 flex flex-wrap gap-2">
-            {selectedStatus ? (
+            {hasMixedSelection ? (
+              <span className="status-badge status-badge--rating">Mixed selection</span>
+            ) : selectedStatus ? (
               <span className={statusBadgeClass(selectedStatus)}>
                 {statusLabel(selectedStatus)}
               </span>
@@ -349,19 +387,21 @@ export function AvailabilityCalendar({
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={handleCopyPreviousDay}
-            className="secondary-btn px-4"
-          >
-            Copy previous day
-          </button>
+          {selectedDateKeys.length === 1 ? (
+            <button
+              type="button"
+              onClick={handleCopyPreviousDay}
+              className="secondary-btn px-4"
+            >
+              Copy previous day
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={clearSelectedDate}
             className="secondary-btn px-4"
           >
-            Clear day
+            {selectedDateKeys.length > 1 ? "Clear days" : "Clear day"}
           </button>
           <button
             type="button"
@@ -406,8 +446,8 @@ export function AvailabilityCalendar({
       ) : (
         <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4">
           <p className="text-sm leading-6 text-stone-500">
-            Choose an availability state above. You only need to set hours when the
-            day is available or partly available.
+            Choose a status above. If several days are selected, the same status is
+            applied to each day and you can fine-tune them afterwards.
           </p>
         </div>
       )}
@@ -432,7 +472,7 @@ export function AvailabilityCalendar({
               </span>
             </div>
             <p className="max-w-2xl text-sm leading-6 text-stone-500">
-              Pick a day, then set your status.
+              Tap one or more days, then set your status.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -448,7 +488,7 @@ export function AvailabilityCalendar({
               onClick={() => {
                 const today = startOfMonth(new Date());
                 setVisibleMonth(today);
-                setSelectedDateKey(todayKey);
+                setSelectedDateKeys([todayKey]);
               }}
               className="secondary-btn px-4"
             >
@@ -487,7 +527,7 @@ export function AvailabilityCalendar({
               {calendarDays.map((day) => {
                 const dateKey = getDateKey(day);
                 const entry = entryMap[dateKey];
-                const isSelected = dateKey === selectedDateKey;
+                const isSelected = selectedDateKeys.includes(dateKey);
                 const isToday = dateKey === todayKey;
                 const inMonth = isSameMonth(day, visibleMonth);
 
@@ -496,7 +536,7 @@ export function AvailabilityCalendar({
                     key={dateKey}
                     type="button"
                     onClick={() => {
-                      setSelectedDateKey(dateKey);
+                      handleDateSelect(dateKey);
                       setVisibleMonth(startOfMonth(day));
                       setMobileEditorOpen(true);
                     }}
@@ -537,8 +577,8 @@ export function AvailabilityCalendar({
                 onClick={() => handleStatusChange("available")}
                 className={statusCardClass("available", selectedStatus === "available")}
               >
-                <p className="text-base font-semibold text-stone-100">Available all day</p>
-                <p className="mt-2 text-sm text-stone-400">Open for shifts</p>
+                <p className="text-base font-semibold text-stone-100">Available 9am-5pm</p>
+                <p className="mt-2 text-sm text-stone-400">Quick day preset</p>
               </button>
               <button
                 type="button"
@@ -568,8 +608,10 @@ export function AvailabilityCalendar({
           className="panel-soft flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
         >
           <div className="min-w-0">
-            <p className="text-sm font-medium text-stone-100">Edit selected day</p>
-            <p className="mt-1 text-sm text-stone-500">{formatLongDate(selectedDateKey)}</p>
+            <p className="text-sm font-medium text-stone-100">Edit selected days</p>
+            <p className="mt-1 text-sm text-stone-500">
+              {formatSelectedDateLabel(selectedDateKeys)}
+            </p>
           </div>
           <span className="status-badge">
             {selectedStatus ? statusLabel(selectedStatus) : "Set status"}
