@@ -106,7 +106,11 @@ export function BusinessBookingCard({
           {booking.notes}
         </p>
       ) : null}
-      {actions ? <div className="mt-4 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
+      {actions ? (
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          {actions}
+        </div>
+      ) : null}
     </article>
   );
 }

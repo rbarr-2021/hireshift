@@ -482,7 +482,7 @@ export default function BusinessDashboardPage() {
                       {!isBookingPaid(paymentsByBookingId[booking.id]) ? (
                         <Link
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
-                          className="primary-btn w-full px-5 sm:w-auto"
+                          className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
                         >
                           Pay now
                         </Link>
@@ -491,7 +491,7 @@ export default function BusinessDashboardPage() {
                         type="button"
                         onClick={() => void handlePayoutAction(booking.id, "mark_complete")}
                         disabled={actioningId === booking.id}
-                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                       >
                         {actioningId === booking.id ? "Updating..." : "Mark completed"}
                       </button>
@@ -499,7 +499,7 @@ export default function BusinessDashboardPage() {
                         type="button"
                         onClick={() => void handleRecordOutcome(booking.id, "no_show")}
                         disabled={actioningId === booking.id}
-                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                       >
                         Mark no-show
                       </button>

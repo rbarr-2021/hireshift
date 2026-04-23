@@ -9,6 +9,8 @@ import type { UserRecord } from "@/lib/models";
 
 const workerLinks = [
   { href: "/dashboard/worker", label: "Overview", mobileLabel: "Home" },
+  { href: "/dashboard/worker/requests", label: "Incoming Requests", mobileLabel: "Requests" },
+  { href: "/dashboard/worker/jobs", label: "Accepted Jobs", mobileLabel: "Jobs" },
   { href: "/dashboard/worker/payments", label: "Payments", mobileLabel: "Pay" },
   { href: "/shifts", label: "Browse Shifts", mobileLabel: "Shifts" },
   { href: "/dashboard/worker/availability", label: "Availability", mobileLabel: "Avail" },
@@ -31,6 +33,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [workerCounts, setWorkerCounts] = useState({
+    requests: 0,
+    accepted: 0,
+  });
 
   useEffect(() => {
     let active = true;
@@ -56,6 +62,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         .eq("user_id", authUser.id)
         .maybeSingle<{ user_id: string }>();
 
+      if (data?.role === "worker") {
+        const { data: workerBookings } = await supabase
+          .from("bookings")
+          .select("status")
+          .eq("worker_id", authUser.id)
+          .in("status", ["pending", "accepted"]);
+
+        if (active) {
+          const statuses = ((workerBookings as { status: string }[] | null) ?? []).map(
+            (booking) => booking.status,
+          );
+
+          setWorkerCounts({
+            requests: statuses.filter((status) => status === "pending").length,
+            accepted: statuses.filter((status) => status === "accepted").length,
+          });
+        }
+      }
+
       if (active) {
         setUser(data ?? null);
         setIsAdmin(Boolean(adminAccess));
@@ -71,6 +96,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const baseLinks = user?.role === "business" ? businessLinks : workerLinks;
   const links = isAdmin ? [...baseLinks, adminLink] : baseLinks;
+  const getLinkCount = (href: string) => {
+    if (href === "/dashboard/worker/requests") return workerCounts.requests;
+    if (href === "/dashboard/worker/jobs") return workerCounts.accepted;
+    return 0;
+  };
 
   const handleSignOut = async () => {
     setBusy(true);
@@ -126,18 +156,24 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               const active =
                 pathname === link.href ||
                 (link.href === "/dashboard/business/payments" && pathname.startsWith("/dashboard/business/bookings"));
+              const count = getLinkCount(link.href);
 
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`block rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                     active
                       ? "bg-stone-900 text-white"
                       : "panel-soft text-stone-700 hover:bg-stone-200"
                   }`}
                 >
-                  {link.label}
+                  <span>{link.label}</span>
+                  {count > 0 ? (
+                    <span className={link.href === "/dashboard/worker/requests" ? "status-badge status-badge--rating" : "status-badge status-badge--ready"}>
+                      {count}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -161,14 +197,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             const active =
               pathname === link.href ||
               (link.href === "/dashboard/business/payments" && pathname.startsWith("/dashboard/business/bookings"));
+            const count = getLinkCount(link.href);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex-1 rounded-2xl px-2 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.12em] sm:px-3 sm:text-xs sm:tracking-[0.16em] ${
+                className={`relative flex-1 rounded-2xl px-2 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.12em] sm:px-3 sm:text-xs sm:tracking-[0.16em] ${
                   active ? "bg-stone-900 text-black" : "panel-soft text-stone-600"
                 }`}
               >
+                {count > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 text-[10px] font-bold text-black">
+                    {count}
+                  </span>
+                ) : null}
                 {link.mobileLabel}
               </Link>
             );

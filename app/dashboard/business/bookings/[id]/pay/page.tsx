@@ -104,7 +104,13 @@ export default function BusinessBookingPaymentPage() {
       const response = await fetchWithSession(`/api/bookings/${booking.id}/checkout`, {
         method: "POST",
       });
-      const payload = (await response.json()) as { error?: string; url?: string };
+      const responseText = await response.text();
+      const payload = responseText
+        ? (JSON.parse(responseText) as { error?: string; url?: string })
+        : ({ error: "Payment server returned an empty response." } as {
+            error?: string;
+            url?: string;
+          });
 
       if (!response.ok || !payload.url) {
         throw new Error(payload.error || "Unable to start payment right now.");
