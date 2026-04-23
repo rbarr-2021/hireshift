@@ -1,5 +1,6 @@
 const MIN_E164_DIGITS = 8;
 const MAX_E164_DIGITS = 15;
+const UK_COUNTRY_CODE = "44";
 
 export function normaliseInternationalPhoneNumber(phone: string | null | undefined) {
   if (!phone) {
@@ -13,8 +14,24 @@ export function normaliseInternationalPhoneNumber(phone: string | null | undefin
   }
 
   const compact = trimmed.replace(/[\s().-]/g, "");
-  const normalisedPrefix = compact.startsWith("00") ? `+${compact.slice(2)}` : compact;
-  const cleaned = normalisedPrefix.replace(/(?!^\+)[^\d]/g, "");
+  const rawDigits = compact.replace(/\D/g, "");
+  let cleaned = compact.startsWith("+")
+    ? `+${compact.slice(1).replace(/\D/g, "")}`
+    : rawDigits.startsWith("00")
+      ? `+${rawDigits.slice(2)}`
+      : compact;
+
+  if (!cleaned.startsWith("+")) {
+    if (rawDigits.startsWith(UK_COUNTRY_CODE)) {
+      cleaned = `+${rawDigits}`;
+    } else if (rawDigits.startsWith("0")) {
+      cleaned = `+${UK_COUNTRY_CODE}${rawDigits.slice(1)}`;
+    } else if (rawDigits.startsWith("7") && rawDigits.length === 10) {
+      cleaned = `+${UK_COUNTRY_CODE}${rawDigits}`;
+    }
+  }
+
+  cleaned = cleaned.replace(/(?!^\+)[^\d]/g, "");
 
   if (!cleaned.startsWith("+")) {
     return null;
