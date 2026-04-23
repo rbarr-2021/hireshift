@@ -39,6 +39,31 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function StripeBadge() {
+  return (
+    <span
+      aria-label="Stripe"
+      className="inline-flex items-center rounded-md bg-[#635BFF] px-2 py-1 text-sm font-bold lowercase tracking-[-0.03em] text-white shadow-[0_8px_18px_rgba(99,91,255,0.28)]"
+    >
+      stripe
+    </span>
+  );
+}
+
+async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
+  const text = await response.text();
+
+  if (!text) {
+    return { error: fallbackError } as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { error: fallbackError } as T;
+  }
+}
+
 export default function WorkerPaymentsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -155,13 +180,13 @@ export default function WorkerPaymentsPage() {
         const response = await fetchWithSession("/api/worker/payout-account/refresh", {
           method: "POST",
         });
-        const payload = (await response.json()) as {
+        const payload = await readJsonResponse<{
           error?: string;
           connected?: boolean;
           detailsSubmitted?: boolean;
           payoutsEnabled?: boolean;
           chargesEnabled?: boolean;
-        };
+        }>(response, "Stripe payout status is not configured correctly yet.");
 
         if (!response.ok) {
           throw new Error(payload.error || "Unable to refresh payout status.");
@@ -264,7 +289,10 @@ export default function WorkerPaymentsPage() {
           redirect: searchParams.get("redirect"),
         }),
       });
-      const payload = (await response.json()) as { error?: string; url?: string };
+      const payload = await readJsonResponse<{ error?: string; url?: string }>(
+        response,
+        "Stripe payout setup is not configured correctly yet.",
+      );
 
       if (!response.ok || !payload.url) {
         throw new Error(payload.error || "Unable to open Stripe payout setup.");
@@ -290,7 +318,10 @@ export default function WorkerPaymentsPage() {
       const response = await fetchWithSession("/api/worker/payout-account/dashboard", {
         method: "POST",
       });
-      const payload = (await response.json()) as { error?: string; url?: string };
+      const payload = await readJsonResponse<{ error?: string; url?: string }>(
+        response,
+        "Stripe dashboard access is not configured correctly yet.",
+      );
 
       if (!response.ok || !payload.url) {
         throw new Error(payload.error || "Unable to open Stripe dashboard.");
@@ -349,7 +380,10 @@ export default function WorkerPaymentsPage() {
         <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-medium text-stone-500">Stripe payout account</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-stone-500">Stripe payout account</p>
+                <StripeBadge />
+              </div>
               <p className="mt-2 text-2xl font-semibold text-stone-900">
                 {payoutAccountReady
                   ? "Ready for automatic payout"
@@ -370,8 +404,9 @@ export default function WorkerPaymentsPage() {
                 type="button"
                 onClick={() => void handleConnectPayouts()}
                 disabled={connecting}
-                className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="primary-btn w-full gap-2 px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
+                <StripeBadge />
                 {connecting
                   ? "Opening Stripe..."
                   : payoutAccountConnected
