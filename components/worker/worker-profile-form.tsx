@@ -17,7 +17,6 @@ import {
 } from "@/lib/pay-rules";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
-import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
 import {
   APPROVAL_STATUSES,
@@ -569,7 +568,6 @@ export function WorkerProfileForm({
     const completedChecks = [
       fullName.trim().length > 0,
       phone.trim().length > 0,
-      bio.trim().length >= 24,
       Boolean(primaryRoleId),
       yearsExperience.trim().length > 0,
       city.trim().length > 0,
@@ -649,9 +647,6 @@ export function WorkerProfileForm({
       if (!phone.trim()) return "Phone number is required.";
       if (!normaliseInternationalPhoneNumber(phone)) {
         return "Enter your mobile number in international format, for example +447700900123.";
-      }
-      if (bio.trim().length < 24) {
-        return "Add a short work summary so businesses know your background.";
       }
       if (!primaryRoleId) return "Choose your main role.";
       if (additionalRoleIds.length > 3) {
@@ -1140,22 +1135,19 @@ export function WorkerProfileForm({
   };
 
   return (
-      <div className="min-h-screen bg-black px-3 py-8 pb-28 sm:px-4 sm:py-10">
+      <div className="min-h-screen bg-black px-3 py-5 pb-24 sm:px-4 sm:py-10 sm:pb-28">
         <div className="panel mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-          {mode === "onboarding" ? (
-            <OnboardingProgress role="worker" step="profile" />
-          ) : null}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="section-label">
                 {mode === "onboarding" ? "Worker onboarding" : "Worker profile"}
               </p>
-              <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
+              <h1 className="mt-3 text-xl font-semibold text-stone-900 sm:mt-4 sm:text-3xl">
                 {mode === "onboarding"
                   ? "Create your worker profile"
                   : "Manage your worker profile"}
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
+              <p className="mt-2 max-w-3xl text-sm leading-5 text-stone-600 sm:mt-3 sm:leading-6">
                 {mode === "onboarding"
                   ? "Complete your profile in a few short steps. Your completed shifts move through confirmation and payout automatically."
                   : isManageAvailability
@@ -1164,7 +1156,7 @@ export function WorkerProfileForm({
               </p>
             </div>
             {!isManageAvailability ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[280px]">
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:min-w-[280px]">
                 <div className="panel-soft px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
                     Profile completion
@@ -1184,41 +1176,14 @@ export function WorkerProfileForm({
           </div>
 
           {!isManageAvailability ? (
-            <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-stone-200">
+            <div className="mt-5 h-2 w-full overflow-hidden rounded-full bg-stone-200 sm:mt-6">
               <div className="h-full rounded-full bg-stone-900" style={{ width: `${completion}%` }} />
             </div>
           ) : null}
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-            {mode === "onboarding" ? (
-            <div className="grid gap-3 lg:grid-cols-4">
-              {WORKER_PROFILE_STEPS.map((step, index) => {
-                const isCurrent = index === currentStepIndex;
-
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    onClick={() => handleStepSelect(index)}
-                    className={`rounded-3xl border p-4 text-left transition ${
-                      isCurrent
-                        ? "border-stone-900 bg-stone-900 text-white shadow-lg"
-                        : "border-stone-200 bg-stone-50 text-stone-700"
-                    }`}
-                  >
-                    <p className={`text-xs uppercase tracking-[0.2em] ${isCurrent ? "text-stone-300" : "text-stone-500"}`}>
-                      {step.label}
-                    </p>
-                    <p className="mt-3 text-base font-semibold">{step.label}</p>
-                    <p className={`mt-2 text-sm leading-6 ${isCurrent ? "text-stone-200" : "text-stone-600"}`}>{step.title}</p>
-                  </button>
-                );
-              })}
-            </div>
-            ) : null}
-
-            <div className="rounded-[2rem] border border-stone-200 bg-stone-50 p-5 sm:p-6">
-              <div className="flex flex-col gap-3 border-b border-stone-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4 sm:mt-8 sm:space-y-6">
+            <div className="rounded-[2rem] border border-stone-200 bg-stone-50 p-4 sm:p-6">
+              <div className="flex flex-col gap-2.5 border-b border-stone-200 pb-4 sm:gap-3 sm:pb-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="section-label">
                     {mode === "onboarding"
@@ -1227,7 +1192,7 @@ export function WorkerProfileForm({
                         ? "Availability"
                         : "Settings"}
                   </p>
-                  <h2 className="mt-3 text-xl font-semibold text-stone-900 sm:text-2xl">
+                  <h2 className="mt-2 text-lg font-semibold text-stone-900 sm:mt-3 sm:text-2xl">
                     {mode === "onboarding"
                       ? currentStep.title
                       : isManageAvailability
@@ -1235,30 +1200,23 @@ export function WorkerProfileForm({
                         : "Profile settings"}
                   </h2>
                 </div>
-                {mode === "onboarding" ? (
-                  <div className="panel-soft min-w-[160px] px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-                      Progress
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-stone-900">
-                      {currentStepIndex + 1} of {WORKER_PROFILE_STEPS.length}
-                    </p>
-                  </div>
-                ) : null}
               </div>
 
-              <div className="mt-6">
+              <div className="mt-4 sm:mt-6">
             {(mode === "onboarding" && currentStep.id === "about") || isManageSettings ? (
-            <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Identity</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">
+                <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">
                   Public-facing name, role, photo, and your about section.
                 </p>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2 flex flex-col gap-4 md:flex-row md:items-center">
-                  <div className="h-24 w-24 overflow-hidden rounded-3xl bg-stone-100 sm:h-28 sm:w-28">
+              <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                <div className="md:col-span-2 flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
+                  <label
+                    htmlFor="worker-profile-photo"
+                    className="relative flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-3xl bg-stone-100 transition hover:scale-[1.01] hover:shadow-md sm:h-28 sm:w-28"
+                  >
                     {photoUrl ? (
                       <Image
                         src={photoUrl}
@@ -1269,16 +1227,25 @@ export function WorkerProfileForm({
                         unoptimized
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-stone-500">
+                      <div className="flex h-full w-full items-center justify-center text-center text-sm text-stone-500">
                         No photo yet
                       </div>
                     )}
-                  </div>
+                    <span className="absolute bottom-2 right-2 inline-flex items-center rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+                      {photoUrl ? "Change" : "Add"}
+                    </span>
+                  </label>
                   <div className="flex-1">
                     <label className="mb-2 block text-sm font-medium text-stone-700">
                       Profile photo
                     </label>
-                    <input type="file" accept="image/*" onChange={handlePhotoChange} className="input" />
+                    <input
+                      id="worker-profile-photo"
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="sr-only"
+                    />
                   </div>
                 </div>
 
@@ -1326,6 +1293,15 @@ export function WorkerProfileForm({
                       onChange={(event) => setWhatsAppOptIn(event.target.checked)}
                       className="mt-1 h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-400"
                     />
+                    <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#25D366]/15 text-[#25D366]">
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5 fill-current"
+                      >
+                        <path d="M12 2.04A9.94 9.94 0 0 0 3.44 16.9L2 22l5.22-1.37A9.96 9.96 0 1 0 12 2.04Zm0 18.09a8.1 8.1 0 0 1-4.12-1.12l-.29-.17-3.1.81.83-3.01-.19-.31a8.1 8.1 0 1 1 6.87 3.8Zm4.45-6.08c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12s-.62.78-.76.94c-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.36.11-.48.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.19-.46-.39-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.09 3.62.57.25 1.02.4 1.37.51.58.18 1.11.15 1.53.09.47-.07 1.42-.58 1.62-1.15.2-.57.2-1.05.14-1.15-.06-.1-.22-.16-.46-.28Z" />
+                      </svg>
+                    </span>
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-stone-900">
                         Get shift confirmations and reminders on WhatsApp
@@ -1373,7 +1349,6 @@ export function WorkerProfileForm({
                     onChange={(event) => setBio(event.target.value)}
                     className="input min-h-36 resize-y"
                     placeholder="Short intro"
-                    required
                   />
                 </div>
               </div>
@@ -1382,12 +1357,12 @@ export function WorkerProfileForm({
 
             {((mode === "onboarding" && currentStep.id === "work") || isManageSettings) ? (
             <>
-            <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Rates</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Your rate and level.</p>
+                <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">Your rate and level.</p>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">
                     Hourly rate (GBP)
@@ -1435,12 +1410,12 @@ export function WorkerProfileForm({
               </div>
             </section>
 
-              <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                 <div>
                   <h2 className="text-lg font-semibold text-stone-900">Experience</h2>
-                  <p className="mt-2 text-sm leading-6 text-stone-600">Recent work.</p>
+                  <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">Recent work.</p>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {workHistory.map((item, index) => {
                     const summary = summariseWorkHistoryItem(item, index);
                     const isExpanded = index === expandedWorkHistoryIndex;
@@ -1470,7 +1445,7 @@ export function WorkerProfileForm({
 
                         {isExpanded ? (
                           <div className="border-t border-stone-200 bg-white p-4">
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                               <div>
                                 <label className="mb-2 block text-sm font-medium text-stone-700">Venue / employer</label>
                                 <input value={item.venue} onChange={(event) => updateWorkHistory(index, "venue", event.target.value)} className="input" placeholder="Hotel Indigo" />
@@ -1492,7 +1467,7 @@ export function WorkerProfileForm({
                                 <textarea value={item.summary} onChange={(event) => updateWorkHistory(index, "summary", event.target.value)} className="input min-h-24 resize-y" placeholder="Shift leadership, stock management, cocktail menu execution..." />
                               </div>
                             </div>
-                            <div className="mt-4 flex flex-wrap gap-3">
+                            <div className="mt-3 flex flex-wrap gap-3 sm:mt-4">
                               {workHistory.length > 1 ? (
                                 <button
                                   type="button"
@@ -1523,12 +1498,12 @@ export function WorkerProfileForm({
             ) : null}
 
             {((mode === "onboarding" && currentStep.id === "location") || isManageSettings) ? (
-            <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Location</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Where you are based.</p>
+                <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">Where you are based.</p>
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 md:grid-cols-3">
                 <div className="md:col-span-3">
                   <AddressAutocomplete
                     label="Type the first line of your address"
@@ -1559,12 +1534,12 @@ export function WorkerProfileForm({
 
             {((mode === "onboarding" && currentStep.id === "availability") || isManageAvailability) ? (
             <>
-              <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                 <div>
                   <h2 className="text-lg font-semibold text-stone-900">Availability</h2>
-                  <p className="mt-2 text-sm leading-6 text-stone-600">Choose your working dates.</p>
+                  <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">Choose your working dates.</p>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <AvailabilityCalendar
                     entries={availabilityEntries}
                     onChange={setAvailabilityEntries}
@@ -1579,14 +1554,14 @@ export function WorkerProfileForm({
               </section>
 
             {mode === "onboarding" ? (
-              <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                 <div>
                   <h2 className="text-lg font-semibold text-stone-900">Documents</h2>
-                  <p className="mt-2 text-sm leading-6 text-stone-600">
+                  <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">
                     Optional uploads to strengthen your profile faster.
                   </p>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="rounded-3xl border border-sky-200 bg-sky-50 px-4 py-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
@@ -1601,7 +1576,7 @@ export function WorkerProfileForm({
                     </div>
                   </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                   {DOCUMENT_TYPES.map((documentType) => (
                     <div key={documentType} className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
@@ -1670,16 +1645,16 @@ export function WorkerProfileForm({
             </div>
 
             {!isManageAvailability ? (
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="panel-soft p-5">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="panel-soft p-4 sm:p-5">
                   <p className="text-sm font-medium text-stone-500">Available dates</p>
                   <p className="mt-2 text-2xl font-semibold text-stone-900">{selectedAvailabilityCount}</p>
                 </div>
-                <div className="panel-soft p-5">
+                <div className="panel-soft p-4 sm:p-5">
                   <p className="text-sm font-medium text-stone-500">Uploaded documents</p>
                   <p className="mt-2 text-2xl font-semibold text-stone-900">{uploadedDocumentCount}</p>
                 </div>
-                <div className="panel-soft p-5">
+                <div className="panel-soft p-4 sm:p-5">
                   <p className="text-sm font-medium text-stone-500">Status options</p>
                   <p className="mt-2 text-sm leading-6 text-stone-600">
                     {APPROVAL_STATUSES.map(approvalLabel).join(", ")}

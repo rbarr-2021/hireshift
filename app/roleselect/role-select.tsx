@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
-import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
 import { hasClientAdminAccess } from "@/lib/admin-access-client";
 import {
@@ -339,7 +338,6 @@ export default function RoleSelect() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-black px-4 py-10">
       <div className="panel w-full max-w-3xl p-5 sm:p-8">
-        <OnboardingProgress role={role} step="role" />
         <p className="section-label">
           Choose your path
         </p>
@@ -357,8 +355,8 @@ export default function RoleSelect() {
                 : "border-stone-200 bg-stone-50 text-stone-900 hover:border-stone-400"
             }`}
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Worker</p>
-            <p className="mt-3 text-xl font-semibold">Find shifts</p>
+            <p className="text-2xl font-black uppercase tracking-[0.08em] sm:text-3xl">Worker</p>
+            <p className="mt-3 text-lg font-semibold opacity-90">Find shifts</p>
             <p className="mt-2 text-sm opacity-80">Select here</p>
           </button>
           <button
@@ -370,8 +368,8 @@ export default function RoleSelect() {
                 : "border-stone-200 bg-stone-50 text-stone-900 hover:border-stone-400"
             }`}
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Business</p>
-            <p className="mt-3 text-xl font-semibold">Book staff</p>
+            <p className="text-2xl font-black uppercase tracking-[0.08em] sm:text-3xl">Business</p>
+            <p className="mt-3 text-lg font-semibold opacity-90">Book staff</p>
             <p className="mt-2 text-sm opacity-80">Select here</p>
           </button>
         </div>

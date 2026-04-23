@@ -282,10 +282,6 @@ export function WorkerRolePicker({
         <p className="text-sm font-semibold text-stone-900">
           What do you usually work as?
         </p>
-        <p className="mt-2 text-sm leading-6 text-stone-600">
-          Choose a category first, then pick your main role. You can add up to
-          three extra roles you are happy to cover as well.
-        </p>
       </div>
 
       <div className="space-y-3">
@@ -315,7 +311,7 @@ export function WorkerRolePicker({
 
       <RoleCombobox
         label="Choose your main role"
-        helperText="Start typing your role. We will keep this as your primary role for search and profile display."
+        helperText=""
         placeholder="Start typing your role"
         roles={rolesForSelectedCategory}
         selectedRole={primaryRole}
@@ -327,7 +323,7 @@ export function WorkerRolePicker({
       <div className="space-y-3">
         <RoleCombobox
           label="Add any other roles you can cover"
-          helperText="Optional. Pick up to three extra roles so businesses can find you for related shifts too."
+          helperText=""
           placeholder="Search and add another role"
           roles={rolesForSelectedCategory}
           selectedRole={null}
@@ -355,12 +351,7 @@ export function WorkerRolePicker({
               </button>
             ))}
           </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-stone-200 bg-white px-4 py-4 text-sm text-stone-500">
-            Additional roles are optional. If you can also cover nearby roles,
-            add them here so businesses can find you more easily.
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
