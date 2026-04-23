@@ -8,6 +8,7 @@ import { clearSessionHintCookie } from "@/lib/session-hint";
 
 const adminLinks = [
   { href: "/admin", label: "Bookings", mobileLabel: "Bookings" },
+  { href: "/admin/payments", label: "Payments / payouts", mobileLabel: "Pay" },
   { href: "/admin/users", label: "All users", mobileLabel: "Users" },
   { href: "/admin/businesses", label: "Businesses", mobileLabel: "Biz" },
 ];
