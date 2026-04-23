@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
@@ -21,6 +21,7 @@ import {
   payoutStatusClass,
 } from "@/lib/payments";
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import { isWorkerPayoutReady } from "@/lib/payout-readiness";
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast-provider";
@@ -39,6 +40,7 @@ function formatCurrency(value: number) {
 }
 
 export default function WorkerPaymentsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
@@ -186,6 +188,7 @@ export default function WorkerPaymentsPage() {
         );
 
         if (stripeQuery === "connected") {
+          const redirectTo = searchParams.get("redirect");
           showToast({
             title: payload.payoutsEnabled
               ? "Stripe payouts connected"
@@ -195,6 +198,10 @@ export default function WorkerPaymentsPage() {
               : "Stripe still needs a few payout details before we can send funds automatically.",
             tone: payload.payoutsEnabled ? "success" : "info",
           });
+
+          if (payload.payoutsEnabled && redirectTo?.startsWith("/")) {
+            router.replace(redirectTo);
+          }
         }
       } catch (error) {
         if (!active) {
@@ -220,7 +227,7 @@ export default function WorkerPaymentsPage() {
     return () => {
       active = false;
     };
-  }, [searchParams, showToast, workerProfile?.stripe_connect_account_id]);
+  }, [router, searchParams, showToast, workerProfile?.stripe_connect_account_id]);
 
   const upcomingPayout = useMemo(
     () => getUpcomingPayout(bookings, paymentsByBookingId),
@@ -242,11 +249,7 @@ export default function WorkerPaymentsPage() {
   );
 
   const payoutAccountConnected = Boolean(workerProfile?.stripe_connect_account_id);
-  const payoutAccountReady = Boolean(
-    workerProfile?.stripe_connect_account_id &&
-      workerProfile.stripe_connect_details_submitted &&
-      workerProfile.stripe_connect_payouts_enabled,
-  );
+  const payoutAccountReady = isWorkerPayoutReady(workerProfile);
 
   const handleConnectPayouts = async () => {
     setConnecting(true);
@@ -254,6 +257,12 @@ export default function WorkerPaymentsPage() {
     try {
       const response = await fetchWithSession("/api/worker/payout-account/onboard", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          redirect: searchParams.get("redirect"),
+        }),
       });
       const payload = (await response.json()) as { error?: string; url?: string };
 

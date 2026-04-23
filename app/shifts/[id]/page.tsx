@@ -13,6 +13,7 @@ import {
 } from "@/lib/bookings";
 import { formatBlockedUntil, isWorkerBlocked } from "@/lib/reliability";
 import { rememberPostAuthIntent } from "@/lib/post-auth-intent";
+import { isWorkerPayoutReady } from "@/lib/payout-readiness";
 import { processOwnNotificationJobs } from "@/lib/notifications/client";
 import type {
   BusinessProfileRecord,
@@ -41,6 +42,10 @@ function formatSupabaseError(error: unknown) {
       return "You already have another accepted shift during these hours.";
     }
 
+    if (error.message.includes("Set up Stripe payouts")) {
+      return "Set up payouts before taking your first shift.";
+    }
+
     return error.message;
   }
 
@@ -49,6 +54,10 @@ function formatSupabaseError(error: unknown) {
 
     if (message.includes("another accepted shift during this time")) {
       return "You already have another accepted shift during these hours.";
+    }
+
+    if (message.includes("Set up Stripe payouts")) {
+      return "Set up payouts before taking your first shift.";
     }
 
     return message;
@@ -202,6 +211,17 @@ export default function ShiftDetailPage() {
         tone: "info",
       });
       router.push(`/profile/setup/worker?redirect=${encodeURIComponent(targetPath)}`);
+      return;
+    }
+
+    if (!isWorkerPayoutReady(workerProfile)) {
+      showToast({
+        title: "Set up payouts to take this shift",
+        description:
+          "Connect Stripe once so KruVii can pay you quickly after completed shifts.",
+        tone: "info",
+      });
+      router.push(`/dashboard/worker/payments?redirect=${encodeURIComponent(targetPath)}`);
       return;
     }
 
@@ -379,7 +399,9 @@ export default function ShiftDetailPage() {
               {appUser?.onboarding_complete
                 ? isWorkerBlocked(reliability)
                   ? `You are temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`
-                  : "You are shift-ready. Take this shift now and it will move straight into your accepted work."
+                  : isWorkerPayoutReady(workerProfile)
+                    ? "You are shift-ready. Take this shift now and it will move straight into your accepted work."
+                    : "Connect Stripe payouts once before your first shift so KruVii can pay you after completion."
                 : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
             </p>
             <div className="mt-5 flex flex-col gap-3">
@@ -404,6 +426,8 @@ export default function ShiftDetailPage() {
                     ? "Shift started"
                   : isWorkerBlocked(reliability)
                     ? "Temporarily blocked"
+                  : appUser?.onboarding_complete && !isWorkerPayoutReady(workerProfile)
+                    ? "Set up payouts to take shift"
                   : appUser?.onboarding_complete
                     ? "Take shift"
                     : "Complete profile to take shift"}

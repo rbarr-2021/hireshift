@@ -117,7 +117,16 @@ export async function POST(
       .eq("user_id", booking.worker_id)
       .maybeSingle<WorkerProfileRecord>();
 
-    if (workerProfile) {
+    if (!workerProfile) {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "on_hold",
+          payout_hold_reason:
+            "Worker profile could not be found, so Stripe payout cannot be sent yet.",
+        })
+        .eq("id", payment.id);
+    } else {
       try {
         await tryAutomaticWorkerPayoutTransfer({
           payment: {

@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const body = (await request.json().catch(() => ({}))) as { redirect?: string | null };
   const actor = await getRouteActor(request);
 
   if (!actor) {
@@ -60,10 +61,14 @@ export async function POST(request: NextRequest) {
   });
 
   const siteUrl = getSiteUrl();
+  const redirectParam =
+    body.redirect && body.redirect.startsWith("/")
+      ? `&redirect=${encodeURIComponent(body.redirect)}`
+      : "";
   const onboardingLink = await createWorkerStripeOnboardingLink({
     accountId: account.id,
-    returnUrl: `${siteUrl}/dashboard/worker/payments?stripe=connected`,
-    refreshUrl: `${siteUrl}/dashboard/worker/payments?stripe=refresh`,
+    returnUrl: `${siteUrl}/dashboard/worker/payments?stripe=connected${redirectParam}`,
+    refreshUrl: `${siteUrl}/dashboard/worker/payments?stripe=refresh${redirectParam}`,
   });
 
   return NextResponse.json({ url: onboardingLink.url });

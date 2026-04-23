@@ -66,6 +66,9 @@ export default function BusinessDashboardPage() {
   const [workersById, setWorkersById] = useState<Record<string, WorkerSnapshot>>({});
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [completedBookingIds, setCompletedBookingIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     let active = true;
@@ -138,6 +141,13 @@ export default function BusinessDashboardPage() {
       setProfile(profileResult.data ?? null);
       setWorkerCount(((workersResult.data as Pick<WorkerProfileRecord, "user_id">[] | null) ?? []).length);
       setBookings(nextBookings);
+      setCompletedBookingIds(
+        new Set(
+          nextBookings
+            .filter((booking) => booking.status === "completed")
+            .map((booking) => booking.id),
+        ),
+      );
       setPaymentsByBookingId(nextPaymentsByBookingId);
       setShiftListings((shiftListingsResult.data as ShiftListingRecord[] | null) ?? []);
       setWorkersById(nextWorkerMap);
@@ -221,6 +231,10 @@ export default function BusinessDashboardPage() {
       setBookings((current) =>
         current.map((booking) => (booking.id === bookingId ? refreshedBooking : booking)),
       );
+
+      if (refreshedBooking.status === "completed") {
+        setCompletedBookingIds((current) => new Set(current).add(bookingId));
+      }
     }
 
     setPaymentsByBookingId((current) => {
@@ -306,6 +320,9 @@ export default function BusinessDashboardPage() {
       }
 
       await syncBookingState(bookingId);
+      if (action === "mark_complete") {
+        setCompletedBookingIds((current) => new Set(current).add(bookingId));
+      }
       showToast({
         title:
           action === "mark_complete"
@@ -493,7 +510,17 @@ export default function BusinessDashboardPage() {
                         disabled={actioningId === booking.id}
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                       >
-                        {actioningId === booking.id ? "Updating..." : "Mark completed"}
+                        <span className="inline-flex items-center justify-center gap-2">
+                          {actioningId === booking.id ? "Updating..." : "Mark completed"}
+                          {completedBookingIds.has(booking.id) ? (
+                            <span
+                              aria-label="Completed"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-black"
+                            >
+                              &#10003;
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
                       <button
                         type="button"

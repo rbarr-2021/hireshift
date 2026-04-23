@@ -174,7 +174,16 @@ export async function PATCH(
         .eq("user_id", booking.worker_id)
         .maybeSingle<WorkerProfileRecord>();
 
-      if (workerProfile) {
+      if (!workerProfile) {
+        await supabaseAdmin
+          .from("payments")
+          .update({
+            payout_status: "on_hold",
+            payout_hold_reason:
+              "Worker profile could not be found, so Stripe payout cannot be sent yet.",
+          })
+          .eq("id", payment.id);
+      } else {
         try {
           await tryAutomaticWorkerPayoutTransfer({
             payment: {
@@ -200,6 +209,16 @@ export async function PATCH(
         }
       }
     } else if (payoutAction === "mark_paid") {
+      if (!payment.stripe_transfer_id) {
+        return NextResponse.json(
+          {
+            error:
+              "This payout has not been sent through Stripe yet. Ask the worker to connect payout details, then approve payout again.",
+          },
+          { status: 409 },
+        );
+      }
+
       await supabaseAdmin
         .from("payments")
         .update({

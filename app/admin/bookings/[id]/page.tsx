@@ -28,6 +28,7 @@ type AdminBookingDetail = {
     status: string;
     payout_status: string;
     stripe_payment_intent_id: string | null;
+    stripe_transfer_id: string | null;
     stripe_checkout_session_id: string | null;
     shift_completed_at: string | null;
     payout_approved_at: string | null;
@@ -249,8 +250,13 @@ export default function AdminBookingDetailPage() {
             <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "approve_payout", successTitle: "Payout approved", successDescription: "This booking is now ready for payout." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Approve payout</button>
             <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "hold", reason: "Manual review before payout release.", successTitle: "Payout placed on hold", successDescription: "This payout is now on hold for review." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Place on hold</button>
             <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "dispute", reason: "Issue flagged during post-shift review.", successTitle: "Booking disputed", successDescription: "The payout has been moved into dispute." })} className="secondary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Flag dispute</button>
-            <button type="button" disabled={updating || !item.payment} onClick={() => void updateBooking({ payoutAction: "mark_paid", successTitle: "Payout marked as paid", successDescription: "Worker payout has been recorded as sent." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark paid</button>
+            <button type="button" disabled={updating || !item.payment?.stripe_transfer_id} onClick={() => void updateBooking({ payoutAction: "mark_paid", successTitle: "Payout marked as paid", successDescription: "Worker payout has been recorded as sent." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark paid</button>
           </div>
+          {!item.payment?.stripe_transfer_id ? (
+            <p className="mt-3 text-sm leading-6 text-stone-600">
+              Mark paid unlocks only after Stripe confirms a worker transfer. If payout is on hold, ask the worker to connect Stripe payouts first.
+            </p>
+          ) : null}
         </section>
       </div>
     </div>
