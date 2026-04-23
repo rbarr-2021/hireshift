@@ -100,7 +100,7 @@ function statusBadgeClass(status: WorkerAvailabilityStatus) {
 
 function statusCardClass(status: WorkerAvailabilityStatus, active: boolean) {
   const base =
-    "rounded-2xl border px-4 py-4 text-left transition shadow-[0_12px_30px_rgba(2,8,23,0.22)]";
+    "w-full rounded-2xl border px-4 py-4 text-left transition shadow-[0_12px_30px_rgba(2,8,23,0.22)]";
 
   if (active && status === "available") {
     return `${base} border-[rgba(166,255,52,0.5)] bg-[rgba(166,255,52,0.22)]`;
@@ -119,7 +119,7 @@ function statusCardClass(status: WorkerAvailabilityStatus, active: boolean) {
 
 function calendarCellClass(status?: WorkerAvailabilityStatus, selected = false, today = false) {
   const base =
-    "relative flex aspect-square min-h-[4.2rem] w-full flex-col rounded-[1.2rem] border px-2 py-2 text-left transition sm:min-h-[5.2rem] sm:px-3 sm:py-3";
+    "relative flex min-h-[3.85rem] w-full min-w-0 flex-col rounded-[1rem] border px-2 py-2 text-left transition sm:min-h-[4.35rem] lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
 
   const selection = selected
     ? " border-[#00A7FF] ring-2 ring-[#00A7FF]/35"
@@ -416,7 +416,7 @@ export function AvailabilityCalendar({
 
   return (
     <div className="space-y-5">
-      <div className="panel-soft overflow-hidden p-4 sm:p-6">
+      <div className="panel-soft p-4 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
             <p className="text-sm font-medium text-stone-500">Calendar availability</p>
@@ -464,8 +464,8 @@ export function AvailabilityCalendar({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_270px] xl:items-start">
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/35 p-3 sm:p-4">
+        <div className="mt-6 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:items-start">
+          <div className="min-w-0 rounded-[1.75rem] border border-white/10 bg-black/35 p-2.5 sm:p-4">
             <div className="flex items-center justify-between gap-4">
               <h3 className="text-lg font-semibold text-stone-100">
                 {formatMonthLabel(visibleMonth)}
@@ -477,13 +477,13 @@ export function AvailabilityCalendar({
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:text-xs">
+            <div className="mt-4 grid grid-cols-7 gap-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 sm:gap-2 sm:text-xs">
               {WEEKDAY_LABELS.map((label) => (
                 <span key={label}>{label}</span>
               ))}
             </div>
 
-            <div className="mt-3 grid grid-cols-7 gap-2">
+            <div className="mt-3 grid min-w-0 grid-cols-7 gap-1.5 sm:gap-2">
               {calendarDays.map((day) => {
                 const dateKey = getDateKey(day);
                 const entry = entryMap[dateKey];
@@ -503,14 +503,14 @@ export function AvailabilityCalendar({
                     className={calendarCellClass(entry?.status, isSelected, isToday)}
                   >
                     <span
-                      className={`text-sm font-semibold sm:text-base ${
+                      className={`text-sm font-semibold leading-none sm:text-base ${
                         inMonth ? "text-stone-100" : "text-stone-500"
                       }`}
                     >
                       {day.getDate()}
                     </span>
                     {isToday ? (
-                      <span className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#10D7FF]">
+                      <span className="mt-1 text-[9px] uppercase tracking-[0.1em] text-[#10D7FF] sm:text-[10px]">
                         Today
                       </span>
                     ) : null}
@@ -527,11 +527,11 @@ export function AvailabilityCalendar({
             </div>
           </div>
 
-          <aside className="rounded-[1.75rem] border border-white/10 bg-black/35 p-4 sm:p-5">
+          <aside className="rounded-[1.75rem] border border-white/10 bg-black/35 p-4 sm:p-5 2xl:sticky 2xl:top-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
               Set selected day
             </p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 2xl:grid-cols-1">
               <button
                 type="button"
                 onClick={() => handleStatusChange("available")}
