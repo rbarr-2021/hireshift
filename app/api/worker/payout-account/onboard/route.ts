@@ -12,6 +12,35 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function formatStripeConnectSetupError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Stripe payout setup failed.";
+  const stripeError =
+    error && typeof error === "object"
+      ? (error as { code?: string; type?: string; message?: string })
+      : null;
+
+  if (message.includes("STRIPE_SECRET_KEY")) {
+    return "Stripe is not configured yet. Add STRIPE_SECRET_KEY in Vercel and redeploy.";
+  }
+
+  if (
+    stripeError?.code === "resource_missing" ||
+    message.toLowerCase().includes("no such account")
+  ) {
+    return "Stripe had an old payout account saved. Try Connect with Stripe again to create a fresh test payout account.";
+  }
+
+  if (message.toLowerCase().includes("connect")) {
+    return "Stripe Connect may not be enabled for this Stripe account yet. Enable Connect in Stripe, then try again.";
+  }
+
+  if (message.toLowerCase().includes("invalid api key")) {
+    return "Stripe rejected the secret key. Check STRIPE_SECRET_KEY in Vercel, then redeploy.";
+  }
+
+  return message || "Stripe payout setup could not be opened right now.";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as { redirect?: string | null };
@@ -75,13 +104,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: onboardingLink.url });
   } catch (error) {
     console.error("[worker-payout-onboard]", error);
-    const message = error instanceof Error ? error.message : "Stripe payout setup failed.";
 
     return NextResponse.json(
       {
-        error: message.includes("STRIPE_SECRET_KEY")
-          ? "Stripe is not configured yet. Add STRIPE_SECRET_KEY in Vercel and redeploy."
-          : "Stripe payout setup could not be opened right now.",
+        error: formatStripeConnectSetupError(error),
       },
       { status: 500 },
     );

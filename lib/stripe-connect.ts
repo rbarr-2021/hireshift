@@ -13,6 +13,20 @@ type WorkerStripeConnectSnapshot = Pick<
   | "stripe_connect_last_synced_at"
 >;
 
+function isMissingStripeAccountError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const stripeError = error as { code?: string; type?: string; message?: string };
+  const message = stripeError.message?.toLowerCase() ?? "";
+
+  return (
+    stripeError.code === "resource_missing" ||
+    (stripeError.type === "StripeInvalidRequestError" && message.includes("no such account"))
+  );
+}
+
 function buildWorkerStripeConnectSnapshot(
   account: Stripe.Account,
 ): WorkerStripeConnectSnapshot {
@@ -37,8 +51,19 @@ export async function ensureWorkerStripeConnectAccount(input: {
   const stripe = getStripeClient();
 
   if (input.currentAccountId) {
-    const account = await stripe.accounts.retrieve(input.currentAccountId);
-    return { account, isNew: false };
+    try {
+      const account = await stripe.accounts.retrieve(input.currentAccountId);
+      return { account, isNew: false };
+    } catch (error) {
+      if (!isMissingStripeAccountError(error)) {
+        throw error;
+      }
+
+      console.warn("[stripe-connect] stored worker account was not found in current Stripe mode", {
+        workerId: input.workerId,
+        accountId: input.currentAccountId,
+      });
+    }
   }
 
   const account = await stripe.accounts.create({
