@@ -92,3 +92,44 @@ export function isPastBooking(booking: BookingRecord) {
   );
   return shiftDate.getTime() < Date.now();
 }
+
+export function getBookingStartDateTime(
+  booking: Pick<BookingRecord, "shift_date" | "start_time">,
+) {
+  return new Date(`${booking.shift_date}T${booking.start_time}`);
+}
+
+export function formatTimeUntilBooking(
+  booking: Pick<BookingRecord, "shift_date" | "start_time">,
+  now = new Date(),
+) {
+  const start = getBookingStartDateTime(booking);
+  const diffMs = start.getTime() - now.getTime();
+
+  if (!Number.isFinite(diffMs)) {
+    return "";
+  }
+
+  if (diffMs <= 0) {
+    return "Shift starting now";
+  }
+
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days >= 1) {
+    return days === 1 ? "1 day until shift" : `${days} days until shift`;
+  }
+
+  if (hours >= 1) {
+    return hours === 1 ? "1 hour until shift" : `${hours} hours until shift`;
+  }
+
+  if (minutes <= 1) {
+    return "1 minute until shift";
+  }
+
+  return `${minutes} minutes until shift`;
+}

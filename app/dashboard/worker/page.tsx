@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   bookingStatusClass,
+  formatTimeUntilBooking,
   formatBookingDate,
   formatBookingStatus,
   formatBookingTimeRange,
@@ -66,14 +67,19 @@ function BookingCard({
   actions,
   payment,
   showDetailLink = false,
+  countdownNow,
 }: {
   booking: BookingRecord;
   business?: BusinessSnapshot;
   actions?: React.ReactNode;
   payment?: PaymentRecord | null;
   showDetailLink?: boolean;
+  countdownNow?: Date;
 }) {
   const shiftStage = getWorkerShiftStage(booking, payment ?? null);
+  const countdownLabel = countdownNow
+    ? formatTimeUntilBooking(booking, countdownNow)
+    : "";
 
   return (
     <article className="panel-soft p-4 sm:p-5">
@@ -126,6 +132,11 @@ function BookingCard({
           {shiftStage}
         </p>
       </div>
+      {countdownLabel ? (
+        <div className="mt-4">
+          <span className="status-badge status-badge--rating">{countdownLabel}</span>
+        </div>
+      ) : null}
       {payment ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {getPayoutSupportCopy(payment.payout_status)}
@@ -187,6 +198,7 @@ export default function WorkerDashboardPage() {
   const [businessesById, setBusinessesById] = useState<Record<string, BusinessSnapshot>>({});
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [countdownNow, setCountdownNow] = useState(() => new Date());
 
   useEffect(() => {
     let active = true;
@@ -277,6 +289,16 @@ export default function WorkerDashboardPage() {
 
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCountdownNow(new Date());
+    }, 60000);
+
+    return () => {
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -665,6 +687,7 @@ export default function WorkerDashboardPage() {
                   business={businessesById[booking.business_id]}
                   payment={paymentsByBookingId[booking.id]}
                   showDetailLink
+                  countdownNow={countdownNow}
                 />
               ))
             ) : (

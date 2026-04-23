@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   calculateBookingDurationHours,
+  formatTimeUntilBooking,
   formatBookingTimeRange,
   isPastBooking,
 } from "./bookings";
@@ -71,6 +72,27 @@ describe("bookings helpers", () => {
         updated_at: "",
       }),
     ).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("formats time until the next booking in a worker-friendly way", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-18T12:00:00"));
+
+    expect(
+      formatTimeUntilBooking({
+        shift_date: "2026-04-18",
+        start_time: "13:00:00",
+      }),
+    ).toBe("1 hour until shift");
+
+    expect(
+      formatTimeUntilBooking({
+        shift_date: "2026-04-19",
+        start_time: "12:00:00",
+      }),
+    ).toBe("1 day until shift");
 
     vi.useRealTimers();
   });

@@ -37,11 +37,21 @@ type BusinessSummary = {
 
 function formatSupabaseError(error: unknown) {
   if (error instanceof Error) {
+    if (error.message.includes("another accepted shift during this time")) {
+      return "You already have another accepted shift during these hours.";
+    }
+
     return error.message;
   }
 
   if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message?: string }).message);
+    const message = String((error as { message?: string }).message);
+
+    if (message.includes("another accepted shift during this time")) {
+      return "You already have another accepted shift during these hours.";
+    }
+
+    return message;
   }
 
   return "Unable to take this shift right now.";
