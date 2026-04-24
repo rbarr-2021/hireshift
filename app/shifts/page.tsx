@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
+import { SiteHeader } from "@/components/site/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
 import type {
@@ -216,24 +217,21 @@ export default function WorkerShiftBrowsePage() {
   }, [appUser, errorMessage, listings.length, loading, router]);
 
   return (
-    <section className="public-section space-y-8">
+    <>
+      <SiteHeader compact />
+      <main className="public-shell pt-6 sm:pt-8">
+      <section className="public-section space-y-8">
       <div className="panel p-5 sm:p-7">
         <p className="section-label">Browse available shifts</p>
         <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">
-          See real hospitality shifts before you commit to more setup
+          Live shifts {" > "} Browse {" > "} Take shift {" > "} Work
         </h1>
-        {!appUser?.onboarding_complete ? (
-          <div className="info-banner mt-6">
-            Just a few details before your first shift. You can browse freely now
-            and complete your profile only when you click take shift.
-          </div>
-        ) : null}
       </div>
 
       <div className="panel-soft p-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-2 text-sm text-stone-600">
-            <span className="font-medium text-stone-900">Role</span>
+            <span className="font-medium text-stone-900">Job Serch</span>
             <select
               value={filters.query}
               onChange={(event) => {
@@ -422,11 +420,22 @@ export default function WorkerShiftBrowsePage() {
                       {business?.city ? ` | ${business.city}` : ""}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${shiftListingStatusClass(listing.status)}`}
-                  >
-                    {formatShiftListingStatus(listing.status)}
-                  </span>
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <span
+                      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${shiftListingStatusClass(listing.status)}`}
+                    >
+                      {formatShiftListingStatus(listing.status)}
+                    </span>
+                    <div className="rounded-2xl bg-emerald-500 px-4 py-3 text-white shadow-[0_12px_30px_rgba(16,185,129,0.28)]">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-50">
+                        Rate
+                      </p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {formatCurrency(listing.hourly_rate_gbp)}
+                        <span className="ml-1 text-sm font-medium text-emerald-50">/hr</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
@@ -450,10 +459,6 @@ export default function WorkerShiftBrowsePage() {
                       listing.shift_date,
                       listing.shift_end_date,
                     )}
-                  </p>
-                  <p>
-                    <span className="font-medium text-stone-900">Rate:</span>{" "}
-                    GBP {listing.hourly_rate_gbp}/hr
                   </p>
                   <p>
                     <span className="font-medium text-stone-900">Area:</span>{" "}
@@ -488,6 +493,8 @@ export default function WorkerShiftBrowsePage() {
           })}
         </div>
       )}
-    </section>
+      </section>
+      </main>
+    </>
   );
 }

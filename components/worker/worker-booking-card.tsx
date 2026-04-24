@@ -95,8 +95,9 @@ export function WorkerBookingCard({
           )}
         </p>
         <p>
-          <span className="font-medium text-stone-900">Rate:</span>{" "}
-          {formatCurrency(booking.hourly_rate_gbp)}/hr
+          <span className="inline-flex items-center rounded-full bg-emerald-500 px-3 py-1 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(16,185,129,0.24)]">
+            Pay {formatCurrency(booking.hourly_rate_gbp)}/hr
+          </span>
         </p>
         <p>
           <span className="font-medium text-stone-900">Status:</span>{" "}

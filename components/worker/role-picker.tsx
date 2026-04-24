@@ -28,6 +28,8 @@ type RoleComboboxProps = {
   disabled?: boolean;
 };
 
+const OTHER_CATEGORY_VALUE = "other";
+
 function matchesRoleSearch(role: RoleRecord, query: string) {
   const normalisedQuery = query.trim().toLowerCase();
 
@@ -97,7 +99,7 @@ function RoleCombobox({
           {label}
         </label>
         {selectedRole ? (
-          <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-white">
+          <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-medium text-white">
             {selectedRole.label}
           </span>
         ) : null}
@@ -187,7 +189,7 @@ function RoleCombobox({
                         active
                           ? "bg-stone-900 text-white"
                           : selected
-                            ? "bg-stone-100 text-stone-900"
+                            ? "bg-emerald-50 text-emerald-900"
                             : "text-stone-700 hover:bg-stone-100"
                       }`}
                     >
@@ -204,7 +206,7 @@ function RoleCombobox({
                         ) : null}
                       </span>
                       {selected ? (
-                        <span className="text-xs font-semibold uppercase tracking-[0.2em]">
+                        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">
                           Selected
                         </span>
                       ) : null}
@@ -249,7 +251,7 @@ export function WorkerRolePicker({
     selectedCategorySlug || primaryRole?.category_slug || categories[0]?.slug || "";
 
   const rolesForSelectedCategory = useMemo(() => {
-    if (!activeCategorySlug) {
+    if (!activeCategorySlug || activeCategorySlug === OTHER_CATEGORY_VALUE) {
       return roles;
     }
 
@@ -285,28 +287,23 @@ export function WorkerRolePicker({
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-medium text-stone-700">Choose a role category</p>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => {
-            const selected = category.slug === activeCategorySlug;
-
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => setSelectedCategorySlug(category.slug)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                  selected
-                    ? "border-stone-900 bg-stone-900 text-white"
-                    : "border-stone-200 bg-white text-stone-700 hover:border-stone-400"
-                }`}
-                disabled={disabled}
-              >
-                {category.label}
-              </button>
-            );
-          })}
-        </div>
+        <label htmlFor="worker-role-category" className="block text-sm font-medium text-stone-700">
+          Choose a role category
+        </label>
+        <select
+          id="worker-role-category"
+          value={activeCategorySlug}
+          onChange={(event) => setSelectedCategorySlug(event.target.value)}
+          className="input"
+          disabled={disabled}
+        >
+          {categories.map((category) => (
+            <option key={category.id} value={category.slug}>
+              {category.label}
+            </option>
+          ))}
+          <option value={OTHER_CATEGORY_VALUE}>Other</option>
+        </select>
       </div>
 
       <RoleCombobox
@@ -344,7 +341,7 @@ export function WorkerRolePicker({
                     additionalRoleIds.filter((roleId) => roleId !== role.id),
                   )
                 }
-                className="rounded-full bg-stone-900 px-3 py-1 text-sm font-medium text-white transition hover:bg-stone-700"
+                className="rounded-full bg-emerald-500 px-3 py-1 text-sm font-medium text-white transition hover:bg-emerald-600"
                 disabled={disabled}
               >
                 {role.label} ×

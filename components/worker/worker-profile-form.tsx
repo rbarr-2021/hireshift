@@ -135,6 +135,14 @@ function getDatePart(value: string | null) {
   return value ? value.slice(0, 10) : null;
 }
 
+function scrollToPageTop() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 function getTimePart(value: string | null) {
   return value ? value.slice(11, 16) : null;
 }
@@ -746,11 +754,13 @@ export function WorkerProfileForm({
     setCurrentStepIndex((current) =>
       current < WORKER_PROFILE_STEPS.length - 1 ? current + 1 : current,
     );
+    scrollToPageTop();
   };
 
   const handleStepSelect = (stepIndex: number) => {
     if (stepIndex <= currentStepIndex) {
       setCurrentStepIndex(stepIndex);
+      scrollToPageTop();
       return;
     }
 
@@ -759,12 +769,14 @@ export function WorkerProfileForm({
       if (validationError) {
         setMessage(validationError);
         setCurrentStepIndex(index);
+        scrollToPageTop();
         return;
       }
     }
 
     setMessage(null);
     setCurrentStepIndex(stepIndex);
+    scrollToPageTop();
   };
 
   const saveDocuments = async (userId: string) => {
@@ -813,13 +825,22 @@ export function WorkerProfileForm({
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const validationError = validateProfile();
-    setMessage(validationError);
+  const handleSave = async ({
+    completeOnboarding,
+    signOutAfterSave = false,
+  }: {
+    completeOnboarding: boolean;
+    signOutAfterSave?: boolean;
+  }) => {
+    if (completeOnboarding) {
+      const validationError = validateProfile();
+      setMessage(validationError);
 
-    if (validationError) {
-      return;
+      if (validationError) {
+        return;
+      }
+    } else {
+      setMessage(null);
     }
 
     setSaving(true);
@@ -929,14 +950,14 @@ export function WorkerProfileForm({
 
       const workerProfilePayload = {
         user_id: user.id,
-        job_role: primaryRole?.label ?? jobRole,
+        job_role: primaryRole?.label ?? jobRole.trim() ?? "",
         primary_role_id: primaryRoleId,
-        bio: bio.trim(),
+        bio: bio.trim() || null,
         hourly_rate_gbp: hourlyRate ? Number(hourlyRate) : null,
-        years_experience: Number(yearsExperience),
+        years_experience: yearsExperience.trim() ? Number(yearsExperience) : 0,
         city: city.trim(),
         postcode: postcode.trim() || null,
-        travel_radius_miles: Number(travelRadius),
+        travel_radius_miles: travelRadius.trim() ? Number(travelRadius) : 0,
         availability_summary: availabilitySummary.trim() || null,
         profile_photo_url: nextPhotoUrl,
         profile_photo_path: nextPhotoPath,
@@ -952,7 +973,7 @@ export function WorkerProfileForm({
           role: "worker",
           phone: normalisedPhone,
           whatsapp_opt_in: whatsAppOptIn,
-          onboarding_complete: true,
+          onboarding_complete: completeOnboarding,
         },
         workerProfilePayload,
         rolePayload,
@@ -981,7 +1002,7 @@ export function WorkerProfileForm({
             whatsapp_opt_in: whatsAppOptIn,
             role: "worker",
             role_selected: true,
-            onboarding_complete: true,
+            onboarding_complete: completeOnboarding,
           })
           .eq("id", user.id),
         existingWorkerProfile
@@ -1079,21 +1100,37 @@ export function WorkerProfileForm({
       await refreshAuthState();
 
       showToast({
-        title: mode === "onboarding" ? "Worker profile ready" : "Worker profile saved",
-        description:
+        title:
           mode === "onboarding"
-            ? "Your profile is ready for discovery and future bookings."
-            : isManageSettings
-              ? "Profile saved. Now update your availability."
-              : "Availability saved. Browse live shifts next.",
+            ? completeOnboarding
+              ? "Worker profile ready"
+              : "Progress saved"
+            : "Worker profile saved",
+        description:
+          mode === "onboarding" && !completeOnboarding
+            ? "Your progress is saved. You can come back and finish your worker profile later."
+            : mode === "onboarding"
+              ? "Your profile is ready for discovery and future bookings."
+              : isManageSettings
+                ? "Profile saved. Now update your availability."
+                : "Availability saved. Browse live shifts next.",
         tone: "success",
       });
 
       setMessage(
         mode === "onboarding"
-          ? "Worker profile completed. Complete shifts, build trust, and get paid fast."
+          ? completeOnboarding
+            ? "Worker profile completed. Complete shifts, build trust, and get paid fast."
+            : "Progress saved. Finish the rest of your worker profile when you're ready."
           : "Worker profile saved successfully.",
       );
+
+      if (signOutAfterSave) {
+        await supabase.auth.signOut();
+        clearPostAuthIntent();
+        router.replace("/login");
+        return;
+      }
 
       if (mode === "onboarding") {
         const redirectTarget =
@@ -1134,8 +1171,20 @@ export function WorkerProfileForm({
     }
   };
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await handleSave({ completeOnboarding: true });
+  };
+
+  const handleSaveAndSignOut = async () => {
+    await handleSave({
+      completeOnboarding: false,
+      signOutAfterSave: true,
+    });
+  };
+
   return (
-      <div className="min-h-screen bg-black px-3 py-5 pb-24 sm:px-4 sm:py-10 sm:pb-28">
+      <div className="min-h-screen bg-black px-3 py-5 pb-32 sm:px-4 sm:py-10 sm:pb-28">
         <div className="panel mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -1147,13 +1196,13 @@ export function WorkerProfileForm({
                   ? "Create your worker profile"
                   : "Manage your worker profile"}
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-5 text-stone-600 sm:mt-3 sm:leading-6">
-                {mode === "onboarding"
-                  ? "Complete your profile in a few short steps. Your completed shifts move through confirmation and payout automatically."
-                  : isManageAvailability
+              {mode === "onboarding" ? null : (
+                <p className="mt-2 max-w-3xl text-sm leading-5 text-stone-600 sm:mt-3 sm:leading-6">
+                  {isManageAvailability
                     ? "Update the dates you can work."
                     : "Update your profile details."}
-              </p>
+                </p>
+              )}
             </div>
             {!isManageAvailability ? (
               <div className="grid gap-2.5 sm:grid-cols-2 lg:min-w-[280px]">
@@ -1325,7 +1374,7 @@ export function WorkerProfileForm({
                   />
                   {primaryRole ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-stone-900 px-3 py-1 text-sm font-medium text-white">
+                      <span className="rounded-full bg-emerald-500 px-3 py-1 text-sm font-medium text-white">
                         Main role: {primaryRole.label}
                       </span>
                       {additionalRoles.map((role) => (
@@ -1617,6 +1666,16 @@ export function WorkerProfileForm({
 
             <div className="hidden gap-3 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex gap-3">
+                {mode === "onboarding" ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveAndSignOut}
+                    className="secondary-btn w-full px-6 sm:w-auto"
+                    disabled={saving || loading}
+                  >
+                    Save and sign out
+                  </button>
+                ) : null}
                 {mode === "onboarding" && currentStepIndex > 0 ? (
                   <button
                     type="button"
@@ -1666,6 +1725,16 @@ export function WorkerProfileForm({
         </div>
         <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
           <div className="flex flex-col gap-3">
+            {mode === "onboarding" ? (
+              <button
+                type="button"
+                onClick={handleSaveAndSignOut}
+                className="secondary-btn w-full"
+                disabled={saving || loading}
+              >
+                Save and sign out
+              </button>
+            ) : null}
             {mode === "onboarding" && !isLastStep ? (
               <button
                 type="button"

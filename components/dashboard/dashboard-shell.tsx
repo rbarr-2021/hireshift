@@ -111,7 +111,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-black text-stone-900">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-4 px-3 py-3 pb-24 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:py-4 lg:pb-4">
+      <div className="mx-auto grid min-h-screen max-w-7xl gap-4 px-3 py-3 pb-32 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:py-4 lg:pb-4">
         <aside className="panel h-fit p-4 sm:p-5 lg:sticky lg:top-4 lg:p-6">
           <div className="flex items-start justify-between gap-3">
           <Link href="/" className="flex min-w-0 items-center gap-3">
@@ -191,8 +191,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/5 bg-black/88 px-4 py-3 backdrop-blur-xl lg:hidden">
-        <div className="mx-auto flex max-w-3xl items-center justify-around gap-2">
+      <nav className="fixed inset-x-0 bottom-3 z-40 px-3 sm:px-4 lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center justify-around gap-2 rounded-[1.75rem] border border-white/10 bg-black/88 px-3 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur-xl">
           {links.map((link) => {
             const active =
               pathname === link.href ||
@@ -203,7 +203,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 key={link.href}
                 href={link.href}
                 className={`relative flex-1 rounded-2xl px-2 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.12em] sm:px-3 sm:text-xs sm:tracking-[0.16em] ${
-                  active ? "bg-stone-900 text-black" : "panel-soft text-stone-600"
+                  active ? "bg-stone-100 text-stone-900" : "bg-white/5 text-stone-300"
                 }`}
               >
                 {count > 0 ? (

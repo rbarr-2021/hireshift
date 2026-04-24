@@ -15,7 +15,7 @@ export const HOSPITALITY_ROLES = [
 export const WORKER_ROLE_TAXONOMY = [
   {
     slug: "back-of-house",
-    label: "Back of House",
+    label: "Kitchen",
     sortOrder: 1,
     roles: [
       {
