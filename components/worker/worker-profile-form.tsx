@@ -143,6 +143,26 @@ function scrollToPageTop() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
+function focusElement(selector: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    const element = document.querySelector<HTMLElement>(selector);
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    if ("focus" in element) {
+      element.focus({ preventScroll: true });
+    }
+  });
+}
+
 function getTimePart(value: string | null) {
   return value ? value.slice(11, 16) : null;
 }
@@ -743,11 +763,67 @@ export function WorkerProfileForm({
     }
   };
 
+  const focusFirstInvalidField = (stepId: WorkerProfileStepId) => {
+    if (stepId === "about") {
+      if (!fullName.trim()) {
+        focusElement("#worker-full-name");
+        return;
+      }
+
+      if (!phone.trim() || !normaliseInternationalPhoneNumber(phone)) {
+        focusElement("#worker-phone-number");
+        return;
+      }
+
+      if (!primaryRoleId || !primaryRole || additionalRoleIds.length > 3) {
+        focusElement("#worker-role-picker");
+        return;
+      }
+
+      return;
+    }
+
+    if (stepId === "work") {
+      if (
+        !hourlyRate.trim() ||
+        Number(hourlyRate) <= 0 ||
+        isBelowUkMinimumHourlyRate(Number(hourlyRate))
+      ) {
+        focusElement("#worker-hourly-rate");
+        return;
+      }
+
+      if (!yearsExperience.trim()) {
+        focusElement("#worker-years-experience");
+        return;
+      }
+
+      return;
+    }
+
+    if (stepId === "location") {
+      if (!city.trim()) {
+        focusElement("#worker-city");
+        return;
+      }
+
+      if (!travelRadius.trim() || Number(travelRadius) < 0) {
+        focusElement("#worker-travel-radius");
+        return;
+      }
+
+      return;
+    }
+
+    focusElement("#worker-availability-section");
+  };
+
   const handleContinue = () => {
     const validationError = validateProfileStep(currentStep.id);
     setMessage(validationError);
 
     if (validationError) {
+      focusFirstInvalidField(currentStep.id);
       return;
     }
 
@@ -770,6 +846,7 @@ export function WorkerProfileForm({
         setMessage(validationError);
         setCurrentStepIndex(index);
         scrollToPageTop();
+        focusFirstInvalidField(WORKER_PROFILE_STEPS[index].id);
         return;
       }
     }
@@ -1184,7 +1261,7 @@ export function WorkerProfileForm({
   };
 
   return (
-      <div className="min-h-screen bg-black px-3 py-5 pb-32 sm:px-4 sm:py-10 sm:pb-28">
+      <div className="min-h-screen bg-black px-3 py-5 pb-44 sm:px-4 sm:py-10 sm:pb-28">
         <div className="panel mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -1219,6 +1296,9 @@ export function WorkerProfileForm({
                   <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${approvalStyles(approvalStatus)}`}>
                     {approvalLabel(approvalStatus)}
                   </span>
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    Upload documents to earn the approved tick. Approved profiles get seen first.
+                  </p>
                 </div>
               </div>
             ) : null}
@@ -1303,6 +1383,7 @@ export function WorkerProfileForm({
                     Full name
                   </label>
                   <input
+                    id="worker-full-name"
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
                     className="input"
@@ -1316,6 +1397,7 @@ export function WorkerProfileForm({
                     Phone number
                   </label>
                   <input
+                    id="worker-phone-number"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     onBlur={(event) => {
@@ -1362,7 +1444,7 @@ export function WorkerProfileForm({
                   </label>
                 </div>
 
-                <div className="md:col-span-2">
+                <div id="worker-role-picker" className="md:col-span-2">
                   <WorkerRolePicker
                     categories={roleCategories}
                     roles={roleCatalog}
@@ -1417,6 +1499,7 @@ export function WorkerProfileForm({
                     Hourly rate (GBP)
                   </label>
                   <input
+                    id="worker-hourly-rate"
                     type="number"
                     min={CURRENT_UK_MINIMUM_HOURLY_RATE_GBP}
                     step="0.01"
@@ -1447,6 +1530,7 @@ export function WorkerProfileForm({
                     Years of experience
                   </label>
                   <input
+                    id="worker-years-experience"
                     type="number"
                     min={0}
                     value={yearsExperience}
@@ -1567,7 +1651,7 @@ export function WorkerProfileForm({
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">City</label>
-                  <input value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Manchester" required />
+                  <input id="worker-city" value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Manchester" required />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">Postcode</label>
@@ -1575,7 +1659,7 @@ export function WorkerProfileForm({
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">Travel radius (miles)</label>
-                  <input type="number" min={0} value={travelRadius} onChange={(event) => setTravelRadius(event.target.value)} className="input" placeholder="12" required />
+                  <input id="worker-travel-radius" type="number" min={0} value={travelRadius} onChange={(event) => setTravelRadius(event.target.value)} className="input" placeholder="12" required />
                 </div>
               </div>
             </section>
@@ -1583,11 +1667,8 @@ export function WorkerProfileForm({
 
             {((mode === "onboarding" && currentStep.id === "availability") || isManageAvailability) ? (
             <>
-              <section className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-                <div>
-                  <h2 className="text-lg font-semibold text-stone-900">Availability</h2>
-                  <p className="mt-1.5 text-sm leading-5 text-stone-600 sm:mt-2 sm:leading-6">Choose your working dates.</p>
-                </div>
+              <section id="worker-availability-section" className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                <div />
                 <div className="space-y-3 sm:space-y-4">
                   <AvailabilityCalendar
                     entries={availabilityEntries}
@@ -1611,15 +1692,15 @@ export function WorkerProfileForm({
                   </p>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  <div className="rounded-3xl border border-sky-200 bg-sky-50 px-4 py-4">
+                  <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/12 px-4 py-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-sky-950">Optional documents</p>
-                        <p className="mt-1 text-sm text-sky-900">
+                        <p className="text-sm font-semibold text-emerald-900">Optional documents</p>
+                        <p className="mt-1 text-sm text-emerald-900">
                           You can finish setup without these and add them later.
                         </p>
                       </div>
-                      <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-900">
+                      <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900">
                         Optional
                       </span>
                     </div>
@@ -1627,7 +1708,11 @@ export function WorkerProfileForm({
 
                 <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                   {DOCUMENT_TYPES.map((documentType) => (
-                    <div key={documentType} className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+                    <label
+                      key={documentType}
+                      htmlFor={`worker-document-${documentType}`}
+                      className="block cursor-pointer rounded-3xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-emerald-500/40 hover:bg-emerald-500/6"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-stone-900">{DOCUMENT_LABELS[documentType]}</p>
@@ -1636,18 +1721,26 @@ export function WorkerProfileForm({
                         {existingDocuments[documentType] ? (
                           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">Uploaded</span>
                         ) : (
-                          <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-sky-900">
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-900">
                             Optional
                           </span>
                         )}
                       </div>
                       <div className="mt-4">
-                        <input type="file" onChange={(event) => handleDocumentChange(documentType, event)} className="input" />
+                        <input
+                          id={`worker-document-${documentType}`}
+                          type="file"
+                          onChange={(event) => handleDocumentChange(documentType, event)}
+                          className="sr-only"
+                        />
+                        <div className="inline-flex items-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white">
+                          {documents[documentType] || existingDocuments[documentType] ? "Change file" : "Add file"}
+                        </div>
                         <p className="mt-2 text-xs text-stone-500">
                           {documents[documentType]?.name || existingDocuments[documentType]?.file_name || "No file selected"}
                         </p>
                       </div>
-                    </div>
+                    </label>
                   ))}
                 </div>
                 </div>

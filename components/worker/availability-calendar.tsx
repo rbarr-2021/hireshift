@@ -127,7 +127,7 @@ function statusCardClass(status: WorkerAvailabilityStatus, active: boolean) {
 
 function calendarCellClass(status?: WorkerAvailabilityStatus, selected = false, today = false) {
   const base =
-    "relative flex min-h-[3.85rem] w-full min-w-0 flex-col rounded-[1rem] border px-2 py-2 text-left transition sm:min-h-[4.35rem] lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
+    "relative flex min-h-[3.85rem] w-full min-w-0 flex-col overflow-hidden rounded-[1rem] border px-2 py-2 text-left transition sm:min-h-[4.35rem] lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
 
   const selection = selected
     ? " border-[#00A7FF] ring-2 ring-[#00A7FF]/35"
@@ -229,6 +229,7 @@ export function AvailabilityCalendar({
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(new Date()));
   const [selectedDateKeys, setSelectedDateKeys] = useState([todayKey]);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [mobileMultiSelectEnabled, setMobileMultiSelectEnabled] = useState(false);
 
   const entryMap = useMemo(
     () =>
@@ -353,7 +354,12 @@ export function AvailabilityCalendar({
     );
   };
 
-  const handleDateSelect = (dateKey: string) => {
+  const handleDateSelect = (dateKey: string, { singleSelect = false }: { singleSelect?: boolean } = {}) => {
+    if (singleSelect) {
+      setSelectedDateKeys([dateKey]);
+      return;
+    }
+
     setSelectedDateKeys((current) => {
       if (current.includes(dateKey)) {
         return current.length === 1 ? current : current.filter((entry) => entry !== dateKey);
@@ -363,15 +369,17 @@ export function AvailabilityCalendar({
     });
   };
 
-  const selectedDayEditor = (
-    <div className="panel-soft p-5 sm:p-6">
+  const renderSelectedDayEditor = ({ compact = false }: { compact?: boolean } = {}) => (
+    <div className={compact ? "rounded-[1.5rem] border border-white/10 bg-black/35 p-4" : "panel-soft p-5 sm:p-6"}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-stone-500">Selected day</p>
-          <h3 className="mt-1 text-xl font-semibold text-stone-100">
+          <p className={`${compact ? "text-xs uppercase tracking-[0.16em]" : "text-sm"} font-medium text-stone-500`}>
+            {selectedDateKeys.length > 1 ? "Selected days" : "Selected day"}
+          </p>
+          <h3 className={`${compact ? "mt-2 text-lg" : "mt-1 text-xl"} font-semibold text-stone-100`}>
             {formatSelectedDateLabel(selectedDateKeys)}
           </h3>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className={`${compact ? "mt-2" : "mt-3"} flex flex-wrap gap-2`}>
             {hasMixedSelection ? (
               <span className="status-badge status-badge--rating">Mixed selection</span>
             ) : selectedStatus ? (
@@ -386,8 +394,8 @@ export function AvailabilityCalendar({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {selectedDateKeys.length === 1 ? (
+        <div className={`flex flex-col gap-2 sm:flex-row ${compact ? "hidden" : ""}`}>
+          {selectedDateKeys.length === 1 && !compact ? (
             <button
               type="button"
               onClick={handleCopyPreviousDay}
@@ -396,30 +404,23 @@ export function AvailabilityCalendar({
               Copy previous day
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={clearSelectedDate}
-            className="secondary-btn px-4"
-          >
-            {selectedDateKeys.length > 1 ? "Clear days" : "Clear day"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileEditorOpen(false)}
-            className="secondary-btn px-4 sm:hidden"
-          >
-            Done
-          </button>
+          {!compact ? (
+            <button
+              type="button"
+              onClick={clearSelectedDate}
+              className="secondary-btn px-4"
+            >
+              {selectedDateKeys.length > 1 ? "Clear days" : "Clear day"}
+            </button>
+          ) : null}
         </div>
       </div>
 
-      {selectedStatus === "available" || selectedStatus === "partial" ? (
-        <div className="mt-6 space-y-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4 sm:p-5">
+      {selectedStatus === "partial" ? (
+        <div className={`${compact ? "mt-4" : "mt-6"} space-y-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4 sm:p-5`}>
           <div>
-            <p className="text-sm font-medium text-stone-100">Hours</p>
-            <p className="mt-1 text-sm leading-6 text-stone-500">
-              If the end time is earlier than the start time, it saves as overnight.
-            </p>
+            <p className="text-sm font-medium text-stone-100">Set hours</p>
+            <p className="mt-1 text-sm leading-6 text-stone-500">End before start saves as overnight.</p>
           </div>
 
           <ShiftTimeRangePicker
@@ -438,20 +439,63 @@ export function AvailabilityCalendar({
               This availability will be saved as an overnight range ending the next day.
             </p>
           ) : (
-            <p className="text-sm text-stone-500">
-              These hours will stay on the same day unless the end time rolls past midnight.
-            </p>
+            <p className="text-sm text-stone-500">These hours stay on the same day.</p>
           )}
         </div>
-      ) : (
-        <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4">
+      ) : selectedStatus === "available" ? (
+        <div className={`${compact ? "mt-4" : "mt-6"} rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4`}>
           <p className="text-sm leading-6 text-stone-500">
-            Choose a status above. If several days are selected, the same status is
-            applied to each day and you can fine-tune them afterwards.
+            Saved as available from 9am to 5pm.
           </p>
+        </div>
+      ) : selectedStatus === "unavailable" ? (
+        <div className={`${compact ? "mt-4" : "mt-6"} rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4`}>
+          <p className="text-sm leading-6 text-stone-500">Marked as unavailable.</p>
+        </div>
+      ) : (
+        <div className={`${compact ? "mt-4" : "mt-6"} rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4`}>
+          <p className="text-sm leading-6 text-stone-500">Choose availability below.</p>
         </div>
       )}
     </div>
+  );
+
+  const renderSelectedDayStatusControls = ({
+    compact = false,
+  }: {
+    compact?: boolean;
+  } = {}) => (
+    <aside className={`${compact ? "rounded-[1.5rem] border border-white/10 bg-black/35 p-4" : "rounded-[1.75rem] border border-white/10 bg-black/35 p-4 sm:p-5 2xl:sticky 2xl:top-4"}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+        {compact ? "Choose availability" : "Set selected day"}
+      </p>
+      <div className={`mt-4 grid gap-3 ${compact ? "grid-cols-1" : "sm:grid-cols-3 2xl:grid-cols-1"}`}>
+        <button
+          type="button"
+          onClick={() => handleStatusChange("available")}
+          className={statusCardClass("available", selectedStatus === "available")}
+        >
+          <p className="text-base font-semibold text-stone-100">Available 9am-5pm</p>
+          {!compact ? <p className="mt-2 text-sm text-stone-400">Quick day preset</p> : null}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleStatusChange("partial")}
+          className={statusCardClass("partial", selectedStatus === "partial")}
+        >
+          <p className="text-base font-semibold text-stone-100">Specific hours</p>
+          {!compact ? <p className="mt-2 text-sm text-stone-400">Choose a time range</p> : null}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleStatusChange("unavailable")}
+          className={statusCardClass("unavailable", selectedStatus === "unavailable")}
+        >
+          <p className="text-base font-semibold text-stone-100">Unavailable</p>
+          {!compact ? <p className="mt-2 text-sm text-stone-400">Not taking work</p> : null}
+        </button>
+      </div>
+    </aside>
   );
 
   return (
@@ -474,6 +518,19 @@ export function AvailabilityCalendar({
             <p className="max-w-2xl text-sm leading-6 text-stone-500">
               Tap one or more days, then set your status.
             </p>
+            <div className="sm:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileMultiSelectEnabled((current) => !current)}
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                  mobileMultiSelectEnabled
+                    ? "border-[rgba(29,185,84,0.45)] bg-[rgba(29,185,84,0.2)] text-[#9ff0b7]"
+                    : "border-white/10 bg-black/25 text-stone-300"
+                }`}
+              >
+                {mobileMultiSelectEnabled ? "Select multiple: on" : "Select multiple"}
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -504,7 +561,7 @@ export function AvailabilityCalendar({
           </div>
         </div>
 
-        <div className="mt-6 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:items-start">
+      <div className="mt-6 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:items-start">
           <div className="min-w-0 rounded-[1.75rem] border border-white/10 bg-black/35 p-2.5 sm:p-4">
             <div className="flex items-center justify-between gap-4">
               <h3 className="text-lg font-semibold text-stone-100">
@@ -536,7 +593,7 @@ export function AvailabilityCalendar({
                     key={dateKey}
                     type="button"
                     onClick={() => {
-                      handleDateSelect(dateKey);
+                      handleDateSelect(dateKey, { singleSelect: !mobileMultiSelectEnabled });
                       setVisibleMonth(startOfMonth(day));
                       setMobileEditorOpen(true);
                     }}
@@ -550,7 +607,7 @@ export function AvailabilityCalendar({
                       {day.getDate()}
                     </span>
                     {isToday ? (
-                      <span className="mt-1 text-[9px] uppercase tracking-[0.1em] text-[#10D7FF] sm:text-[10px]">
+                      <span className="mt-1 inline-flex w-fit rounded-full bg-[#00A7FF] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-white sm:text-[10px]">
                         Today
                       </span>
                     ) : null}
@@ -567,59 +624,11 @@ export function AvailabilityCalendar({
             </div>
           </div>
 
-          <aside className="rounded-[1.75rem] border border-white/10 bg-black/35 p-4 sm:p-5 2xl:sticky 2xl:top-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-              Set selected day
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3 2xl:grid-cols-1">
-              <button
-                type="button"
-                onClick={() => handleStatusChange("available")}
-                className={statusCardClass("available", selectedStatus === "available")}
-              >
-                <p className="text-base font-semibold text-stone-100">Available 9am-5pm</p>
-                <p className="mt-2 text-sm text-stone-400">Quick day preset</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange("partial")}
-                className={statusCardClass("partial", selectedStatus === "partial")}
-              >
-                <p className="text-base font-semibold text-stone-100">Specific hours</p>
-                <p className="mt-2 text-sm text-stone-400">Choose a time range</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange("unavailable")}
-                className={statusCardClass("unavailable", selectedStatus === "unavailable")}
-              >
-                <p className="text-base font-semibold text-stone-100">Unavailable</p>
-                <p className="mt-2 text-sm text-stone-400">Not taking work</p>
-              </button>
-            </div>
-          </aside>
+          <div className="hidden sm:block">{renderSelectedDayStatusControls()}</div>
         </div>
       </div>
 
-      <div className="sm:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileEditorOpen(true)}
-          className="panel-soft flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-stone-100">Edit selected days</p>
-            <p className="mt-1 text-sm text-stone-500">
-              {formatSelectedDateLabel(selectedDateKeys)}
-            </p>
-          </div>
-          <span className="status-badge">
-            {selectedStatus ? statusLabel(selectedStatus) : "Set status"}
-          </span>
-        </button>
-      </div>
-
-      <div className="hidden sm:block">{selectedDayEditor}</div>
+      <div className="hidden sm:block">{renderSelectedDayEditor()}</div>
 
       {mobileEditorOpen ? (
         <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[2px] sm:hidden">
@@ -629,9 +638,31 @@ export function AvailabilityCalendar({
             onClick={() => setMobileEditorOpen(false)}
             className="absolute inset-0 h-full w-full cursor-default"
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[rgba(4,12,22,0.98)] p-4 shadow-2xl">
+          <div className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[rgba(4,12,22,0.98)] p-4 shadow-2xl">
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
-            {selectedDayEditor}
+            <div className="space-y-4">
+              {renderSelectedDayEditor({ compact: true })}
+              {renderSelectedDayStatusControls({ compact: true })}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={clearSelectedDate}
+                  className="secondary-btn w-full px-4"
+                >
+                  {selectedDateKeys.length > 1 ? "Clear days" : "Clear day"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileEditorOpen(false);
+                    setMobileMultiSelectEnabled(false);
+                  }}
+                  className="primary-btn w-full px-4"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
