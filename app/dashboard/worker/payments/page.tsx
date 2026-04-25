@@ -527,9 +527,14 @@ export default function WorkerPaymentsPage() {
                   {getPayoutSupportCopy(payment ?? null)}
                 </p>
                 {payment?.payout_hold_reason ? (
-                  <p className="mt-3 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                    {payment.payout_hold_reason}
-                  </p>
+                  <div className="action-needed-banner mt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#67B7FF]">
+                      Action needed
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[#CFE6FF]">
+                      {payment.payout_hold_reason}
+                    </p>
+                  </div>
                 ) : null}
 
                 <div className="mt-4">

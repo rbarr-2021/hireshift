@@ -115,9 +115,14 @@ export function WorkerBookingCard({
         </p>
       ) : null}
       {booking.notes ? (
-        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-          {booking.notes}
-        </p>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+            Arrival details
+          </p>
+          <p className="mt-2 text-sm leading-6 text-stone-500">
+            {booking.notes}
+          </p>
+        </div>
       ) : null}
       {actions || showDetailLink ? (
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">

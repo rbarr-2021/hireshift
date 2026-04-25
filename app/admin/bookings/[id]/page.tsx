@@ -253,9 +253,14 @@ export default function AdminBookingDetailPage() {
             <button type="button" disabled={updating || !item.payment?.stripe_transfer_id} onClick={() => void updateBooking({ payoutAction: "mark_paid", successTitle: "Payout marked as paid", successDescription: "Worker payout has been recorded as sent." })} className="primary-btn px-5 disabled:cursor-not-allowed disabled:opacity-60">Mark paid</button>
           </div>
           {!item.payment?.stripe_transfer_id ? (
-            <p className="mt-3 text-sm leading-6 text-stone-600">
-              Mark paid unlocks only after Stripe confirms a worker transfer. If payout is on hold, ask the worker to connect Stripe payouts first.
-            </p>
+            <div className="action-needed-banner mt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#67B7FF]">
+                Action needed
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#CFE6FF]">
+                Mark paid unlocks only after Stripe confirms a worker transfer. If payout is on hold, ask the worker to connect Stripe payouts first.
+              </p>
+            </div>
           ) : null}
         </section>
       </div>

@@ -539,14 +539,17 @@ export default function NewShiftListingPage() {
             </div>
 
             <label className="block space-y-2 text-sm text-stone-600">
-              <span className="font-medium text-stone-900">Shift description</span>
+              <span className="font-medium text-stone-900">Shift description and arrival details</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={5}
                 className="input min-h-36 resize-y"
-                placeholder="Share the service style, team setup, dress code, and anything useful for a worker deciding whether to take this shift."
+                placeholder="Add the meeting point, who to ask for on arrival, dress code, and anything useful before the shift starts."
               />
+              <p className="text-xs text-stone-500">
+                Include where to meet and the contact name workers should ask for when they arrive.
+              </p>
             </label>
 
             <div className="hidden items-center justify-between gap-4 sm:flex">
@@ -592,6 +595,7 @@ export default function NewShiftListingPage() {
                   ? `${shiftDates.length} shift date${shiftDates.length === 1 ? "" : "s"} | ${openPositions || 1} worker${openPositions === "1" ? "" : "s"} each`
                   : "Add at least one date"}
               </p>
+              <p>{description.trim() || "Meeting point and arrival details will show here."}</p>
             </div>
           </section>
 

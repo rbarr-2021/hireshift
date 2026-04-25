@@ -25,6 +25,15 @@ export default function WorkerAcceptedJobsPage() {
   const [businessesById, setBusinessesById] = useState<Record<string, WorkerBookingBusinessSnapshot>>({});
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [countdownNow, setCountdownNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCountdownNow(new Date());
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -146,6 +155,7 @@ export default function WorkerAcceptedJobsPage() {
               business={businessesById[booking.business_id]}
               payment={paymentsByBookingId[booking.id]}
               showDetailLink
+              countdownNow={countdownNow}
               actions={
                 !isPastBooking(booking) ? (
                   <button

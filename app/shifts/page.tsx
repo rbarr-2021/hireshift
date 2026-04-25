@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import {
+  formatBookingDate,
+  formatBookingTimeRange,
+  formatTimeUntilBooking,
+} from "@/lib/bookings";
 import type {
   BusinessProfileRecord,
   ShiftListingRecord,
@@ -96,6 +100,15 @@ export default function WorkerShiftBrowsePage() {
   const [businessesById, setBusinessesById] = useState<Record<string, ShiftCardBusiness>>({});
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [countdownNow, setCountdownNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCountdownNow(new Date());
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -403,6 +416,7 @@ export default function WorkerShiftBrowsePage() {
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredListings.map((listing) => {
             const business = businessesById[listing.business_id];
+            const countdownLabel = formatTimeUntilBooking(listing, countdownNow);
 
             return (
               <article key={listing.id} className="panel-soft p-5">
@@ -466,9 +480,20 @@ export default function WorkerShiftBrowsePage() {
                   </p>
                 </div>
 
-                <p className="mt-4 line-clamp-3 text-sm leading-6 text-stone-600">
-                  {listing.description || "No extra shift notes yet."}
-                </p>
+                {countdownLabel ? (
+                  <div className="mt-4">
+                    <span className="status-badge status-badge--rating">{countdownLabel}</span>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                    Arrival details
+                  </p>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-stone-600">
+                    {listing.description || "Meeting point and arrival details will appear here."}
+                  </p>
+                </div>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <Link
