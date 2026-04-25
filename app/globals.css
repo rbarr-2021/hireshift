@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --brand-primary: #00a7ff;
-  --brand-secondary: #1db954;
-  --brand-rating: #10d7ff;
-  --brand-spotify-green: #1db954;
-  --bg-app: #000000;
-  --bg-elevated: #07111f;
-  --bg-surface: #0c1726;
-  --bg-surface-strong: #101f34;
-  --border-subtle: rgba(16, 215, 255, 0.16);
-  --border-strong: rgba(0, 167, 255, 0.28);
-  --text-primary: #e9f1ff;
-  --text-secondary: rgba(233, 241, 255, 0.82);
-  --text-muted: rgba(233, 241, 255, 0.6);
-  --success-bg: rgba(29, 185, 84, 0.16);
-  --success-text: #9df0ba;
-  --warning-bg: rgba(0, 167, 255, 0.14);
-  --warning-text: #8be3ff;
+  --brand-primary: #1f80e0;
+  --brand-secondary: #2b9cff;
+  --brand-rating: #67b7ff;
+  --brand-spotify-green: #2b9cff;
+  --bg-app: #060b17;
+  --bg-elevated: #0b1120;
+  --bg-surface: #0f1728;
+  --bg-surface-strong: #14203a;
+  --border-subtle: rgba(95, 184, 255, 0.16);
+  --border-strong: rgba(31, 128, 224, 0.28);
+  --text-primary: #f5f8ff;
+  --text-secondary: rgba(245, 248, 255, 0.82);
+  --text-muted: rgba(245, 248, 255, 0.62);
+  --success-bg: rgba(43, 156, 255, 0.16);
+  --success-text: #9bd0ff;
+  --warning-bg: rgba(95, 184, 255, 0.14);
+  --warning-text: #a9d8ff;
   --danger-bg: rgba(255, 82, 82, 0.16);
   --danger-text: #ff9b9b;
   --shadow-soft:
@@ -34,7 +34,7 @@ html {
 body {
   min-height: 100vh;
   font-family:
-    "Spotify Mix",
+    "Avenir Next",
     var(--font-ui),
     system-ui,
     -apple-system,
@@ -42,9 +42,9 @@ body {
     "Segoe UI",
     sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(0, 167, 255, 0.2), transparent 28%),
-    radial-gradient(circle at top right, rgba(29, 185, 84, 0.1), transparent 22%),
-    linear-gradient(180deg, #02060d 0%, #000000 40%, #020912 100%);
+    radial-gradient(circle at top left, rgba(31, 128, 224, 0.24), transparent 30%),
+    radial-gradient(circle at top right, rgba(103, 183, 255, 0.14), transparent 24%),
+    linear-gradient(180deg, #08101d 0%, #060b17 42%, #0a1323 100%);
   color: var(--text-primary);
   overflow-x: hidden;
 }
@@ -60,7 +60,7 @@ body {
 }
 
 ::selection {
-  background: rgba(0, 167, 255, 0.35);
+  background: rgba(31, 128, 224, 0.35);
   color: var(--text-primary);
 }
 
@@ -101,14 +101,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: brightness(0) saturate(100%) invert(78%) sepia(96%) saturate(1554%) hue-rotate(164deg)
     brightness(102%) contrast(103%);
   border-radius: 999px;
-  background-color: rgba(16, 215, 255, 0.12);
+  background-color: rgba(31, 128, 224, 0.14);
   padding: 0.35rem;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover {
-  background-color: rgba(16, 215, 255, 0.2);
+  background-color: rgba(31, 128, 224, 0.22);
 }
 
 @layer base {
@@ -123,15 +123,15 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .bg-stone-900 {
     background:
-      linear-gradient(135deg, rgba(0, 167, 255, 0.96), rgba(16, 215, 255, 0.84)) !important;
-    color: #021019 !important;
+      linear-gradient(135deg, rgba(31, 128, 224, 0.98), rgba(103, 183, 255, 0.9)) !important;
+    color: #f5f8ff !important;
   }
 
   .hover\:bg-stone-100:hover,
   .hover\:bg-stone-200:hover,
   .hover\:bg-stone-800:hover,
   .hover\:bg-white\/10:hover {
-    background-color: rgba(16, 215, 255, 0.12) !important;
+    background-color: rgba(31, 128, 224, 0.12) !important;
   }
 
   .border-stone-200,
@@ -161,11 +161,11 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .bg-amber-400 {
     background-color: var(--brand-secondary) !important;
-    color: #081100 !important;
+    color: #f5f8ff !important;
   }
 
   .hover\:bg-amber-300:hover {
-    background-color: #c0ff66 !important;
+    background-color: #67b7ff !important;
   }
 
   .bg-amber-100,
@@ -188,7 +188,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .bg-emerald-50 {
-    background-color: rgba(29, 185, 84, 0.12) !important;
+    background-color: rgba(43, 156, 255, 0.12) !important;
   }
 
   .bg-emerald-500 {
@@ -196,7 +196,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .hover\:bg-emerald-600:hover {
-    background-color: #19a34a !important;
+    background-color: #1f80e0 !important;
   }
 
   .text-emerald-600 {
@@ -211,7 +211,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 @layer components {
   .display-headline {
     font-family:
-      "Spotify Mix",
+      "Avenir Next",
       var(--font-ui),
       system-ui,
       -apple-system,
@@ -238,20 +238,20 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     border-color: var(--brand-primary);
     background: rgba(7, 18, 32, 1);
     box-shadow:
-      0 0 0 4px rgba(0, 167, 255, 0.14),
-      0 0 0 1px rgba(16, 215, 255, 0.3);
+      0 0 0 4px rgba(31, 128, 224, 0.16),
+      0 0 0 1px rgba(103, 183, 255, 0.28);
   }
 
   .primary-btn {
     @apply inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 text-center font-semibold;
     background: linear-gradient(135deg, var(--brand-primary), var(--brand-rating));
-    color: #03111a;
-    box-shadow: 0 12px 32px rgba(0, 167, 255, 0.28);
+    color: #f5f8ff;
+    box-shadow: 0 12px 32px rgba(31, 128, 224, 0.3);
   }
 
   .primary-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 16px 36px rgba(0, 167, 255, 0.34);
+    box-shadow: 0 16px 36px rgba(31, 128, 224, 0.36);
   }
 
   .primary-btn:disabled {
@@ -263,12 +263,12 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   .secondary-btn {
     @apply inline-flex min-h-12 items-center justify-center rounded-2xl border px-4 py-3 text-center text-sm font-medium;
     border-color: var(--border-subtle);
-    background: rgba(7, 17, 31, 0.82);
+    background: rgba(11, 17, 32, 0.86);
     color: var(--text-primary);
   }
 
   .secondary-btn:hover {
-    background: rgba(16, 31, 52, 0.9);
+    background: rgba(20, 32, 58, 0.94);
     border-color: var(--brand-primary);
   }
 
@@ -308,8 +308,8 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .panel-soft {
     @apply w-full min-w-0 rounded-[1.5rem] border sm:rounded-3xl;
-    background: rgba(12, 23, 38, 0.82);
-    border-color: rgba(16, 215, 255, 0.12);
+    background: rgba(15, 23, 40, 0.82);
+    border-color: rgba(95, 184, 255, 0.12);
   }
 
   .section-label {
@@ -319,27 +319,27 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .status-badge {
     @apply inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em];
-    border: 1px solid rgba(16, 215, 255, 0.14);
-    background: rgba(16, 31, 52, 0.92);
+    border: 1px solid rgba(95, 184, 255, 0.14);
+    background: rgba(20, 32, 58, 0.92);
     color: var(--text-primary);
   }
 
   .status-badge--ready {
-    background: rgba(29, 185, 84, 0.14);
+    background: rgba(43, 156, 255, 0.14);
     color: var(--success-text);
-    border-color: rgba(29, 185, 84, 0.24);
+    border-color: rgba(43, 156, 255, 0.24);
   }
 
   .status-badge--rating {
-    background: rgba(16, 215, 255, 0.12);
-    color: #94efff;
-    border-color: rgba(16, 215, 255, 0.24);
+    background: rgba(103, 183, 255, 0.12);
+    color: #c4e4ff;
+    border-color: rgba(103, 183, 255, 0.24);
   }
 
   .info-banner {
     @apply rounded-3xl border px-4 py-4 text-sm;
-    background: rgba(16, 31, 52, 0.82);
-    border-color: rgba(16, 215, 255, 0.14);
+    background: rgba(20, 32, 58, 0.82);
+    border-color: rgba(95, 184, 255, 0.14);
     color: var(--text-secondary);
   }
 
@@ -353,12 +353,12 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   .mobile-sticky-bar {
     @apply fixed inset-x-3 z-40 rounded-[1.4rem] border p-3 shadow-sm backdrop-blur-xl sm:inset-x-4;
     background: rgba(4, 12, 22, 0.94);
-    border-color: rgba(16, 215, 255, 0.16);
+    border-color: rgba(95, 184, 255, 0.16);
   }
 
   .mobile-empty-state {
     @apply rounded-[1.5rem] border px-5 py-8 text-center sm:rounded-3xl sm:px-8;
-    background: rgba(12, 23, 38, 0.82);
-    border-color: rgba(16, 215, 255, 0.12);
+    background: rgba(15, 23, 40, 0.82);
+    border-color: rgba(95, 184, 255, 0.12);
   }
 }

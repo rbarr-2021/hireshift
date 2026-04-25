@@ -191,8 +191,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      <nav className="fixed inset-x-0 bottom-3 z-40 px-3 sm:px-4 lg:hidden">
-        <div className="mx-auto flex max-w-3xl items-center justify-around gap-2 rounded-[1.75rem] border border-white/10 bg-black/88 px-3 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur-xl">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[rgba(6,11,23,0.96)] backdrop-blur-xl lg:hidden">
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-gradient-to-r from-[rgba(6,11,23,0.96)] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[rgba(6,11,23,0.96)] via-[rgba(6,11,23,0.86)] to-transparent" />
+          <div className="pointer-events-none absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/10 bg-black/35 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-stone-300">
+            Swipe
+          </div>
+          <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-2 pr-12 py-2">
           {links.map((link) => {
             const active =
               pathname === link.href ||
@@ -202,8 +208,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative flex-1 rounded-2xl px-2 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.12em] sm:px-3 sm:text-xs sm:tracking-[0.16em] ${
-                  active ? "bg-stone-100 text-stone-900" : "bg-white/5 text-stone-300"
+                className={`relative min-w-[4.8rem] shrink-0 rounded-xl px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.1em] sm:min-w-[5.2rem] sm:px-3 sm:text-xs sm:tracking-[0.14em] ${
+                  active ? "bg-stone-100 text-stone-900" : "text-stone-300 hover:bg-white/5"
                 }`}
               >
                 {count > 0 ? (
@@ -215,6 +221,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          </div>
         </div>
       </nav>
     </div>

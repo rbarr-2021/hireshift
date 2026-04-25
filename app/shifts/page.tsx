@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
-import { SiteHeader } from "@/components/site/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
 import type {
@@ -217,9 +216,6 @@ export default function WorkerShiftBrowsePage() {
   }, [appUser, errorMessage, listings.length, loading, router]);
 
   return (
-    <>
-      <SiteHeader compact />
-      <main className="public-shell pt-6 sm:pt-8">
       <section className="public-section space-y-8">
       <div className="panel p-5 sm:p-7">
         <p className="section-label">Browse available shifts</p>
@@ -426,13 +422,13 @@ export default function WorkerShiftBrowsePage() {
                     >
                       {formatShiftListingStatus(listing.status)}
                     </span>
-                    <div className="rounded-2xl bg-emerald-500 px-4 py-3 text-white shadow-[0_12px_30px_rgba(16,185,129,0.28)]">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-50">
+                    <div className="rounded-2xl bg-[#1DB954] px-4 py-3 text-white shadow-[0_12px_30px_rgba(29,185,84,0.3)]">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#EAFBEF]">
                         Rate
                       </p>
                       <p className="mt-1 text-lg font-semibold">
                         {formatCurrency(listing.hourly_rate_gbp)}
-                        <span className="ml-1 text-sm font-medium text-emerald-50">/hr</span>
+                        <span className="ml-1 text-sm font-medium text-[#EAFBEF]">/hr</span>
                       </p>
                     </div>
                   </div>
@@ -492,9 +488,7 @@ export default function WorkerShiftBrowsePage() {
             );
           })}
         </div>
-      )}
+        )}
       </section>
-      </main>
-    </>
   );
 }

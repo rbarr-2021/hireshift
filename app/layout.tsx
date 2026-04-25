@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { MobileScrollReset } from "@/components/navigation/mobile-scroll-reset";
 import { ToastProvider } from "@/components/ui/toast-provider";
 
-const spotifyStyleSans = DM_Sans({
+const disneyStyleSans = Manrope({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-ui",
@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${spotifyStyleSans.variable} h-full antialiased`}>
+    <html lang="en" className={`${disneyStyleSans.variable} h-full antialiased`}>
       <body className="min-h-full">
         <AuthProvider>
           <ToastProvider>
