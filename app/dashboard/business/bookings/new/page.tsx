@@ -87,6 +87,7 @@ export default function BookingEntryPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [date, setDate] = useState("");
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [rate, setRate] = useState("");
@@ -184,6 +185,31 @@ export default function BookingEntryPage() {
     return buildBookingPricingSnapshot(durationHours * numericRate);
   }, [durationHours, rate]);
 
+  const totalRequestAmount = useMemo(
+    () => totalAmount.businessTotalGbp * selectedDates.length,
+    [selectedDates.length, totalAmount.businessTotalGbp],
+  );
+
+  const addDateToRequest = () => {
+    if (!date) {
+      setMessage("Choose a date first.");
+      return;
+    }
+
+    setSelectedDates((current) => {
+      if (current.includes(date)) {
+        return current;
+      }
+
+      return [...current, date].sort((left, right) => left.localeCompare(right));
+    });
+    setMessage(null);
+  };
+
+  const removeDateFromRequest = (targetDate: string) => {
+    setSelectedDates((current) => current.filter((value) => value !== targetDate));
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -222,8 +248,8 @@ export default function BookingEntryPage() {
 
     const numericRate = Number(rate);
 
-    if (!date) {
-      setMessage("Choose a shift date.");
+    if (!selectedDates.length) {
+      setMessage("Add at least one shift date.");
       return;
     }
 
@@ -248,11 +274,11 @@ export default function BookingEntryPage() {
     setSaving(true);
     setMessage(null);
 
-    const payload: Omit<BookingRecord, "id" | "created_at" | "updated_at"> = {
+    const payload = selectedDates.map((shiftDate) => ({
       worker_id: workerId,
       business_id: authUserId,
-      shift_date: date,
-      shift_end_date: shiftEndDate,
+      shift_date: shiftDate,
+      shift_end_date: deriveShiftEndDate(shiftDate, startTime, endTime),
       shift_listing_id: null,
       requested_role_label: workerProfile.job_role,
       shift_duration_hours: durationHours,
@@ -261,22 +287,15 @@ export default function BookingEntryPage() {
       hourly_rate_gbp: numericRate,
       location: businessLocation,
       notes: notes.trim() || null,
-      status: "pending",
+      status: "pending" as const,
       total_amount_gbp: totalAmount.businessTotalGbp,
       platform_fee_gbp: totalAmount.platformFeeGbp,
-      worker_checked_in_at: null,
-      worker_checked_out_at: null,
-      business_confirmed_start_at: null,
-      business_confirmed_end_at: null,
-      business_confirmed_at: null,
-      business_confirmed_by: null,
-      manager_confirmation_name: null,
-    };
+    }));
 
     console.info("[booking-create] insert payload", {
       workerId,
       businessId: authUserId,
-      date,
+      dates: selectedDates,
       startTime,
       endTime,
       location: businessLocation,
@@ -300,7 +319,10 @@ export default function BookingEntryPage() {
 
     showToast({
       title: "Booking request sent",
-      description: "The worker can now accept or decline this shift request.",
+      description:
+        selectedDates.length === 1
+          ? "The worker can now accept or decline this shift request."
+          : "The worker can now accept the dates that work for them.",
       tone: "success",
     });
     router.replace("/dashboard/business");
@@ -400,17 +422,47 @@ export default function BookingEntryPage() {
           <h2 className="text-xl font-semibold text-stone-900">Shift details</h2>
           <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2 text-sm text-stone-600">
-                <span className="font-medium text-stone-900">Date</span>
-                <input
-                  type="date"
-                  value={date}
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
-                  required
-                />
-              </label>
+              <div className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                <span className="font-medium text-stone-900">Dates</span>
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <input
+                    type="date"
+                    value={date}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(event) => setDate(event.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
+                  />
+                  <button
+                    type="button"
+                    onClick={addDateToRequest}
+                    className="secondary-btn px-5"
+                  >
+                    Add date
+                  </button>
+                </div>
+                <p className="text-xs text-stone-500">
+                  Add one date or several dates across days or weeks. The worker will be able to accept the ones they can cover.
+                </p>
+                {selectedDates.length ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {selectedDates.map((selectedDate) => (
+                      <button
+                        key={selectedDate}
+                        type="button"
+                        onClick={() => removeDateFromRequest(selectedDate)}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-stone-200"
+                      >
+                        <span>{formatBookingDate(selectedDate)}</span>
+                        <span className="text-stone-500">Remove</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-black/30 px-4 py-3 text-sm text-stone-500">
+                    No dates added yet.
+                  </div>
+                )}
+              </div>
               <label className="space-y-2 text-sm text-stone-600">
                 <span className="font-medium text-stone-900">Hourly rate (GBP)</span>
                 <input
@@ -459,17 +511,25 @@ export default function BookingEntryPage() {
               />
             </label>
 
-            <div className="mobile-sticky-bar flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-stone-500">
-                {durationHours > 0 ? `${durationHours} hours scheduled` : "Enter a valid shift length"}
+            <div className="rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-stone-500">
+                  {durationHours > 0
+                    ? `${durationHours} hours per shift${selectedDates.length ? ` | ${selectedDates.length} date${selectedDates.length === 1 ? "" : "s"} selected` : ""}`
+                    : "Enter a valid shift length"}
+                </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[220px]"
+                >
+                  {saving
+                    ? "Sending request..."
+                    : selectedDates.length > 1
+                      ? "Send booking requests"
+                      : "Send booking request"}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                {saving ? "Sending request..." : "Send booking request"}
-              </button>
             </div>
           </form>
         </section>
@@ -507,9 +567,13 @@ export default function BookingEntryPage() {
                 </span>
               </p>
               <p>
-                Shift:{" "}
+                Dates:{" "}
                 <span className="font-medium text-stone-900">
-                  {date ? formatBookingDate(date) : "Choose a date"}
+                  {selectedDates.length
+                    ? selectedDates.length === 1
+                      ? formatBookingDate(selectedDates[0]!)
+                      : `${selectedDates.length} dates added`
+                    : "Add one or more dates"}
                 </span>
               </p>
               <p>
@@ -533,11 +597,11 @@ export default function BookingEntryPage() {
               <p>
                 Business total:{" "}
                 <span className="font-medium text-stone-900">
-                  {formatCurrency(totalAmount.businessTotalGbp)}
+                  {formatCurrency(totalRequestAmount)}
                 </span>
               </p>
               <p className="info-banner mt-4">
-                Requests start as pending. Once accepted, you can complete payment securely.
+                Each selected date becomes its own request, so the worker can accept the ones they can cover.
               </p>
             </div>
           </section>

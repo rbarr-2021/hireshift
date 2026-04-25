@@ -98,6 +98,8 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [viewingDocumentType, setViewingDocumentType] =
+    useState<BusinessDocumentType | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -225,6 +227,36 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   ) => {
     const file = event.target.files?.[0] ?? null;
     setDocuments((current) => ({ ...current, [documentType]: file }));
+  };
+
+  const handleViewDocument = async (documentType: BusinessDocumentType) => {
+    const document = existingDocuments[documentType];
+
+    if (!document) {
+      return;
+    }
+
+    setViewingDocumentType(documentType);
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(document.storage_bucket)
+        .createSignedUrl(document.storage_path, 60);
+
+      if (error || !data?.signedUrl) {
+        throw new Error(formatSupabaseError(error));
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (nextError) {
+      setMessage(
+        nextError instanceof Error
+          ? nextError.message
+          : "We could not open this document right now.",
+      );
+    } finally {
+      setViewingDocumentType(null);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -380,7 +412,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-black px-4 py-10 pb-28">
+    <div className="min-h-screen bg-black px-4 py-10 pb-36 sm:pb-28">
       <div className="panel mx-auto max-w-4xl p-5 sm:p-8">
         {mode === "onboarding" ? (
           <OnboardingProgress role="business" step="profile" />
@@ -550,17 +582,35 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
           </div>
 
           <div className="md:col-span-2 rounded-[2rem] border border-white/10 bg-black/35 p-4 sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-stone-100">Trusted business badge</p>
-                <p className="mt-1 text-sm leading-6 text-stone-400">
-                  Upload one company document so admin can approve your profile and turn on the green trusted tick for workers.
-                </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-stone-100">Trusted business badge</p>
+                  <p className="mt-1 text-sm leading-6 text-stone-400">
+                    Upload one company document so admin can approve your profile and turn on the green trusted tick for workers.
+                  </p>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                    approvalStatus === "verified"
+                      ? "bg-[#1DB954] text-white"
+                      : "border border-[#67B7FF]/30 bg-[#14203A] text-[#CFE6FF]"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-4 w-4 items-center justify-center rounded-full ${
+                      approvalStatus === "verified"
+                        ? "bg-white/20 text-white"
+                        : "bg-[#67B7FF]/20 text-[#67B7FF]"
+                    }`}
+                  >
+                    <svg viewBox="0 0 16 16" className="h-3 w-3 fill-none stroke-current stroke-[2.2]">
+                      <path d="M3.5 8.4 6.5 11.2 12.5 4.8" />
+                    </svg>
+                  </span>
+                  {approvalStatus === "verified" ? "Verified" : "In review"}
+                </span>
               </div>
-              <span className="inline-flex rounded-full bg-[#1DB954] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                Trusted
-              </span>
-            </div>
 
             <label
               htmlFor="business-verification-document"
@@ -585,11 +635,11 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
                   </span>
                 )}
               </div>
-              <div className="mt-4">
-                <input
-                  id="business-verification-document"
-                  type="file"
-                  onChange={(event) => handleDocumentChange("verification_document", event)}
+                <div className="mt-4">
+                  <input
+                    id="business-verification-document"
+                    type="file"
+                    onChange={(event) => handleDocumentChange("verification_document", event)}
                   className="sr-only"
                 />
                 <div className="inline-flex items-center rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-white">
@@ -597,14 +647,24 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
                     ? "Change file"
                     : "Add file"}
                 </div>
-                <p className="mt-2 text-xs text-stone-400">
-                  {documents.verification_document?.name ||
-                    existingDocuments.verification_document?.file_name ||
-                    "No file selected"}
-                </p>
-              </div>
-            </label>
-          </div>
+                  <p className="mt-2 text-xs text-stone-400">
+                    {documents.verification_document?.name ||
+                      existingDocuments.verification_document?.file_name ||
+                      "No file selected"}
+                  </p>
+                  {existingDocuments.verification_document ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleViewDocument("verification_document")}
+                      disabled={viewingDocumentType === "verification_document"}
+                      className="mt-3 inline-flex items-center rounded-full border border-[#67B7FF]/30 bg-[#14203A] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#CFE6FF] transition hover:border-[#67B7FF]/50 hover:bg-[#18294a] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {viewingDocumentType === "verification_document" ? "Opening..." : "View document"}
+                    </button>
+                  ) : null}
+                </div>
+              </label>
+            </div>
 
           {message ? (
             <p className="info-banner md:col-span-2">
@@ -632,7 +692,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
           </div>
         </form>
       </div>
-      <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
+      <div className={`sticky z-20 mt-6 rounded-[1.5rem] border border-white/10 bg-[rgba(4,12,22,0.94)] p-4 shadow-[0_16px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:hidden ${mode === "manage" ? "bottom-24" : "bottom-4"}`}>
         <div className="flex flex-col gap-3">
           <button type="button" onClick={() => {
             const form = document.querySelector("form");

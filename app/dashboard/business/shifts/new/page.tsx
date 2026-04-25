@@ -366,7 +366,7 @@ export default function NewShiftListingPage() {
   }
 
   return (
-    <div className="space-y-6 pb-44 sm:pb-6">
+    <div className="space-y-6 pb-32 sm:pb-10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="section-label">Open shift listing</p>
@@ -552,33 +552,19 @@ export default function NewShiftListingPage() {
               </p>
             </label>
 
-            <div className="hidden items-center justify-between gap-4 sm:flex">
-              <div className="text-sm text-stone-500">
-                Workers will only see this listing while it is still open.
+            <div className="sticky bottom-24 z-20 rounded-[1.5rem] border border-white/10 bg-[rgba(4,12,22,0.94)] p-4 shadow-[0_16px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:bottom-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-stone-500">
+                  Workers will only see this listing while it is still open.
+                </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[220px]"
+                >
+                  {saving ? "Posting shift..." : "Post open shift"}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="primary-btn px-6 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? "Posting shift..." : "Post open shift"}
-              </button>
-            </div>
-
-            <div
-              className="mobile-sticky-bar flex flex-col gap-3 sm:hidden"
-              style={{ bottom: "max(5.75rem, calc(env(safe-area-inset-bottom) + 5.75rem))" }}
-            >
-              <div className="text-sm text-stone-500">
-                Workers will only see this listing while it is still open.
-              </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                {saving ? "Posting shift..." : "Post open shift"}
-              </button>
             </div>
           </form>
         </section>
