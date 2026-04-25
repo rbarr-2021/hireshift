@@ -163,7 +163,7 @@ export default function BusinessBookingPaymentPage() {
     );
   }
 
-  const bookingReadyForPayment = booking.status === "accepted" || booking.status === "completed";
+  const bookingReadyForPayment = booking.status === "accepted";
   const paymentLabel = payment ? formatPaymentStatus(payment.status) : "Unpaid";
   const payoutLabel = payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation";
 
@@ -176,7 +176,7 @@ export default function BusinessBookingPaymentPage() {
             Review and pay shift
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Confirm the shift details and pay through secure Stripe checkout. Worker payout is only released after shift completion is confirmed.
+            Fund this shift through secure Stripe checkout so the booking is locked in before the worker arrives.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -254,7 +254,7 @@ export default function BusinessBookingPaymentPage() {
             </div>
           </div>
           <div className="info-banner mt-5">
-            Your charge is recorded now, but payout is not released to the worker until the shift is completed and approved. If anything goes wrong, you can flag an issue before payout is sent.
+            Your charge secures the booking now, but worker payout is only released after the shift is confirmed. If anything goes wrong, you can still flag an issue before payout is sent.
           </div>
 
           {!bookingReadyForPayment ? (

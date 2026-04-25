@@ -1816,7 +1816,7 @@ export function WorkerProfileForm({
             ) : null}
           </form>
         </div>
-        <div className={`mobile-sticky-bar ${mode === "manage" ? "bottom-24" : "bottom-3"} sm:hidden`}>
+        <div className="mt-6 space-y-3 border-t border-white/10 pt-4 sm:hidden">
           <div className="flex flex-col gap-3">
             {mode === "onboarding" ? (
               <button

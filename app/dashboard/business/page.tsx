@@ -280,90 +280,74 @@ export default function BusinessDashboardPage() {
 
   const handleRecordOutcome = async (
     bookingId: string,
-    outcome: "completed" | "no_show",
-  ) => {
-    setActioningId(bookingId);
-
-    const { error } = await supabase.rpc("business_record_booking_outcome", {
-      target_booking_id: bookingId,
-      outcome,
-    });
-
-    setActioningId(null);
-
-    if (error) {
-      showToast({
-        title: "Could not update booking",
-        description: error.message,
-        tone: "error",
-      });
-      return;
-    }
-
-    const refreshedBooking = await reloadBooking(bookingId);
-
-    if (refreshedBooking) {
-      setBookings((current) =>
-        current.map((booking) => (booking.id === bookingId ? refreshedBooking : booking)),
-      );
-    }
-
-    showToast({
-      title: outcome === "completed" ? "Shift marked completed" : "No-show recorded",
-      description:
-        outcome === "completed"
-          ? "This worker's completed shift has been recorded."
-          : "This no-show has been recorded against the worker's reliability standing.",
-      tone: outcome === "completed" ? "success" : "info",
-    });
-  };
-
-  const handlePayoutAction = async (
-    bookingId: string,
-    action: "mark_complete" | "approve_payout" | "flag_issue",
+    action: "confirm_shift" | "no_show" | "flag_issue",
   ) => {
     setActioningId(bookingId);
 
     try {
-      const response = await fetchWithSession(`/api/bookings/${bookingId}/payout`, {
+      const response = await fetchWithSession(`/api/bookings/${bookingId}/attendance`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           action,
-          reason: action === "flag_issue" ? "Issue raised by business after the shift." : undefined,
+          reason:
+            action === "flag_issue"
+              ? "Issue raised by business after the shift."
+              : action === "no_show"
+                ? "Worker marked as no-show by business."
+                : undefined,
         }),
       });
 
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as {
+        error?: string;
+        booking?: BookingRecord | null;
+        payment?: PaymentRecord | null;
+      };
 
       if (!response.ok) {
-        throw new Error(payload.error || "Unable to update payout status.");
+        throw new Error(payload.error || "Unable to update booking.");
       }
 
-      await syncBookingState(bookingId);
-      if (action === "mark_complete") {
+      if (payload.booking) {
+        setBookings((current) =>
+          current.map((booking) => (booking.id === bookingId ? payload.booking! : booking)),
+        );
+      }
+
+      if (payload.payment) {
+        setPaymentsByBookingId((current) => ({
+          ...current,
+          [bookingId]: payload.payment!,
+        }));
+      } else {
+        await syncBookingState(bookingId);
+      }
+
+      if (payload.booking?.status === "completed") {
         setCompletedBookingIds((current) => new Set(current).add(bookingId));
       }
+
       showToast({
         title:
-          action === "mark_complete"
-            ? "Shift marked complete"
-            : action === "approve_payout"
-              ? "Payout approved"
+          action === "confirm_shift"
+            ? "Shift confirmed"
+            : action === "no_show"
+              ? "No-show recorded"
               : "Issue flagged",
         description:
-          action === "mark_complete"
-            ? "The shift is now ready for payout approval."
-            : action === "approve_payout"
-              ? "This payout is approved for release."
+          action === "confirm_shift"
+            ? "The shift is confirmed and worker payout will move automatically."
+            : action === "no_show"
+              ? "This no-show has been recorded and payout is paused."
               : "This booking has been moved into dispute review.",
-        tone: action === "flag_issue" ? "info" : "success",
+        tone: action === "flag_issue" || action === "no_show" ? "info" : "success",
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Unable to update payout status.";
+        error instanceof Error ? error.message : "Unable to update booking.";
       showToast({
         title: "Update failed",
         description: message,
@@ -433,11 +417,11 @@ export default function BusinessDashboardPage() {
         <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-stone-500">Payout approvals</p>
+              <p className="text-sm font-medium text-stone-500">Post-shift actions</p>
               <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutApprovals.length}</p>
             </div>
             <p className="max-w-xl text-sm leading-6 text-stone-600">
-              Worker payout is released only after shift completion is confirmed, keeping instant pay fast but still protected for both sides.
+              Fund the booking first, then confirm the shift after it ends. Payout is sent automatically unless an issue is raised.
             </p>
           </div>
         </section>
@@ -469,6 +453,7 @@ export default function BusinessDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   worker={workersById[booking.worker_id]}
+                  payment={paymentsByBookingId[booking.id]}
                   paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   payoutLabel={
@@ -506,6 +491,7 @@ export default function BusinessDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   worker={workersById[booking.worker_id]}
+                  payment={paymentsByBookingId[booking.id]}
                   paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
                   payoutLabel={
@@ -530,12 +516,16 @@ export default function BusinessDashboardPage() {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => void handlePayoutAction(booking.id, "mark_complete")}
-                        disabled={actioningId === booking.id}
+                        onClick={() => void handleRecordOutcome(booking.id, "confirm_shift")}
+                        disabled={
+                          actioningId === booking.id ||
+                          !isBookingPaid(paymentsByBookingId[booking.id]) ||
+                          !(booking.worker_checked_out_at || isPastBooking(booking))
+                        }
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                       >
                         <span className="inline-flex items-center justify-center gap-2">
-                          {actioningId === booking.id ? "Updating..." : "Mark completed"}
+                          {actioningId === booking.id ? "Updating..." : "Confirm shift"}
                           {completedBookingIds.has(booking.id) ? (
                             <span
                               aria-label="Completed"
@@ -549,7 +539,7 @@ export default function BusinessDashboardPage() {
                       <button
                         type="button"
                         onClick={() => void handleRecordOutcome(booking.id, "no_show")}
-                        disabled={actioningId === booking.id}
+                        disabled={actioningId === booking.id || !isPastBooking(booking)}
                         className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                       >
                         Mark no-show
@@ -571,7 +561,7 @@ export default function BusinessDashboardPage() {
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="panel-soft p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-stone-900">Post-shift approvals</h2>
+            <h2 className="text-xl font-semibold text-stone-900">Post-shift actions</h2>
             <span className="status-badge status-badge--ready">{payoutApprovals.length}</span>
           </div>
           <div className="mt-4 space-y-4">
@@ -584,6 +574,7 @@ export default function BusinessDashboardPage() {
                     key={booking.id}
                     booking={booking}
                     worker={workersById[booking.worker_id]}
+                    payment={payment}
                     paymentLabel={formatPaymentStatus(payment?.status ?? "pending")}
                     paymentTone={paymentStatusClass(payment?.status ?? "pending")}
                     payoutLabel={payment ? formatPayoutStatus(payment.payout_status) : undefined}
@@ -593,27 +584,21 @@ export default function BusinessDashboardPage() {
                         {booking.status !== "completed" ? (
                           <button
                             type="button"
-                            onClick={() => void handlePayoutAction(booking.id, "mark_complete")}
-                            disabled={actioningId === booking.id}
+                            onClick={() => void handleRecordOutcome(booking.id, "confirm_shift")}
+                            disabled={
+                              actioningId === booking.id ||
+                              !isBookingPaid(payment) ||
+                              !(booking.worker_checked_out_at || isPastBooking(booking))
+                            }
                             className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                           >
-                            {actioningId === booking.id ? "Updating..." : "Mark shift complete"}
-                          </button>
-                        ) : null}
-                        {payment?.payout_status !== "approved_for_payout" && payment?.payout_status !== "paid" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handlePayoutAction(booking.id, "approve_payout")}
-                            disabled={actioningId === booking.id || booking.status !== "completed"}
-                            className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                          >
-                            Approve payout
+                            {actioningId === booking.id ? "Updating..." : "Confirm shift"}
                           </button>
                         ) : null}
                         {payment?.payout_status !== "disputed" ? (
                           <button
                             type="button"
-                            onClick={() => void handlePayoutAction(booking.id, "flag_issue")}
+                            onClick={() => void handleRecordOutcome(booking.id, "flag_issue")}
                             disabled={actioningId === booking.id}
                             className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                           >
@@ -627,8 +612,8 @@ export default function BusinessDashboardPage() {
               })
             ) : (
               <BusinessEmptyState
-                title="No payouts waiting on you"
-                description="After a shift ends, confirm completion here so approved payouts can move quickly."
+                title="No post-shift actions waiting"
+                description="Once a funded shift ends, confirm it here so the worker payout can move automatically."
               />
             )}
           </div>

@@ -80,7 +80,7 @@ export function formatBookingLifecycleLabel(
   payment?: PaymentRecord | null,
 ) {
   if (booking.status === "accepted" && isBookingPaid(payment)) {
-    return "Confirmed";
+    return "Funded";
   }
 
   if (booking.status === "declined") {
@@ -116,15 +116,23 @@ export function getWorkerShiftStage(
   }
 
   if (payment?.payout_status === "approved_for_payout") {
-    return "Approved for Payout";
+    return "Payout on the way";
   }
 
   if (payment?.payout_status === "awaiting_business_approval") {
-    return "Awaiting Business Approval";
+    return "Awaiting business confirmation";
   }
 
   if (payment?.payout_status === "awaiting_shift_completion") {
-    return "Awaiting Shift Completion";
+    if (booking.worker_checked_in_at && !booking.worker_checked_out_at) {
+      return "In progress";
+    }
+
+    if (booking.worker_checked_out_at) {
+      return "Awaiting business confirmation";
+    }
+
+    return "Funded";
   }
 
   if (booking.status === "pending") {
@@ -132,11 +140,19 @@ export function getWorkerShiftStage(
   }
 
   if (booking.status === "accepted") {
-    return isBookingPaid(payment) ? "In Progress" : "Confirmed";
+    if (booking.worker_checked_in_at && !booking.worker_checked_out_at) {
+      return "In progress";
+    }
+
+    if (booking.worker_checked_out_at) {
+      return "Awaiting business confirmation";
+    }
+
+    return isBookingPaid(payment) ? "Funded" : "Accepted";
   }
 
   if (booking.status === "completed") {
-    return "Awaiting Business Approval";
+    return "Awaiting payout";
   }
 
   if (booking.status === "cancelled") {
@@ -163,19 +179,19 @@ export function getPayoutSupportCopy(payment?: PaymentRecord | PayoutStatus | nu
   }
 
   if (payoutStatus === "pending_confirmation") {
-    return "Payout will begin once the booking has been paid and the shift is completed.";
+    return "This shift still needs to be funded by the business before payout can move.";
   }
 
   if (payoutStatus === "awaiting_shift_completion") {
-    return "Payout is waiting for the shift to be completed.";
+    return "This shift is funded. Start and finish the shift to keep payout moving.";
   }
 
   if (payoutStatus === "awaiting_business_approval") {
-    return "The shift is complete. Payout is waiting for business approval.";
+    return "Your shift is logged. Payout is waiting for business confirmation.";
   }
 
   if (payoutStatus === "approved_for_payout") {
-    return "Payout has been approved and is ready to be sent.";
+    return "Confirmed. Your payout is now being sent through Stripe.";
   }
 
   if (payoutStatus === "paid") {

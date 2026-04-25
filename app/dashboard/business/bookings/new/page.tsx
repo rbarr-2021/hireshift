@@ -264,6 +264,13 @@ export default function BookingEntryPage() {
       status: "pending",
       total_amount_gbp: totalAmount.businessTotalGbp,
       platform_fee_gbp: totalAmount.platformFeeGbp,
+      worker_checked_in_at: null,
+      worker_checked_out_at: null,
+      business_confirmed_start_at: null,
+      business_confirmed_end_at: null,
+      business_confirmed_at: null,
+      business_confirmed_by: null,
+      manager_confirmation_name: null,
     };
 
     console.info("[booking-create] insert payload", {

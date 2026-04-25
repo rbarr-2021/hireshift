@@ -23,6 +23,13 @@ const baseBooking: BookingRecord = {
   status: "accepted",
   total_amount_gbp: 184,
   platform_fee_gbp: 24,
+  worker_checked_in_at: null,
+  worker_checked_out_at: null,
+  business_confirmed_start_at: null,
+  business_confirmed_end_at: null,
+  business_confirmed_at: null,
+  business_confirmed_by: null,
+  manager_confirmation_name: null,
   created_at: "",
   updated_at: "",
 };
@@ -67,6 +74,6 @@ describe("payments helpers", () => {
   });
 
   it("shows confirmed once an accepted booking has been paid", () => {
-    expect(formatBookingLifecycleLabel(baseBooking, paidPayment)).toBe("Confirmed");
+    expect(formatBookingLifecycleLabel(baseBooking, paidPayment)).toBe("Funded");
   });
 });

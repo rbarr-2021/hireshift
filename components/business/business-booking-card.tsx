@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  formatAttendanceTimestamp,
   bookingStatusClass,
   formatBookingDate,
   formatBookingTimeRange,
@@ -11,7 +12,7 @@ import {
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
-import type { BookingRecord } from "@/lib/models";
+import type { BookingRecord, PaymentRecord } from "@/lib/models";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -31,6 +32,7 @@ export function BusinessBookingCard({
   booking,
   worker,
   actions,
+  payment,
   paymentLabel,
   paymentTone,
   payoutLabel,
@@ -39,6 +41,7 @@ export function BusinessBookingCard({
   booking: BookingRecord;
   worker?: WorkerSnapshot;
   actions?: React.ReactNode;
+  payment?: PaymentRecord | null;
   paymentLabel?: string;
   paymentTone?: string;
   payoutLabel?: string;
@@ -60,7 +63,7 @@ export function BusinessBookingCard({
           <span
             className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}
           >
-            {formatBookingLifecycleLabel(booking)}
+            {formatBookingLifecycleLabel(booking, payment)}
           </span>
           {paymentLabel ? (
             <span
@@ -101,6 +104,18 @@ export function BusinessBookingCard({
           <span className="font-medium text-stone-900">Total:</span>{" "}
           {formatCurrency(booking.total_amount_gbp)}
         </p>
+        {booking.worker_checked_in_at ? (
+          <p>
+            <span className="font-medium text-stone-900">Worker started:</span>{" "}
+            {formatAttendanceTimestamp(booking.worker_checked_in_at)}
+          </p>
+        ) : null}
+        {booking.worker_checked_out_at ? (
+          <p>
+            <span className="font-medium text-stone-900">Worker finished:</span>{" "}
+            {formatAttendanceTimestamp(booking.worker_checked_out_at)}
+          </p>
+        ) : null}
       </div>
       {booking.notes ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">

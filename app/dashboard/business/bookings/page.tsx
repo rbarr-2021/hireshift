@@ -1,6 +1,4 @@
 "use client";
-
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -21,7 +19,6 @@ import {
   formatPayoutStatus,
   paymentStatusClass,
   payoutStatusClass,
-  isBookingPaid,
 } from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
 import {
@@ -209,6 +206,7 @@ export default function BusinessPastBookingsPage() {
               key={booking.id}
               booking={booking}
               worker={workersById[booking.worker_id]}
+              payment={paymentsByBookingId[booking.id]}
               paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
               paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
               payoutLabel={
@@ -220,16 +218,6 @@ export default function BusinessPastBookingsPage() {
                 paymentsByBookingId[booking.id]
                   ? payoutStatusClass(paymentsByBookingId[booking.id].payout_status)
                   : undefined
-              }
-              actions={
-                booking.status === "completed" && !isBookingPaid(paymentsByBookingId[booking.id]) ? (
-                  <Link
-                    href={`/dashboard/business/bookings/${booking.id}/pay`}
-                    className="primary-btn w-full px-5 sm:w-auto"
-                  >
-                    Pay shift
-                  </Link>
-                ) : undefined
               }
             />
           ))}

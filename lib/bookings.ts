@@ -87,16 +87,38 @@ export function calculateBookingDurationHours(
 }
 
 export function isPastBooking(booking: BookingRecord) {
-  const shiftDate = new Date(
-    `${booking.shift_end_date ?? booking.shift_date}T${booking.end_time}`,
-  );
-  return shiftDate.getTime() < Date.now();
+  return getBookingEndDateTime(booking).getTime() < Date.now();
 }
 
 export function getBookingStartDateTime(
   booking: Pick<BookingRecord, "shift_date" | "start_time">,
 ) {
   return new Date(`${booking.shift_date}T${booking.start_time}`);
+}
+
+export function getBookingEndDateTime(
+  booking: Pick<BookingRecord, "shift_date" | "shift_end_date" | "end_time">,
+) {
+  return new Date(`${booking.shift_end_date ?? booking.shift_date}T${booking.end_time}`);
+}
+
+export function formatAttendanceTimestamp(timestamp?: string | null) {
+  if (!timestamp) {
+    return null;
+  }
+
+  const parsed = new Date(timestamp);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
 }
 
 export function formatTimeUntilBooking(

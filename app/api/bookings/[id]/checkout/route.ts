@@ -36,9 +36,9 @@ export async function POST(
       return NextResponse.json({ error: "Booking not found." }, { status: 404 });
     }
 
-    if (!(booking.status === "accepted" || booking.status === "completed")) {
+    if (booking.status !== "accepted") {
       return NextResponse.json(
-        { error: "This booking can only be paid once the worker has accepted or completed the shift." },
+        { error: "This booking can only be paid once the worker has accepted the shift." },
         { status: 409 },
       );
     }

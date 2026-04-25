@@ -523,6 +523,13 @@ export type BookingRecord = {
   status: BookingStatus;
   total_amount_gbp: number;
   platform_fee_gbp: number;
+  worker_checked_in_at: string | null;
+  worker_checked_out_at: string | null;
+  business_confirmed_start_at: string | null;
+  business_confirmed_end_at: string | null;
+  business_confirmed_at: string | null;
+  business_confirmed_by: string | null;
+  manager_confirmation_name: string | null;
   created_at: string;
   updated_at: string;
 };

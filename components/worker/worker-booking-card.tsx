@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  formatAttendanceTimestamp,
   bookingStatusClass,
   formatBookingDate,
   formatBookingStatus,
@@ -103,6 +104,18 @@ export function WorkerBookingCard({
           <span className="font-medium text-stone-900">Status:</span>{" "}
           {shiftStage}
         </p>
+        {booking.worker_checked_in_at ? (
+          <p>
+            <span className="font-medium text-stone-900">Started:</span>{" "}
+            {formatAttendanceTimestamp(booking.worker_checked_in_at)}
+          </p>
+        ) : null}
+        {booking.worker_checked_out_at ? (
+          <p>
+            <span className="font-medium text-stone-900">Finished:</span>{" "}
+            {formatAttendanceTimestamp(booking.worker_checked_out_at)}
+          </p>
+        ) : null}
       </div>
       {countdownLabel ? (
         <div className="mt-4">

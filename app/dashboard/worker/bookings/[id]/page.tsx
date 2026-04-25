@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import {
   formatBookingDate,
+  formatAttendanceTimestamp,
   formatBookingTimeRange,
 } from "@/lib/bookings";
 import type {
@@ -23,6 +24,7 @@ import {
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
+import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 
 type BusinessSnapshot = {
@@ -47,6 +49,7 @@ export default function WorkerBookingDetailPage() {
   const [payment, setPayment] = useState<PaymentRecord | null>(null);
   const [business, setBusiness] = useState<BusinessSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingAttendance, setUpdatingAttendance] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -157,6 +160,55 @@ export default function WorkerBookingDetailPage() {
     );
   }
 
+  const handleAttendance = async (action: "check_in" | "check_out") => {
+    setUpdatingAttendance(true);
+
+    try {
+      const response = await fetchWithSession(`/api/bookings/${booking.id}/attendance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        booking?: BookingRecord | null;
+        payment?: PaymentRecord | null;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to update attendance.");
+      }
+
+      if (payload.booking) {
+        setBooking(payload.booking);
+      }
+
+      if (payload.payment) {
+        setPayment(payload.payment);
+      }
+
+      showToast({
+        title: action === "check_in" ? "Shift started" : "Shift finished",
+        description:
+          action === "check_in"
+            ? "Your start time has been logged."
+            : "Your finish time has been logged for business confirmation.",
+        tone: "success",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update attendance.";
+      showToast({
+        title: "Attendance update failed",
+        description: message,
+        tone: "error",
+      });
+    } finally {
+      setUpdatingAttendance(false);
+    }
+  };
+
   const workerPayout = payment?.worker_payout_gbp ?? booking.total_amount_gbp - booking.platform_fee_gbp;
 
   return (
@@ -168,7 +220,7 @@ export default function WorkerBookingDetailPage() {
             {business?.name || "Business"} shift
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Payout is released after shift completion is confirmed.
+            Funded shifts move to payout after the business confirms completion.
           </p>
         </div>
         <Link href="/dashboard/worker" className="secondary-btn w-full px-6 sm:w-auto">
@@ -200,6 +252,12 @@ export default function WorkerBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Location:</span> {business?.location || booking.location}</p>
             <p><span className="font-medium text-stone-900">Agreed rate:</span> {formatCurrency(booking.hourly_rate_gbp)}/hr</p>
             <p><span className="font-medium text-stone-900">Expected payout:</span> {formatCurrency(workerPayout)}</p>
+            {booking.worker_checked_in_at ? (
+              <p><span className="font-medium text-stone-900">Started:</span> {formatAttendanceTimestamp(booking.worker_checked_in_at)}</p>
+            ) : null}
+            {booking.worker_checked_out_at ? (
+              <p><span className="font-medium text-stone-900">Finished:</span> {formatAttendanceTimestamp(booking.worker_checked_out_at)}</p>
+            ) : null}
           </div>
 
           {booking.notes ? (
@@ -239,6 +297,30 @@ export default function WorkerBookingDetailPage() {
               </p>
             ) : null}
           </div>
+          {booking.status === "accepted" ? (
+            <div className="mt-5 flex flex-col gap-3">
+              {!booking.worker_checked_in_at ? (
+                <button
+                  type="button"
+                  onClick={() => void handleAttendance("check_in")}
+                  disabled={updatingAttendance}
+                  className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {updatingAttendance ? "Updating..." : "Start shift"}
+                </button>
+              ) : null}
+              {booking.worker_checked_in_at && !booking.worker_checked_out_at ? (
+                <button
+                  type="button"
+                  onClick={() => void handleAttendance("check_out")}
+                  disabled={updatingAttendance}
+                  className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {updatingAttendance ? "Updating..." : "End shift"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </aside>
       </div>
     </div>

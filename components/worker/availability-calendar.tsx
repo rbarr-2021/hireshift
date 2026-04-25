@@ -127,7 +127,7 @@ function statusCardClass(status: WorkerAvailabilityStatus, active: boolean) {
 
 function calendarCellClass(status?: WorkerAvailabilityStatus, selected = false, today = false) {
   const base =
-    "relative flex min-h-[3.85rem] w-full min-w-0 flex-col overflow-hidden rounded-[1rem] border px-2 py-2 text-left transition sm:min-h-[4.35rem] lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
+    "relative flex min-h-[3.2rem] w-full min-w-0 flex-col overflow-hidden rounded-[0.9rem] border px-1.5 py-1.5 text-left transition sm:min-h-[4.35rem] sm:rounded-[1rem] sm:px-2 sm:py-2 lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
 
   const selection = selected
     ? " border-[#00A7FF] ring-2 ring-[#00A7FF]/35"
@@ -562,7 +562,7 @@ export function AvailabilityCalendar({
         </div>
 
       <div className="mt-6 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:items-start">
-          <div className="min-w-0 rounded-[1.75rem] border border-white/10 bg-black/35 p-2.5 sm:p-4">
+          <div className="min-w-0 rounded-[1.4rem] border border-white/10 bg-black/35 p-1.5 sm:rounded-[1.75rem] sm:p-4">
             <div className="flex items-center justify-between gap-4">
               <h3 className="text-lg font-semibold text-stone-100">
                 {formatMonthLabel(visibleMonth)}
@@ -574,13 +574,13 @@ export function AvailabilityCalendar({
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-7 gap-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 sm:gap-2 sm:text-xs">
+            <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase tracking-[0.08em] text-stone-500 sm:gap-2 sm:text-xs sm:tracking-[0.14em]">
               {WEEKDAY_LABELS.map((label) => (
                 <span key={label}>{label}</span>
               ))}
             </div>
 
-            <div className="mt-3 grid min-w-0 grid-cols-7 gap-1.5 sm:gap-2">
+            <div className="mt-2.5 grid min-w-0 grid-cols-7 gap-1 sm:mt-3 sm:gap-2">
               {calendarDays.map((day) => {
                 const dateKey = getDateKey(day);
                 const entry = entryMap[dateKey];
@@ -600,21 +600,21 @@ export function AvailabilityCalendar({
                     className={calendarCellClass(entry?.status, isSelected, isToday)}
                   >
                     <span
-                      className={`text-sm font-semibold leading-none sm:text-base ${
+                      className={`text-[13px] font-semibold leading-none sm:text-base ${
                         inMonth ? "text-stone-100" : "text-stone-500"
                       }`}
                     >
                       {day.getDate()}
                     </span>
                     {isToday ? (
-                      <span className="mt-1 inline-flex w-fit rounded-full bg-[#00A7FF] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-white sm:text-[10px]">
+                      <span className="mt-1 inline-flex w-fit rounded-full bg-[#00A7FF] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.06em] text-white sm:px-2 sm:text-[10px] sm:tracking-[0.1em]">
                         Today
                       </span>
                     ) : null}
                     {entry ? (
-                      <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-stone-700">
+                      <span className="mt-auto inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.08em] text-stone-700 sm:gap-1.5 sm:text-[10px] sm:tracking-[0.12em]">
                         <span
-                          className={`h-2.5 w-2.5 rounded-full ${calendarDotClass(entry.status)}`}
+                          className={`h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5 ${calendarDotClass(entry.status)}`}
                         />
                       </span>
                     ) : null}

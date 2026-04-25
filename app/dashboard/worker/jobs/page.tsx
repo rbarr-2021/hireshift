@@ -10,6 +10,7 @@ import {
 } from "@/components/worker/worker-booking-card";
 import { loadWorkerBookingsSnapshot } from "@/components/worker/worker-bookings-loader";
 import { isPastBooking } from "@/lib/bookings";
+import { fetchWithSession } from "@/lib/route-client";
 import type {
   BookingRecord,
   PaymentRecord,
@@ -74,6 +75,65 @@ export default function WorkerAcceptedJobsPage() {
       .maybeSingle<BookingRecord>();
 
     return data ?? null;
+  };
+
+  const handleAttendance = async (
+    booking: BookingRecord,
+    action: "check_in" | "check_out",
+  ) => {
+    setActioningId(booking.id);
+
+    try {
+      const response = await fetchWithSession(`/api/bookings/${booking.id}/attendance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      const payload = (await response.json()) as {
+        error?: string;
+        booking?: BookingRecord | null;
+        payment?: PaymentRecord | null;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to update shift attendance.");
+      }
+
+      if (payload.booking) {
+        setBookings((current) =>
+          current.map((item) => (item.id === booking.id ? payload.booking! : item)),
+        );
+      }
+
+      if (payload.payment) {
+        setPaymentsByBookingId((current) => ({
+          ...current,
+          [booking.id]: payload.payment!,
+        }));
+      }
+
+      showToast({
+        title: action === "check_in" ? "Shift started" : "Shift finished",
+        description:
+          action === "check_in"
+            ? "Your start time has been logged."
+            : "Your finish time has been logged for business confirmation.",
+        tone: "success",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update shift attendance.";
+      showToast({
+        title: "Attendance update failed",
+        description: message,
+        tone: "error",
+      });
+    } finally {
+      setActioningId(null);
+    }
   };
 
   const handleCancelBooking = async (booking: BookingRecord) => {
@@ -158,14 +218,38 @@ export default function WorkerAcceptedJobsPage() {
               countdownNow={countdownNow}
               actions={
                 !isPastBooking(booking) ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleCancelBooking(booking)}
-                    disabled={actioningId === booking.id}
-                    className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  >
-                    {actioningId === booking.id ? "Updating..." : "Cancel shift"}
-                  </button>
+                  <>
+                    {!booking.worker_checked_in_at ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleAttendance(booking, "check_in")}
+                        disabled={actioningId === booking.id}
+                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {actioningId === booking.id ? "Updating..." : "Start shift"}
+                      </button>
+                    ) : null}
+                    {booking.worker_checked_in_at && !booking.worker_checked_out_at ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleAttendance(booking, "check_out")}
+                        disabled={actioningId === booking.id}
+                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {actioningId === booking.id ? "Updating..." : "End shift"}
+                      </button>
+                    ) : null}
+                    {!booking.worker_checked_in_at ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleCancelBooking(booking)}
+                        disabled={actioningId === booking.id}
+                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {actioningId === booking.id ? "Updating..." : "Cancel shift"}
+                      </button>
+                    ) : null}
+                  </>
                 ) : undefined
               }
             />
