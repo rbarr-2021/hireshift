@@ -26,6 +26,9 @@ export type AdminUserListItem = {
     city: string;
     verification_status: string;
   } | null;
+  workerDocumentCount: number;
+  businessDocumentCount: number;
+  pendingVerificationReview: boolean;
   displayLabel: string;
 };
 
@@ -59,6 +62,8 @@ export function AdminUsersManager({
     workers: 0,
     businesses: 0,
     suspended: 0,
+    pendingVerificationReviews: 0,
+    pendingBusinessVerificationReviews: 0,
   });
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -108,7 +113,14 @@ export function AdminUsersManager({
         if (active) {
           setItems(payload.items ?? []);
           setCounts(
-            payload.counts ?? { all: 0, workers: 0, businesses: 0, suspended: 0 },
+            payload.counts ?? {
+              all: 0,
+              workers: 0,
+              businesses: 0,
+              suspended: 0,
+              pendingVerificationReviews: 0,
+              pendingBusinessVerificationReviews: 0,
+            },
           );
         }
       } catch (nextError) {
@@ -148,6 +160,91 @@ export function AdminUsersManager({
     }),
     [counts, items, lockedRole],
   );
+
+  const handleVerificationAction = async (
+    item: AdminUserListItem,
+    action: "approve_verification" | "reject_verification",
+  ) => {
+    setActioningId(item.user.id);
+
+    try {
+      const response = await fetchWithSession(`/api/admin/users/${item.user.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to update verification.");
+      }
+
+      setItems((current) =>
+        current.map((candidate) => {
+          if (candidate.user.id !== item.user.id) {
+            return candidate;
+          }
+
+          if (candidate.workerProfile) {
+            return {
+              ...candidate,
+              workerProfile: {
+                ...candidate.workerProfile,
+                verification_status:
+                  action === "approve_verification" ? "verified" : "rejected",
+              },
+              pendingVerificationReview: false,
+            };
+          }
+
+          if (candidate.businessProfile) {
+            return {
+              ...candidate,
+              businessProfile: {
+                ...candidate.businessProfile,
+                verification_status:
+                  action === "approve_verification" ? "verified" : "rejected",
+              },
+              pendingVerificationReview: false,
+            };
+          }
+
+          return candidate;
+        }),
+      );
+
+      setCounts((current) => ({
+        ...current,
+        pendingVerificationReviews: Math.max(0, current.pendingVerificationReviews - 1),
+        pendingBusinessVerificationReviews:
+          item.user.role === "business"
+            ? Math.max(0, current.pendingBusinessVerificationReviews - 1)
+            : current.pendingBusinessVerificationReviews,
+      }));
+
+      showToast({
+        title:
+          action === "approve_verification" ? "Profile approved" : "Changes requested",
+        description:
+          action === "approve_verification"
+            ? "The trusted badge is now live on this profile."
+            : "This profile is back in changes-required status.",
+        tone: "success",
+      });
+    } catch (nextError) {
+      const nextMessage =
+        nextError instanceof Error ? nextError.message : "Unable to update verification.";
+      showToast({
+        title: "Verification update failed",
+        description: nextMessage,
+        tone: "error",
+      });
+    } finally {
+      setActioningId(null);
+    }
+  };
 
   const visibleTabs: UserTab[] = useMemo(() => {
     if (lockedRole === "business") {
@@ -413,7 +510,18 @@ export function AdminUsersManager({
                           item.businessProfile?.verification_status ||
                           "n/a"}
                       </p>
+                      <p>
+                        Review docs{" "}
+                        {item.user.role === "worker"
+                          ? item.workerDocumentCount
+                          : item.businessDocumentCount}
+                      </p>
                     </div>
+                    {item.pendingVerificationReview ? (
+                      <div className="mt-4 inline-flex rounded-full border border-[#67B7FF]/30 bg-[#14203A] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#CFE6FF]">
+                        Review waiting
+                      </div>
+                    ) : null}
                     {item.user.suspended_reason ? (
                       <p className="mt-3 text-sm text-red-300">
                         Reason: {item.user.suspended_reason}
@@ -422,6 +530,26 @@ export function AdminUsersManager({
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                    {item.pendingVerificationReview ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void handleVerificationAction(item, "approve_verification")}
+                          disabled={actioningId === item.user.id}
+                          className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {actioningId === item.user.id ? "Updating..." : "Approve badge"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleVerificationAction(item, "reject_verification")}
+                          disabled={actioningId === item.user.id}
+                          className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Request changes
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void handleSuspendToggle(item)}

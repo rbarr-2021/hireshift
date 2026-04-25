@@ -31,6 +31,7 @@ type BusinessSnapshot = {
   name: string;
   contact: string;
   location: string;
+  verificationStatus: BusinessProfileRecord["verification_status"] | "pending";
 };
 
 function formatCurrency(value: number) {
@@ -112,6 +113,7 @@ export default function WorkerBookingDetailPage() {
             [businessProfileResult.data?.address_line_1, businessProfileResult.data?.city]
               .filter(Boolean)
               .join(", ") || bookingResult.data.location,
+          verificationStatus: businessProfileResult.data?.verification_status ?? "pending",
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to load shift.";
@@ -249,6 +251,9 @@ export default function WorkerBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(booking.start_time, booking.end_time, booking.shift_date, booking.shift_end_date)}</p>
             <p><span className="font-medium text-stone-900">Stage:</span> {getWorkerShiftStage(booking, payment)}</p>
             <p><span className="font-medium text-stone-900">Business:</span> {business?.contact || "Business contact"}</p>
+            {business?.verificationStatus === "verified" ? (
+              <p><span className="font-medium text-stone-900">Trust:</span> Trusted business</p>
+            ) : null}
             <p><span className="font-medium text-stone-900">Location:</span> {business?.location || booking.location}</p>
             <p><span className="font-medium text-stone-900">Agreed rate:</span> {formatCurrency(booking.hourly_rate_gbp)}/hr</p>
             <p><span className="font-medium text-stone-900">Expected payout:</span> {formatCurrency(workerPayout)}</p>

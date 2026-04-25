@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
@@ -9,7 +9,10 @@ import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
 import {
+  BUSINESS_DOCUMENT_LABELS,
   BUSINESS_SECTORS,
+  type BusinessDocumentRecord,
+  type BusinessDocumentType,
   type BusinessProfileRecord,
   type BusinessSector,
   type UserRecord,
@@ -26,6 +29,12 @@ type SupabaseLikeError = {
   hint?: string | null;
   code?: string;
 };
+
+type BusinessDocumentFileState = Partial<Record<BusinessDocumentType, File | null>>;
+
+function sanitiseFileName(value: string) {
+  return value.replace(/[^a-zA-Z0-9.-]/g, "-").toLowerCase();
+}
 
 function formatSupabaseError(error: unknown) {
   if (error instanceof Error) {
@@ -55,6 +64,18 @@ function statusStyles(status: BusinessProfileRecord["verification_status"] | "pe
   return "bg-amber-100 text-amber-900";
 }
 
+function statusCopy(status: BusinessProfileRecord["verification_status"] | "pending") {
+  if (status === "verified") {
+    return "Trusted badge live. Workers will see your venue as approved.";
+  }
+
+  if (status === "rejected") {
+    return "Upload a fresh document and we will put this back into review.";
+  }
+
+  return "Upload one document to request the trusted green tick on your profile.";
+}
+
 export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const router = useRouter();
   const { refreshAuthState } = useAuthState();
@@ -71,6 +92,10 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const [description, setDescription] = useState("");
   const [approvalStatus, setApprovalStatus] =
     useState<BusinessProfileRecord["verification_status"]>("pending");
+  const [documents, setDocuments] = useState<BusinessDocumentFileState>({});
+  const [existingDocuments, setExistingDocuments] = useState<
+    Partial<Record<BusinessDocumentType, BusinessDocumentRecord>>
+  >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -87,13 +112,17 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         return;
       }
 
-      const [{ data: appUser }, { data: profile }] = await Promise.all([
+      const [{ data: appUser }, { data: profile }, { data: businessDocuments }] = await Promise.all([
         supabase.from("users").select("*").eq("id", authUser.id).maybeSingle<UserRecord>(),
         supabase
           .from("business_profiles")
           .select("*")
           .eq("user_id", authUser.id)
           .maybeSingle<BusinessProfileRecord>(),
+        supabase
+          .from("business_documents")
+          .select("*")
+          .eq("business_id", authUser.id),
       ]);
 
       if (!active) return;
@@ -125,6 +154,15 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         setContactName(appUser?.display_name ?? "");
         setPhone(normaliseInternationalPhoneNumber(appUser?.phone ?? "") ?? appUser?.phone ?? "");
       }
+
+      setExistingDocuments(
+        ((businessDocuments as BusinessDocumentRecord[] | null) ?? []).reduce<
+          Partial<Record<BusinessDocumentType, BusinessDocumentRecord>>
+        >((accumulator, document) => {
+          accumulator[document.document_type] = document;
+          return accumulator;
+        }, {}),
+      );
 
       setLoading(false);
     };
@@ -181,6 +219,14 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     return null;
   };
 
+  const handleDocumentChange = (
+    documentType: BusinessDocumentType,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0] ?? null;
+    setDocuments((current) => ({ ...current, [documentType]: file }));
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const validationError = validate();
@@ -209,6 +255,10 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         throw new Error(formatSupabaseError(existingProfileError));
       }
 
+      const verificationDocument = documents.verification_document;
+      const nextApprovalStatus =
+        verificationDocument && approvalStatus !== "verified" ? "pending" : approvalStatus;
+
       const businessProfilePayload = {
         user_id: authUser.id,
         business_name: businessName.trim(),
@@ -219,6 +269,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         city: city.trim(),
         postcode: postcode.trim() || null,
         description: description.trim(),
+        verification_status: nextApprovalStatus,
       };
 
       const [{ error: userError }, { error: profileError }] = await Promise.all([
@@ -242,6 +293,46 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
 
       if (userError || profileError) {
         throw new Error(formatSupabaseError(userError ?? profileError));
+      }
+
+      if (verificationDocument) {
+        const path = `${authUser.id}/verification-document-${Date.now()}-${sanitiseFileName(
+          verificationDocument.name,
+        )}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("business-documents")
+          .upload(path, verificationDocument, { upsert: true });
+
+        if (uploadError) {
+          throw new Error(formatSupabaseError(uploadError));
+        }
+
+        const { data: savedDocument, error: documentError } = await supabase
+          .from("business_documents")
+          .upsert(
+            {
+              business_id: authUser.id,
+              document_type: "verification_document",
+              file_name: verificationDocument.name,
+              storage_bucket: "business-documents",
+              storage_path: path,
+            },
+            { onConflict: "business_id,document_type" },
+          )
+          .select("*")
+          .single<BusinessDocumentRecord>();
+
+        if (documentError) {
+          throw new Error(formatSupabaseError(documentError));
+        }
+
+        setExistingDocuments((current) => ({
+          ...current,
+          verification_document: savedDocument,
+        }));
+        setDocuments({});
+        setApprovalStatus(nextApprovalStatus);
       }
 
       await refreshAuthState();
@@ -323,6 +414,9 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusStyles(approvalStatus)}`}>
                 {approvalStatus}
               </span>
+              <p className="mt-2 text-xs leading-5 text-stone-500">
+                {statusCopy(approvalStatus)}
+              </p>
             </div>
           </div>
         </div>
@@ -453,6 +547,63 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               Business description
             </label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input min-h-32 resize-y" placeholder="Describe your venue, service style, team culture, and staffing needs." required />
+          </div>
+
+          <div className="md:col-span-2 rounded-[2rem] border border-white/10 bg-black/35 p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-stone-100">Trusted business badge</p>
+                <p className="mt-1 text-sm leading-6 text-stone-400">
+                  Upload one company document so admin can approve your profile and turn on the green trusted tick for workers.
+                </p>
+              </div>
+              <span className="inline-flex rounded-full bg-[#1DB954] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                Trusted
+              </span>
+            </div>
+
+            <label
+              htmlFor="business-verification-document"
+              className="mt-4 block cursor-pointer rounded-[1.5rem] border border-white/10 bg-[rgba(12,21,40,0.92)] p-4 transition hover:border-[#67B7FF]/40 hover:bg-[rgba(17,31,58,0.94)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-stone-100">
+                    {BUSINESS_DOCUMENT_LABELS.verification_document}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-stone-400">
+                    Use a company document you are happy for admin to review.
+                  </p>
+                </div>
+                {existingDocuments.verification_document ? (
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">
+                    Uploaded
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-[#67B7FF]/30 bg-[#14203A] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#CFE6FF]">
+                    Review
+                  </span>
+                )}
+              </div>
+              <div className="mt-4">
+                <input
+                  id="business-verification-document"
+                  type="file"
+                  onChange={(event) => handleDocumentChange("verification_document", event)}
+                  className="sr-only"
+                />
+                <div className="inline-flex items-center rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-white">
+                  {documents.verification_document || existingDocuments.verification_document
+                    ? "Change file"
+                    : "Add file"}
+                </div>
+                <p className="mt-2 text-xs text-stone-400">
+                  {documents.verification_document?.name ||
+                    existingDocuments.verification_document?.file_name ||
+                    "No file selected"}
+                </p>
+              </div>
+            </label>
           </div>
 
           {message ? (

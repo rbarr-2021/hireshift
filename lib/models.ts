@@ -302,11 +302,17 @@ export const DOCUMENT_TYPES = [
   "other",
 ] as const;
 
+export const BUSINESS_DOCUMENT_TYPES = ["verification_document"] as const;
+
 export const DOCUMENT_LABELS: Record<DocumentType, string> = {
   food_safety_certificate: "Food safety certificate",
   right_to_work: "Right to work",
   id_document: "Photo ID",
   other: "Other supporting document",
+};
+
+export const BUSINESS_DOCUMENT_LABELS: Record<BusinessDocumentType, string> = {
+  verification_document: "Business verification document",
 };
 
 export const WEEK_DAYS = [
@@ -328,6 +334,7 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 export type ShiftListingStatus = (typeof SHIFT_LISTING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+export type BusinessDocumentType = (typeof BUSINESS_DOCUMENT_TYPES)[number];
 export type WorkerAvailabilityStatus = (typeof WORKER_AVAILABILITY_STATUSES)[number];
 export type WorkerReliabilityStatus = (typeof WORKER_RELIABILITY_STATUSES)[number];
 export type WorkerReliabilityEventType = (typeof WORKER_RELIABILITY_EVENT_TYPES)[number];
@@ -442,6 +449,17 @@ export type WorkerDocumentRecord = {
   id: string;
   worker_id: string;
   document_type: DocumentType;
+  file_name: string;
+  storage_bucket: string;
+  storage_path: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BusinessDocumentRecord = {
+  id: string;
+  business_id: string;
+  document_type: BusinessDocumentType;
   file_name: string;
   storage_bucket: string;
   storage_path: string;

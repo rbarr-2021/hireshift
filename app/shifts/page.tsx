@@ -32,6 +32,7 @@ import { supabase } from "@/lib/supabase";
 type ShiftCardBusiness = {
   name: string;
   city: string;
+  verificationStatus: BusinessProfileRecord["verification_status"] | "pending";
 };
 
 const QUICK_DATE_FILTERS = [
@@ -158,6 +159,7 @@ export default function WorkerShiftBrowsePage() {
                 nextUser?.display_name ||
                 "Hospitality business",
               city: nextProfile?.city || "",
+              verificationStatus: nextProfile?.verification_status ?? "pending",
             };
 
             return accumulator;
@@ -429,6 +431,11 @@ export default function WorkerShiftBrowsePage() {
                       {business?.name || "Hospitality business"}
                       {business?.city ? ` | ${business.city}` : ""}
                     </p>
+                    {business?.verificationStatus === "verified" ? (
+                      <div className="mt-2">
+                        <span className="status-badge status-badge--ready">Trusted business</span>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">
                     <span

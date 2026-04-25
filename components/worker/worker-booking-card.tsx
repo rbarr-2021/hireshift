@@ -23,6 +23,7 @@ export type WorkerBookingBusinessSnapshot = {
   name: string;
   contact: string;
   location: string;
+  verificationStatus?: "pending" | "verified" | "rejected";
 };
 
 function formatCurrency(value: number) {
@@ -64,6 +65,11 @@ export function WorkerBookingCard({
             {business?.contact || "Hospitality business"}
             {business?.location ? ` | ${business.location}` : ""}
           </p>
+          {business?.verificationStatus === "verified" ? (
+            <div className="mt-2">
+              <span className="status-badge status-badge--ready">Trusted business</span>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}>

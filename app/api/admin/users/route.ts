@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type {
+  BusinessDocumentRecord,
   BusinessProfileRecord,
   UserRecord,
+  WorkerDocumentRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import { getRouteActor, isAdminUser } from "@/lib/route-access";
@@ -14,6 +16,9 @@ type AdminUserListItem = {
   user: UserRecord;
   workerProfile: WorkerProfileRecord | null;
   businessProfile: BusinessProfileRecord | null;
+  workerDocumentCount: number;
+  businessDocumentCount: number;
+  pendingVerificationReview: boolean;
   displayLabel: string;
 };
 
@@ -53,13 +58,19 @@ export async function GET(request: NextRequest) {
   const users = usersResult.data ?? [];
   const userIds = users.map((user) => user.id);
 
-  const [workerProfilesResult, businessProfilesResult] = await Promise.all([
+  const [workerProfilesResult, businessProfilesResult, workerDocumentsResult, businessDocumentsResult] = await Promise.all([
     userIds.length
       ? supabaseAdmin.from("worker_profiles").select("*").in("user_id", userIds)
       : Promise.resolve({ data: [] as WorkerProfileRecord[] }),
     userIds.length
       ? supabaseAdmin.from("business_profiles").select("*").in("user_id", userIds)
       : Promise.resolve({ data: [] as BusinessProfileRecord[] }),
+    userIds.length
+      ? supabaseAdmin.from("worker_documents").select("*").in("worker_id", userIds)
+      : Promise.resolve({ data: [] as WorkerDocumentRecord[] }),
+    userIds.length
+      ? supabaseAdmin.from("business_documents").select("*").in("business_id", userIds)
+      : Promise.resolve({ data: [] as BusinessDocumentRecord[] }),
   ]);
 
   let items = users.map<AdminUserListItem>((user) => {
@@ -71,11 +82,29 @@ export async function GET(request: NextRequest) {
       ((businessProfilesResult.data as BusinessProfileRecord[] | null) ?? []).find(
         (candidate) => candidate.user_id === user.id,
       ) ?? null;
+    const workerDocumentCount = ((workerDocumentsResult.data as WorkerDocumentRecord[] | null) ?? []).filter(
+      (candidate) => candidate.worker_id === user.id,
+    ).length;
+    const businessDocumentCount = ((businessDocumentsResult.data as BusinessDocumentRecord[] | null) ?? []).filter(
+      (candidate) => candidate.business_id === user.id,
+    ).length;
+    const pendingVerificationReview =
+      (user.role === "worker" &&
+        workerProfile !== null &&
+        workerProfile.verification_status === "pending" &&
+        workerDocumentCount > 0) ||
+      (user.role === "business" &&
+        businessProfile !== null &&
+        businessProfile.verification_status === "pending" &&
+        businessDocumentCount > 0);
 
     return {
       user,
       workerProfile,
       businessProfile,
+      workerDocumentCount,
+      businessDocumentCount,
+      pendingVerificationReview,
       displayLabel:
         user.display_name ||
         businessProfile?.business_name ||
@@ -110,6 +139,10 @@ export async function GET(request: NextRequest) {
       workers: items.filter((item) => item.user.role === "worker").length,
       businesses: items.filter((item) => item.user.role === "business").length,
       suspended: items.filter((item) => Boolean(item.user.suspended_at)).length,
+      pendingVerificationReviews: items.filter((item) => item.pendingVerificationReview).length,
+      pendingBusinessVerificationReviews: items.filter(
+        (item) => item.user.role === "business" && item.pendingVerificationReview,
+      ).length,
     },
   });
 }

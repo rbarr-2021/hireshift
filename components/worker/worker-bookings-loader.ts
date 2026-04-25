@@ -44,6 +44,7 @@ export async function loadWorkerBookingsSnapshot(workerId: string) {
           location: [nextProfile?.address_line_1, nextProfile?.city]
             .filter(Boolean)
             .join(", "),
+          verificationStatus: nextProfile?.verification_status,
         };
 
         return accumulator;

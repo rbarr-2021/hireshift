@@ -8,31 +8,55 @@ export default function HomePage() {
       <SiteHeader />
       <main className="public-shell pt-6 sm:pt-8">
         <section className="public-section sm:hidden">
-          <div className="panel px-5 py-8">
-            <div className="mx-auto max-w-md text-center">
-              <p className="display-headline text-[2.2rem] leading-[0.95] text-stone-900">
-                Work on your own terms. Take control.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-stone-600">
-                Fast hospitality shifts for workers. Reliable cover for businesses.
-              </p>
-              <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-white/8 bg-[#07111f] shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
-                <Image
-                  src="/hero-mobile-hospitality-food.png"
-                  alt="Fast-paced hospitality food service in a live kitchen"
-                  width={720}
-                  height={520}
-                  className="h-44 w-full object-cover object-center"
-                  priority
-                />
-              </div>
-              <div className="mt-8 grid gap-3">
-                <Link href="/signup?role=worker" className="primary-btn w-full px-8">
-                  Find Shift
-                </Link>
-                <Link href="/signup?role=business" className="secondary-btn w-full px-8">
-                  Book Staff
-                </Link>
+          <div className="panel px-4 py-6">
+            <div className="mx-auto max-w-md">
+              <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,22,40,0.96),rgba(7,15,28,0.98))] px-5 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
+                <div className="max-w-[16rem]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#67B7FF]">
+                    KruVii
+                  </p>
+                  <p className="display-headline mt-2.5 text-[2.45rem] leading-[0.9] text-stone-900">
+                    Work on your terms.
+                  </p>
+                  <p className="mt-1.5 text-lg font-medium leading-6 text-stone-200">
+                    Fast shifts. Real venues. Clear pay flow.
+                  </p>
+                </div>
+
+                <div className="mt-4 overflow-hidden rounded-[1.6rem] border border-white/8 bg-[#07111f] shadow-[0_16px_34px_rgba(0,0,0,0.24)]">
+                  <div className="relative">
+                    <Image
+                      src="/hero-mobile-kruvii-wide.png"
+                      alt="Modern hospitality service scene showing fast-paced shift work and staffing coordination"
+                      width={720}
+                      height={520}
+                      className="h-44 w-full object-cover object-center"
+                      priority
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(6,11,23,0.06),rgba(6,11,23,0.22)_70%,rgba(6,11,23,0.34))]" />
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <p className="text-sm leading-6 text-stone-300">
+                    Hospitality shifts for workers. Reliable cover for venues.
+                  </p>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#9BD0FF]">
+                    Fast payout after confirmed shifts
+                  </p>
+                </div>
+
+                <div className="mt-5 grid gap-2.5">
+                  <Link href="/signup?role=worker" className="primary-btn w-full px-8">
+                    Find Shift
+                  </Link>
+                  <Link
+                    href="/signup?role=business"
+                    className="secondary-btn w-full border-[rgba(95,184,255,0.24)] bg-transparent px-8"
+                  >
+                    Book Staff
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

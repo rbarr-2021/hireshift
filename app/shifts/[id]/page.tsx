@@ -34,6 +34,7 @@ type BusinessSummary = {
   name: string;
   city: string;
   contact: string;
+  verificationStatus: BusinessProfileRecord["verification_status"] | "pending";
 };
 
 function formatSupabaseError(error: unknown) {
@@ -164,6 +165,7 @@ export default function ShiftDetailPage() {
           profileResult.data?.contact_name ||
           userResult.data?.email ||
           "Business contact",
+        verificationStatus: profileResult.data?.verification_status ?? "pending",
       });
       const hasExistingBooking =
         ((bookingResult.data as { id: string }[] | null) ?? []).length > 0;
@@ -388,6 +390,9 @@ export default function ShiftDetailPage() {
             <h2 className="text-xl font-semibold text-stone-900">Business snapshot</h2>
             <div className="mt-4 space-y-3 text-sm text-stone-600">
               <p className="font-medium text-stone-900">{business?.name || "Hospitality business"}</p>
+              {business?.verificationStatus === "verified" ? (
+                <span className="status-badge status-badge--ready">Trusted business</span>
+              ) : null}
               <p>{business?.contact || "Business contact"}</p>
               <p>{business?.city || listing.city || "Location to be confirmed"}</p>
             </div>

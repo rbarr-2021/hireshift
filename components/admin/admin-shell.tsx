@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { clearSessionHintCookie } from "@/lib/session-hint";
 
@@ -17,6 +18,45 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [pendingReviews, setPendingReviews] = useState({
+    all: 0,
+    businesses: 0,
+  });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadPendingReviews = async () => {
+      try {
+        const response = await fetchWithSession("/api/admin/users");
+        const payload = (await response.json()) as {
+          counts?: {
+            pendingVerificationReviews?: number;
+            pendingBusinessVerificationReviews?: number;
+          };
+        };
+
+        if (!response.ok || !active) {
+          return;
+        }
+
+        setPendingReviews({
+          all: payload.counts?.pendingVerificationReviews ?? 0,
+          businesses: payload.counts?.pendingBusinessVerificationReviews ?? 0,
+        });
+      } catch {
+        if (active) {
+          setPendingReviews({ all: 0, businesses: 0 });
+        }
+      }
+    };
+
+    void loadPendingReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   const handleSignOut = async () => {
     setBusy(true);
@@ -79,7 +119,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       : "panel-soft text-stone-700 hover:bg-stone-200"
                   }`}
                 >
-                  {link.label}
+                  <span className="flex items-center justify-between gap-3">
+                    <span>{link.label}</span>
+                    {link.href === "/admin/users" && pendingReviews.all > 0 ? (
+                      <span className="rounded-full bg-[#1DB954] px-2.5 py-0.5 text-xs font-semibold text-white">
+                        {pendingReviews.all}
+                      </span>
+                    ) : null}
+                    {link.href === "/admin/businesses" && pendingReviews.businesses > 0 ? (
+                      <span className="rounded-full bg-[#1DB954] px-2.5 py-0.5 text-xs font-semibold text-white">
+                        {pendingReviews.businesses}
+                      </span>
+                    ) : null}
+                  </span>
                 </Link>
               );
             })}
@@ -119,7 +171,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   active ? "bg-stone-100 text-stone-900" : "text-stone-300 hover:bg-white/5"
                 }`}
               >
-                {link.mobileLabel}
+                <span className="relative inline-flex items-center justify-center">
+                  {link.mobileLabel}
+                  {link.href === "/admin/users" && pendingReviews.all > 0 ? (
+                    <span className="absolute -right-3 -top-2 rounded-full bg-[#1DB954] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                      {pendingReviews.all}
+                    </span>
+                  ) : null}
+                  {link.href === "/admin/businesses" && pendingReviews.businesses > 0 ? (
+                    <span className="absolute -right-3 -top-2 rounded-full bg-[#1DB954] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                      {pendingReviews.businesses}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             );
           })}
