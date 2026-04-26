@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import type { PaymentRecord, WorkerProfileRecord } from "@/lib/models";
+import { sendPaymentReceivedWorkerEmail } from "@/lib/notifications/email";
 import { getStripeClient } from "@/lib/stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
@@ -12,6 +13,21 @@ type WorkerStripeConnectSnapshot = Pick<
   | "stripe_connect_onboarding_completed_at"
   | "stripe_connect_last_synced_at"
 >;
+
+type WorkerUserSummary = {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+};
+
+type BookingSummary = {
+  id: string;
+  shift_date: string;
+};
+
+type BusinessNameSummary = {
+  business_name: string;
+};
 
 function isMissingStripeAccountError(error: unknown) {
   if (!error || typeof error !== "object") {
@@ -253,6 +269,36 @@ export async function tryAutomaticWorkerPayoutTransfer(input: {
       status: input.payment.status === "captured" ? "released" : input.payment.status,
     })
     .eq("id", input.payment.id);
+
+  const [{ data: workerUser }, { data: booking }, { data: businessProfile }] = await Promise.all([
+    supabaseAdmin
+      .from("users")
+      .select("id,email,display_name")
+      .eq("id", input.payment.worker_id)
+      .maybeSingle<WorkerUserSummary>(),
+    supabaseAdmin
+      .from("bookings")
+      .select("id,shift_date")
+      .eq("id", input.payment.booking_id)
+      .maybeSingle<BookingSummary>(),
+    supabaseAdmin
+      .from("business_profiles")
+      .select("business_name")
+      .eq("user_id", input.payment.business_id)
+      .maybeSingle<BusinessNameSummary>(),
+  ]);
+
+  if (booking) {
+    await sendPaymentReceivedWorkerEmail({
+      bookingId: booking.id,
+      workerUserId: input.payment.worker_id,
+      workerEmail: workerUser?.email ?? null,
+      workerName: workerUser?.display_name ?? null,
+      businessName: businessProfile?.business_name ?? "NexHyr business",
+      shiftDate: booking.shift_date,
+      payoutAmountGbp: input.payment.worker_payout_gbp,
+    });
+  }
 
   return {
     success: true as const,

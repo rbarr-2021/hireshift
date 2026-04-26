@@ -1,7 +1,9 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
   sendBookingConfirmationEmail,
+  sendBookingConfirmationBusinessEmail,
   sendBookingReminderEmail,
+  sendBookingReminderBusinessEmail,
 } from "@/lib/notifications/email";
 import {
   sendBookingConfirmationWhatsApp,
@@ -44,6 +46,7 @@ type UserRow = {
 type BusinessProfileRow = {
   user_id: string;
   business_name: string;
+  contact_name: string | null;
 };
 
 type WorkerProfileRow = {
@@ -156,8 +159,8 @@ export async function processDueNotificationJobs(options?: {
 
     summary.processed += 1;
 
-    try {
-      const [{ data: booking, error: bookingError }, { data: worker, error: workerError }] =
+      try {
+      const [{ data: booking, error: bookingError }, { data: recipient, error: recipientError }] =
         await Promise.all([
           supabaseAdmin
             .from("bookings")
@@ -175,8 +178,8 @@ export async function processDueNotificationJobs(options?: {
         throw bookingError;
       }
 
-      if (workerError) {
-        throw workerError;
+      if (recipientError) {
+        throw recipientError;
       }
 
       if (!booking || booking.status === "cancelled") {
@@ -187,17 +190,22 @@ export async function processDueNotificationJobs(options?: {
         continue;
       }
 
-      const { data: businessProfile, error: businessProfileError } = await supabaseAdmin
-        .from("business_profiles")
-        .select("user_id,business_name")
-        .eq("user_id", booking.business_id)
-        .maybeSingle<BusinessProfileRow>();
-
-      if (businessProfileError) {
-        throw businessProfileError;
-      }
-
-      const [workerProfileResult, shiftListingResult] = await Promise.all([
+      const [businessProfileResult, businessUserResult, workerUserResult, workerProfileResult, shiftListingResult] = await Promise.all([
+        supabaseAdmin
+          .from("business_profiles")
+          .select("user_id,business_name,contact_name")
+          .eq("user_id", booking.business_id)
+          .maybeSingle<BusinessProfileRow>(),
+        supabaseAdmin
+          .from("users")
+          .select("id,phone,whatsapp_opt_in,email,display_name")
+          .eq("id", booking.business_id)
+          .maybeSingle<UserRow>(),
+        supabaseAdmin
+          .from("users")
+          .select("id,phone,whatsapp_opt_in,email,display_name")
+          .eq("id", booking.worker_id)
+          .maybeSingle<UserRow>(),
         supabaseAdmin
           .from("worker_profiles")
           .select("user_id,job_role")
@@ -211,6 +219,18 @@ export async function processDueNotificationJobs(options?: {
               .maybeSingle<ShiftListingSummary>()
           : Promise.resolve({ data: null, error: null }),
       ]);
+
+      if (businessProfileResult.error) {
+        throw businessProfileResult.error;
+      }
+
+      if (businessUserResult.error) {
+        throw businessUserResult.error;
+      }
+
+      if (workerUserResult.error) {
+        throw workerUserResult.error;
+      }
 
       if (workerProfileResult.error) {
         throw workerProfileResult.error;
@@ -226,11 +246,28 @@ export async function processDueNotificationJobs(options?: {
         workerProfileResult.data?.job_role ||
         null;
 
-      const context = {
-        workerEmail: worker?.email ?? null,
-        workerName: worker?.display_name ?? null,
+      const workerContext = {
+        bookingId: booking.id,
+        userId: booking.worker_id,
+        workerEmail: workerUserResult.data?.email ?? null,
+        workerName: workerUserResult.data?.display_name ?? null,
         roleLabel,
-        businessName: businessProfile?.business_name ?? "NexHyr business",
+        businessName: businessProfileResult.data?.business_name ?? "NexHyr business",
+        shiftDate: booking.shift_date,
+        shiftEndDate: booking.shift_end_date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        location: booking.location,
+      };
+      const businessContext = {
+        bookingId: booking.id,
+        userId: booking.business_id,
+        businessEmail: businessUserResult.data?.email ?? null,
+        businessContactName:
+          businessProfileResult.data?.contact_name ?? businessUserResult.data?.display_name ?? null,
+        workerName: workerUserResult.data?.display_name ?? null,
+        roleLabel,
+        businessName: businessProfileResult.data?.business_name ?? "NexHyr business",
         shiftDate: booking.shift_date,
         shiftEndDate: booking.shift_end_date,
         startTime: booking.start_time,
@@ -238,14 +275,16 @@ export async function processDueNotificationJobs(options?: {
         location: booking.location,
       };
 
+      const isWorkerRecipient = claimedJob.recipient_user_id === booking.worker_id;
+
       const result =
         claimedJob.channel === "whatsapp"
           ? claimedJob.job_type === "booking_confirmation"
             ? await sendBookingConfirmationWhatsApp({
-                workerPhone: worker?.phone ?? null,
-                workerWhatsAppOptIn: worker?.whatsapp_opt_in ?? false,
+                workerPhone: recipient?.phone ?? null,
+                workerWhatsAppOptIn: recipient?.whatsapp_opt_in ?? false,
                 roleLabel,
-                businessName: businessProfile?.business_name ?? "NexHyr business",
+                businessName: businessProfileResult.data?.business_name ?? "NexHyr business",
                 shiftDate: booking.shift_date,
                 shiftEndDate: booking.shift_end_date,
                 startTime: booking.start_time,
@@ -253,10 +292,10 @@ export async function processDueNotificationJobs(options?: {
                 location: booking.location,
               })
             : await sendBookingReminderWhatsApp({
-                workerPhone: worker?.phone ?? null,
-                workerWhatsAppOptIn: worker?.whatsapp_opt_in ?? false,
+                workerPhone: recipient?.phone ?? null,
+                workerWhatsAppOptIn: recipient?.whatsapp_opt_in ?? false,
                 roleLabel,
-                businessName: businessProfile?.business_name ?? "NexHyr business",
+                businessName: businessProfileResult.data?.business_name ?? "NexHyr business",
                 shiftDate: booking.shift_date,
                 shiftEndDate: booking.shift_end_date,
                 startTime: booking.start_time,
@@ -264,8 +303,12 @@ export async function processDueNotificationJobs(options?: {
                 location: booking.location,
               })
           : claimedJob.job_type === "booking_confirmation"
-            ? await sendBookingConfirmationEmail(context)
-            : await sendBookingReminderEmail(context);
+            ? isWorkerRecipient
+              ? await sendBookingConfirmationEmail(workerContext)
+              : await sendBookingConfirmationBusinessEmail(businessContext)
+            : isWorkerRecipient
+              ? await sendBookingReminderEmail(workerContext)
+              : await sendBookingReminderBusinessEmail(businessContext);
 
       if (result.status === "skipped") {
         await markJob(claimedJob.id, claimedJob.metadata, "skipped", {
@@ -273,6 +316,14 @@ export async function processDueNotificationJobs(options?: {
         });
         summary.skipped += 1;
         continue;
+      }
+
+      if (claimedJob.channel === "email" && isWorkerRecipient) {
+        if (claimedJob.job_type === "booking_confirmation") {
+          await sendBookingConfirmationBusinessEmail(businessContext);
+        } else if (claimedJob.job_type === "booking_reminder_24h") {
+          await sendBookingReminderBusinessEmail(businessContext);
+        }
       }
 
       await markJob(claimedJob.id, claimedJob.metadata, "sent", {

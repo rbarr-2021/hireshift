@@ -125,8 +125,13 @@ export default function Login() {
       });
 
       if (error) {
-        setMessage(error.message);
-        showToast({ title: "Login failed", description: error.message, tone: "error" });
+        const lower = error.message.toLowerCase();
+        const nextMessage =
+          lower.includes("email not confirmed") || lower.includes("email not verified")
+            ? "Please confirm your email before continuing."
+            : error.message;
+        setMessage(nextMessage);
+        showToast({ title: "Login failed", description: nextMessage, tone: "error" });
         clearSessionHintCookie();
         return;
       }

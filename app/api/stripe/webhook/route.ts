@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { sendPaymentReceivedWorkerEmail } from "@/lib/notifications/email";
 import { getStripeClient, getStripeWebhookSecret } from "@/lib/stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import type { BookingRecord, BusinessProfileRecord, PaymentRecord, UserRecord } from "@/lib/models";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +32,64 @@ async function updatePaymentSucceeded(event: Stripe.CheckoutSessionCompletedEven
         typeof session.payment_intent === "string" ? session.payment_intent : null,
     })
     .eq("booking_id", bookingId);
+}
+
+async function sendPaymentReceivedForBooking(bookingId: string) {
+  const supabaseAdmin = getSupabaseAdminClient();
+  const [{ data: payment }, { data: booking }] = await Promise.all([
+    supabaseAdmin
+      .from("payments")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .maybeSingle<PaymentRecord>(),
+    supabaseAdmin
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .maybeSingle<BookingRecord>(),
+  ]);
+
+  if (!payment || !booking) {
+    return;
+  }
+
+  if (payment.payout_status !== "paid") {
+    return;
+  }
+
+  const [{ data: workerUser }, { data: businessProfile }] = await Promise.all([
+    supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("id", payment.worker_id)
+      .maybeSingle<UserRecord>(),
+    supabaseAdmin
+      .from("business_profiles")
+      .select("*")
+      .eq("user_id", payment.business_id)
+      .maybeSingle<BusinessProfileRecord>(),
+  ]);
+
+  await sendPaymentReceivedWorkerEmail({
+    bookingId: booking.id,
+    workerUserId: payment.worker_id,
+    workerEmail: workerUser?.email ?? null,
+    workerName: workerUser?.display_name ?? null,
+    businessName: businessProfile?.business_name ?? "NexHyr business",
+    shiftDate: booking.shift_date,
+    payoutAmountGbp: payment.worker_payout_gbp,
+  });
+}
+
+async function handleTransferCreated(event: Stripe.TransferCreatedEvent) {
+  const transfer = event.data.object;
+  const bookingId = transfer.metadata?.booking_id;
+
+  if (!bookingId) {
+    return;
+  }
+
+  await sendPaymentReceivedForBooking(bookingId);
 }
 
 async function updatePaymentFailed(
@@ -89,6 +149,9 @@ export async function POST(request: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed":
       await updatePaymentSucceeded(event);
+      break;
+    case "transfer.created":
+      await handleTransferCreated(event);
       break;
     case "payment_intent.payment_failed":
       await updatePaymentFailed(event);

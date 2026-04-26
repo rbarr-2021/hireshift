@@ -213,7 +213,7 @@ export default function Signup() {
         email,
         password,
         options: {
-          emailRedirectTo: `${getAppBaseUrl()}/login`,
+          emailRedirectTo: `${getAppBaseUrl()}/auth/callback?next=${encodeURIComponent("/login")}`,
         },
       });
       console.info("[signup] signUp response", {
@@ -288,13 +288,13 @@ export default function Signup() {
       }
 
       setMessage(
-        "Account created. Check your email to verify your address, then log in.",
+        "Check your email to confirm your account, then log in.",
       );
       clearPostAuthIntent();
       clearSessionHintCookie();
       showToast({
         title: "Check your inbox",
-        description: "Verify your email, then log in to continue onboarding.",
+        description: "Check your email to confirm your account before continuing.",
         tone: "success",
       });
     } catch (error) {

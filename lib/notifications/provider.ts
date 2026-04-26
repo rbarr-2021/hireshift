@@ -192,6 +192,51 @@ class SmtpEmailProvider implements EmailProvider {
   }
 }
 
+class ResendEmailProvider implements EmailProvider {
+  async sendMessage(payload: EmailSendPayload): Promise<EmailSendResult> {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const from = process.env.EMAIL_FROM?.trim() || "NexHyr <hello@nexhyr.co.uk>";
+
+    if (!apiKey) {
+      return {
+        status: "skipped",
+        reason: "Resend API key is missing.",
+      };
+    }
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [payload.to],
+        subject: payload.subject,
+        text: payload.text,
+      }),
+    });
+
+    const data = (await response.json().catch(() => ({}))) as {
+      id?: string;
+      error?: { message?: string };
+    };
+
+    if (!response.ok || data.error) {
+      return {
+        status: "skipped",
+        reason: data.error?.message ?? `Resend failed with status ${response.status}.`,
+      };
+    }
+
+    return {
+      status: "sent",
+      providerMessageId: data.id ?? null,
+    };
+  }
+}
+
 function getWhatsAppProvider(): WhatsAppProvider {
   const provider = process.env.WHATSAPP_PROVIDER?.trim().toLowerCase();
 
@@ -224,7 +269,24 @@ export async function sendWhatsAppMessage(payload: WhatsAppSendPayload) {
 function getEmailProvider(): EmailProvider {
   const provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
 
-  if (!provider || provider === "smtp") {
+  if (!provider || provider === "resend") {
+    if (process.env.RESEND_API_KEY?.trim()) {
+      return new ResendEmailProvider();
+    }
+
+    if (
+      process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      process.env.SMTP_PASS?.trim() &&
+      process.env.SMTP_FROM_EMAIL?.trim()
+    ) {
+      return new SmtpEmailProvider();
+    }
+
+    return new NoopEmailProvider();
+  }
+
+  if (provider === "smtp") {
     if (
       process.env.SMTP_HOST?.trim() &&
       process.env.SMTP_USER?.trim() &&

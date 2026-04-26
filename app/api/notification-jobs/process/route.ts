@@ -10,7 +10,8 @@ async function getRequestScope(request: NextRequest) {
   const bearerToken = authHeader?.startsWith("Bearer ")
     ? authHeader.slice("Bearer ".length).trim()
     : null;
-  const cronSecret = process.env.NOTIFICATION_JOBS_CRON_SECRET?.trim();
+  const cronSecret =
+    process.env.CRON_SECRET?.trim() || process.env.NOTIFICATION_JOBS_CRON_SECRET?.trim();
 
   if (bearerToken && cronSecret && bearerToken === cronSecret) {
     return { scope: "all" as const };

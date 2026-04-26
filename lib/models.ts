@@ -491,6 +491,24 @@ export type WorkerReliabilityEventRecord = {
   created_at: string;
 };
 
+export type EmailNotificationType =
+  | "booking_confirmed_worker"
+  | "booking_confirmed_business"
+  | "shift_reminder_24h_worker"
+  | "shift_reminder_24h_business"
+  | "payment_received_worker";
+
+export type EmailNotificationRecord = {
+  id: string;
+  type: EmailNotificationType;
+  recipient_email: string;
+  booking_id: string | null;
+  user_id: string | null;
+  provider_message_id: string | null;
+  metadata: Record<string, unknown>;
+  sent_at: string;
+};
+
 export type ReviewRecord = {
   id: string;
   booking_id: string;
