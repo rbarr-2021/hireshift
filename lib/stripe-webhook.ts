@@ -221,6 +221,6 @@ export async function handleStripeWebhookPost(request: NextRequest) {
 export function handleStripeWebhookGet() {
   return NextResponse.json({
     ok: true,
-    message: "Stripe webhook endpoint is live. Use POST with Stripe signature.",
+    route: "stripe webhook",
   });
 }
