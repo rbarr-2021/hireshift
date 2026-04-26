@@ -30,6 +30,10 @@ function sanitiseNextPath(value: string | null, fallback: string) {
     return fallback;
   }
 
+  if (trimmed === "/onboarding") {
+    return "/role-select";
+  }
+
   return trimmed;
 }
 
@@ -37,7 +41,7 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as VerifyType | null;
-  const nextPath = sanitiseNextPath(url.searchParams.get("next"), "/onboarding");
+  const nextPath = sanitiseNextPath(url.searchParams.get("next"), "/role-select");
 
   if (!tokenHash || !type) {
     return NextResponse.redirect(new URL("/login?error=confirmation_failed", url.origin));
