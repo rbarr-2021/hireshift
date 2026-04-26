@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
@@ -26,7 +27,9 @@ export default function RootLayout({
       <body className="min-h-full">
         <AuthProvider>
           <ToastProvider>
-            <MobileScrollReset />
+            <Suspense fallback={null}>
+              <MobileScrollReset />
+            </Suspense>
             {children}
           </ToastProvider>
         </AuthProvider>

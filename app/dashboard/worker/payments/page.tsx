@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   BookingRecord,
@@ -64,7 +64,7 @@ async function readJsonResponse<T>(response: Response, fallbackError: string): P
   }
 }
 
-export default function WorkerPaymentsPage() {
+function WorkerPaymentsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
@@ -555,5 +555,13 @@ export default function WorkerPaymentsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function WorkerPaymentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <WorkerPaymentsPageContent />
+    </Suspense>
   );
 }

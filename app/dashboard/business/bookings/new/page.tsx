@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { ShiftTimeRangePicker } from "@/components/forms/shift-time-range-picker";
@@ -75,7 +75,7 @@ function buildBusinessLocation(profile: BusinessProfileRecord | null) {
     .join(", ");
 }
 
-export default function BookingEntryPage() {
+function BookingEntryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { authUserId, loading: authLoading } = useAuthState();
@@ -608,5 +608,13 @@ export default function BookingEntryPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function BookingEntryPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingEntryPageContent />
+    </Suspense>
   );
 }
