@@ -243,7 +243,7 @@ export default function BusinessBookingPaymentPage() {
               <span className="font-medium text-stone-900">{formatCurrency(pricing.workerPayGbp)}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>KruVii fee</span>
+              <span>NexHyr fee</span>
               <span className="font-medium text-stone-900">{formatCurrency(pricing.platformFeeGbp)}</span>
             </div>
             <div className="flex items-center justify-between gap-4 border-t border-white/10 pt-3">

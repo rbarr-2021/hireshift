@@ -13,7 +13,7 @@ export default function HomePage() {
               <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,22,40,0.96),rgba(7,15,28,0.98))] px-5 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
                 <div className="max-w-[16rem]">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#67B7FF]">
-                    KruVii
+                    NexHyr
                   </p>
                   <p className="display-headline mt-2.5 text-[2.45rem] leading-[0.9] text-stone-900">
                     Work on your terms.
@@ -26,7 +26,7 @@ export default function HomePage() {
                 <div className="mt-4 overflow-hidden rounded-[1.6rem] border border-white/8 bg-[#07111f] shadow-[0_16px_34px_rgba(0,0,0,0.24)]">
                   <div className="relative">
                     <Image
-                      src="/hero-mobile-kruvii-wide.png"
+                      src="/hero-mobile-nexhyr-wide.png"
                       alt="Modern hospitality service scene showing fast-paced shift work and staffing coordination"
                       width={720}
                       height={520}
@@ -65,12 +65,12 @@ export default function HomePage() {
         <section className="public-section hidden sm:block">
           <div className="panel px-5 py-10 sm:px-8 sm:py-12 lg:px-14 lg:py-16">
             <div className="mx-auto max-w-4xl">
-              <p className="section-label">KruVii</p>
+              <p className="section-label">NexHyr</p>
               <h1 className="mt-5 text-3xl font-semibold leading-tight text-stone-900 sm:text-5xl lg:text-6xl">
                 Hospitality staffing, kept simple.
               </h1>
               <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base sm:leading-8">
-                KruVii helps businesses book hospitality staff and helps workers find
+                NexHyr helps businesses book hospitality staff and helps workers find
                 shifts without the usual back-and-forth. Everything stays clear from
                 booking through to completion and payout.
               </p>
@@ -99,7 +99,7 @@ export default function HomePage() {
                 body: "Browse live hospitality work and accept shifts quickly.",
               },
               {
-                title: "KruVii tracks the flow",
+                title: "NexHyr tracks the flow",
                 body: "Bookings, completion, and payout stay clear for both sides.",
               },
             ].map((step) => (

@@ -12,9 +12,32 @@ const disneyStyleSans = Manrope({
   variable: "--font-ui",
 });
 
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://nexhyr.co.uk").replace(
+  /\/+$/,
+  "",
+);
+
 export const metadata: Metadata = {
-  title: "KruVii",
-  description: "Premium hospitality crew marketplace",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "NexHyr",
+    template: "%s | NexHyr",
+  },
+  description: "NexHyr is the hospitality staffing marketplace for fast shift cover and clear payouts.",
+  openGraph: {
+    title: "NexHyr",
+    description:
+      "NexHyr helps businesses book trusted hospitality workers and helps workers find reliable shifts.",
+    url: siteUrl,
+    siteName: "NexHyr",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NexHyr",
+    description:
+      "Fast hospitality staffing for businesses and workers, from booking through payout.",
+  },
 };
 
 export default function RootLayout({

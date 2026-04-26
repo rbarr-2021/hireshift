@@ -589,7 +589,7 @@ function BookingEntryPageContent() {
                 </span>
               </p>
               <p>
-                KruVii fee:{" "}
+                NexHyr fee:{" "}
                 <span className="font-medium text-stone-900">
                   {formatCurrency(totalAmount.platformFeeGbp)}
                 </span>

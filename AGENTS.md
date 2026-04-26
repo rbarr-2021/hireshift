@@ -7,7 +7,7 @@ This version has breaking changes - APIs, conventions, and file structure may al
 <!-- END:nextjs-agent-rules -->
 
 ## Project context
-This is KruVii, a Next.js + Supabase hospitality staffing marketplace.
+This is NexHyr, a Next.js + Supabase hospitality staffing marketplace.
 
 ## Guardrails
 - Do not alter authentication flows unless explicitly asked.

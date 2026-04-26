@@ -219,7 +219,7 @@ export default function WorkerPublicProfilePage() {
                       {aggregate.reviewCount === 1 ? "" : "s"}
                     </span>
                   ) : (
-                    <span className="status-badge">New to KruVii</span>
+                    <span className="status-badge">New to NexHyr</span>
                   )}
                   <span className="status-badge">{experienceLabel}</span>
                   <span

@@ -85,7 +85,7 @@ export default function Login() {
     }
 
     if (nextMessage === "suspended") {
-      setMessage("This account has been suspended. Contact KruVii support for help.");
+      setMessage("This account has been suspended. Contact NexHyr support for help.");
     }
   }, []);
 
@@ -152,7 +152,7 @@ export default function Login() {
         clearSessionHintCookie();
         const nextMessage =
           resolved.appUser.suspended_reason?.trim() ||
-          "This account has been suspended. Contact KruVii support for help.";
+          "This account has been suspended. Contact NexHyr support for help.";
         setMessage(nextMessage);
         showToast({
           title: "Account suspended",
@@ -172,7 +172,7 @@ export default function Login() {
         router.push(redirectTarget ?? "/admin");
         showToast({
           title: "Admin access granted",
-          description: "You're signed in and ready to manage KruVii.",
+          description: "You're signed in and ready to manage NexHyr.",
           tone: "success",
         });
         return;
@@ -183,7 +183,7 @@ export default function Login() {
         setMessage("Login successful. Choose whether you are looking for work or hiring staff.");
         showToast({
           title: "Choose your role",
-          description: "Tell KruVii whether you are joining as a worker or a business.",
+          description: "Tell NexHyr whether you are joining as a worker or a business.",
           tone: "success",
         });
         router.push(
@@ -275,7 +275,7 @@ export default function Login() {
       <div className="public-shell flex items-center justify-center py-10">
       <div className="panel w-full max-w-md p-5 sm:p-8">
         <p className="section-label">
-          KruVii access
+          NexHyr access
         </p>
         <h1 className="mt-4 text-2xl font-semibold text-stone-900 sm:text-3xl">Log in</h1>
         <p className="mt-3 text-sm leading-6 text-stone-600">
@@ -327,7 +327,7 @@ export default function Login() {
         </button>
 
         <p className="mt-6 text-center text-sm text-stone-500">
-          New to KruVii?{" "}
+          New to NexHyr?{" "}
           <Link href="/signup" className="font-medium text-stone-900 underline">
             Create an account
           </Link>

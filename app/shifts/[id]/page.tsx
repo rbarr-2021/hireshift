@@ -220,7 +220,7 @@ export default function ShiftDetailPage() {
       showToast({
         title: "Set up payouts to take this shift",
         description:
-          "Connect Stripe once so KruVii can pay you quickly after completed shifts.",
+          "Connect Stripe once so NexHyr can pay you quickly after completed shifts.",
         tone: "info",
       });
       router.push(`/dashboard/worker/payments?redirect=${encodeURIComponent(targetPath)}`);
@@ -406,7 +406,7 @@ export default function ShiftDetailPage() {
                   ? `You are temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`
                   : isWorkerPayoutReady(workerProfile)
                     ? "You are shift-ready. Take this shift now and it will move straight into your accepted work."
-                    : "Connect Stripe payouts once before your first shift so KruVii can pay you after completion."
+                    : "Connect Stripe payouts once before your first shift so NexHyr can pay you after completion."
                 : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
             </p>
             <div className="mt-5 flex flex-col gap-3">

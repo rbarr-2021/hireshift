@@ -157,7 +157,7 @@ class SmtpEmailProvider implements EmailProvider {
     const user = process.env.SMTP_USER?.trim();
     const pass = process.env.SMTP_PASS?.trim();
     const fromEmail = process.env.SMTP_FROM_EMAIL?.trim();
-    const fromName = process.env.SMTP_FROM_NAME?.trim() || "KruVii";
+    const fromName = process.env.SMTP_FROM_NAME?.trim() || "NexHyr";
     const secure =
       (process.env.SMTP_SECURE?.trim().toLowerCase() === "true") || port === 465;
 

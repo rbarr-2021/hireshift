@@ -161,12 +161,12 @@ export default function AdminPaymentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="section-label">KruVii admin</p>
+        <p className="section-label">NexHyr admin</p>
         <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
           Payments and payouts
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-          Track business payments, KruVii commission, worker payout readiness, and Stripe transfer status.
+          Track business payments, NexHyr commission, worker payout readiness, and Stripe transfer status.
         </p>
       </div>
 
@@ -176,7 +176,7 @@ export default function AdminPaymentsPage() {
           <p className="mt-2 text-2xl font-semibold text-stone-900">{formatCurrency(totals.gross)}</p>
         </section>
         <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">KruVii commission</p>
+          <p className="text-sm font-medium text-stone-500">NexHyr commission</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">{formatCurrency(totals.commission)}</p>
         </section>
         <section className="panel-soft p-5">
@@ -285,7 +285,7 @@ export default function AdminPaymentsPage() {
                       {formatCurrency(payment.gross_amount_gbp)}
                     </p>
                     <p>
-                      <span className="font-medium text-stone-100">KruVii fee:</span>{" "}
+                      <span className="font-medium text-stone-100">NexHyr fee:</span>{" "}
                       {formatCurrency(payment.platform_fee_gbp)}
                     </p>
                     <p>
@@ -306,7 +306,7 @@ export default function AdminPaymentsPage() {
 
                   <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-stone-500">
-                      Admin approves payout after shift completion. Stripe then sends the worker share and KruVii keeps the fee.
+                      Admin approves payout after shift completion. Stripe then sends the worker share and NexHyr keeps the fee.
                     </p>
                     <Link
                       href={`/admin/bookings/${item.booking.id}`}

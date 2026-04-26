@@ -335,7 +335,7 @@ export default function AdminBookingsPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="section-label">KruVii admin</p>
+            <p className="section-label">NexHyr admin</p>
             <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
               Booking operations
             </h1>

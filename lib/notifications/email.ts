@@ -47,7 +47,7 @@ function buildConfirmationText(context: BookingEmailContext) {
     `Location: ${context.location}`,
     "",
     "See you on shift,",
-    "KruVii",
+    "NexHyr",
   ].join("\n");
 }
 
@@ -71,7 +71,7 @@ function buildReminderText(context: BookingEmailContext) {
     `Location: ${context.location}`,
     "",
     "Good luck,",
-    "KruVii",
+    "NexHyr",
   ].join("\n");
 }
 

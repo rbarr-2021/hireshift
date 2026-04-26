@@ -120,7 +120,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
-                KruVii
+                NexHyr
               </p>
               <p className="text-sm text-stone-600">Crew operating system</p>
             </div>

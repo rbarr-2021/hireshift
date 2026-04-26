@@ -305,8 +305,8 @@ export function AdminUsersManager({
       showToast({
         title: suspending ? "User suspended" : "User restored",
         description: suspending
-          ? "This user will no longer be able to access KruVii."
-          : "This user can access KruVii again.",
+          ? "This user will no longer be able to access NexHyr."
+          : "This user can access NexHyr again.",
         tone: "success",
       });
     } catch (nextError) {
@@ -415,7 +415,7 @@ export function AdminUsersManager({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="section-label">KruVii admin</p>
+          <p className="section-label">NexHyr admin</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
             {title}
           </h1>
