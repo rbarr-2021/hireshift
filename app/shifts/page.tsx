@@ -431,11 +431,14 @@ export default function WorkerShiftBrowsePage() {
                       {business?.name || "Hospitality business"}
                       {business?.city ? ` | ${business.city}` : ""}
                     </p>
-                    {business?.verificationStatus === "verified" ? (
-                      <div className="mt-2">
-                        <span className="status-badge status-badge--ready">Trusted business</span>
-                      </div>
-                    ) : null}
+                {business?.verificationStatus === "verified" ? (
+                  <div className="mt-2">
+                    <span className="verified-badge-inline status-badge status-badge--ready">
+                      <span className="verified-tick">&#10003;</span>
+                      Trusted business
+                    </span>
+                  </div>
+                ) : null}
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">
                     <span

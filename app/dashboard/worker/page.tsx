@@ -32,6 +32,7 @@ import {
   isWorkerBlocked,
   reliabilityStatusClass,
 } from "@/lib/reliability";
+import { AdminContactCard } from "@/components/support/admin-contact-card";
 
 function statusStyles(status: string) {
   if (status === "verified") return "bg-emerald-100 text-emerald-900";
@@ -267,8 +268,15 @@ export default function WorkerDashboardPage() {
         </section>
         <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Approval</p>
-          <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusStyles(profile?.verification_status ?? "pending")}`}>
-            {profile?.verification_status ?? "pending"}
+          <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusStyles(profile?.verification_status ?? "pending")} ${profile?.verification_status === "verified" ? "verified-badge-inline" : ""}`}>
+            {profile?.verification_status === "verified" ? (
+              <>
+                <span className="verified-tick">&#10003;</span>
+                verified
+              </>
+            ) : (
+              profile?.verification_status ?? "pending"
+            )}
           </span>
         </section>
         <section className="panel-soft p-5">
@@ -379,6 +387,12 @@ export default function WorkerDashboardPage() {
           </div>
         </section>
       </div>
+
+      <AdminContactCard
+        title="Need admin help?"
+        description="If anything is unclear with shifts, profile checks, or payout status, message admin here."
+        subjectPlaceholder="Issue with shift, profile, or payout"
+      />
     </div>
   );
 }

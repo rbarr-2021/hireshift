@@ -391,7 +391,10 @@ export default function ShiftDetailPage() {
             <div className="mt-4 space-y-3 text-sm text-stone-600">
               <p className="font-medium text-stone-900">{business?.name || "Hospitality business"}</p>
               {business?.verificationStatus === "verified" ? (
-                <span className="status-badge status-badge--ready">Trusted business</span>
+                <span className="verified-badge-inline status-badge status-badge--ready">
+                  <span className="verified-tick">&#10003;</span>
+                  Trusted business
+                </span>
               ) : null}
               <p>{business?.contact || "Business contact"}</p>
               <p>{business?.city || listing.city || "Location to be confirmed"}</p>

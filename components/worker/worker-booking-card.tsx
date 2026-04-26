@@ -67,7 +67,10 @@ export function WorkerBookingCard({
           </p>
           {business?.verificationStatus === "verified" ? (
             <div className="mt-2">
-              <span className="status-badge status-badge--ready">Trusted business</span>
+              <span className="verified-badge-inline status-badge status-badge--ready">
+                <span className="verified-tick">&#10003;</span>
+                Trusted business
+              </span>
             </div>
           ) : null}
         </div>

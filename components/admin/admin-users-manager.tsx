@@ -32,6 +32,13 @@ export type AdminUserListItem = {
   displayLabel: string;
 };
 
+type AdminUserDocumentItem = {
+  id: string;
+  document_type: string;
+  file_name: string;
+  signed_url: string | null;
+};
+
 type UserTab = "all" | "worker" | "business" | "suspended";
 
 type AdminUsersManagerProps = {
@@ -72,6 +79,9 @@ export function AdminUsersManager({
   );
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [composerUserId, setComposerUserId] = useState<string | null>(null);
+  const [documentsUserId, setDocumentsUserId] = useState<string | null>(null);
+  const [loadingDocumentsUserId, setLoadingDocumentsUserId] = useState<string | null>(null);
+  const [documentsByUserId, setDocumentsByUserId] = useState<Record<string, AdminUserDocumentItem[]>>({});
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -411,6 +421,48 @@ export function AdminUsersManager({
     }
   };
 
+  const handleViewDocuments = async (userId: string) => {
+    if (documentsUserId === userId) {
+      setDocumentsUserId(null);
+      return;
+    }
+
+    setDocumentsUserId(userId);
+
+    if (documentsByUserId[userId]) {
+      return;
+    }
+
+    setLoadingDocumentsUserId(userId);
+
+    try {
+      const response = await fetchWithSession(`/api/admin/users/${userId}/documents`);
+      const payload = (await response.json()) as {
+        error?: string;
+        items?: AdminUserDocumentItem[];
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to load documents.");
+      }
+
+      setDocumentsByUserId((current) => ({
+        ...current,
+        [userId]: payload.items ?? [],
+      }));
+    } catch (nextError) {
+      const nextMessage =
+        nextError instanceof Error ? nextError.message : "Unable to load documents.";
+      showToast({
+        title: "Documents unavailable",
+        description: nextMessage,
+        tone: "error",
+      });
+    } finally {
+      setLoadingDocumentsUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -564,6 +616,18 @@ export function AdminUsersManager({
                     </button>
                     <button
                       type="button"
+                      onClick={() => void handleViewDocuments(item.user.id)}
+                      disabled={loadingDocumentsUserId === item.user.id}
+                      className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingDocumentsUserId === item.user.id
+                        ? "Loading docs..."
+                        : documentsUserId === item.user.id
+                          ? "Hide documents"
+                          : "View documents"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() =>
                         setComposerUserId((current) =>
                           current === item.user.id ? null : item.user.id,
@@ -621,6 +685,47 @@ export function AdminUsersManager({
                           Cancel
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {documentsUserId === item.user.id ? (
+                  <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-300">
+                      Uploaded documents
+                    </h3>
+                    <div className="mt-3 space-y-2">
+                      {(documentsByUserId[item.user.id] ?? []).length > 0 ? (
+                        (documentsByUserId[item.user.id] ?? []).map((document) => (
+                          <div
+                            key={document.id}
+                            className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/30 p-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-stone-100">
+                                {document.file_name}
+                              </p>
+                              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-stone-400">
+                                {document.document_type.replaceAll("_", " ")}
+                              </p>
+                            </div>
+                            {document.signed_url ? (
+                              <a
+                                href={document.signed_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="secondary-btn w-full px-4 py-2 sm:w-auto"
+                              >
+                                Open
+                              </a>
+                            ) : (
+                              <span className="status-badge">Unavailable</span>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-stone-400">No uploaded documents found.</p>
+                      )}
                     </div>
                   </div>
                 ) : null}

@@ -211,7 +211,10 @@ export default function WorkerPublicProfilePage() {
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {profile.verification_status === "verified" ? (
-                    <span className="status-badge status-badge--ready">Verified</span>
+                    <span className="verified-badge-inline status-badge status-badge--ready">
+                      <span className="verified-tick">&#10003;</span>
+                      Verified
+                    </span>
                   ) : null}
                   {aggregate.averageRating !== null ? (
                     <span className="status-badge status-badge--rating">
@@ -375,7 +378,7 @@ export default function WorkerPublicProfilePage() {
                 <p>
                   <span className="font-medium text-stone-900">Profile status:</span>{" "}
                   {profile.verification_status === "verified"
-                    ? "Verified"
+                    ? "Verified ✓"
                     : profile.verification_status === "rejected"
                     ? "Changes required"
                     : "Pending review"}

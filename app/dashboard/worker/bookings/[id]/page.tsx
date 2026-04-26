@@ -252,7 +252,7 @@ export default function WorkerBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Stage:</span> {getWorkerShiftStage(booking, payment)}</p>
             <p><span className="font-medium text-stone-900">Business:</span> {business?.contact || "Business contact"}</p>
             {business?.verificationStatus === "verified" ? (
-              <p><span className="font-medium text-stone-900">Trust:</span> Trusted business</p>
+              <p><span className="font-medium text-stone-900">Trust:</span> Trusted business ✓</p>
             ) : null}
             <p><span className="font-medium text-stone-900">Location:</span> {business?.location || booking.location}</p>
             <p><span className="font-medium text-stone-900">Agreed rate:</span> {formatCurrency(booking.hourly_rate_gbp)}/hr</p>
