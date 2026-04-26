@@ -116,9 +116,12 @@ export default function Signup() {
     }
 
     const redirectTarget = getPendingRedirect();
+    const isAdminUser = appUser.role === "admin";
 
     console.info("[auth] redirect decision", {
-      reason: hasSelectedRole(appUser)
+      reason: isAdminUser
+        ? "signup-to-admin"
+        : hasSelectedRole(appUser)
         ? appUser.onboarding_complete
           ? "signup-to-dashboard"
           : appUser.role === "worker"
@@ -130,6 +133,12 @@ export default function Signup() {
       authUserId: appUser.id,
       role: appUser.role,
     });
+
+    if (isAdminUser) {
+      clearPostAuthIntent();
+      router.replace("/admin");
+      return;
+    }
 
     if (!hasSelectedRole(appUser)) {
         router.replace(

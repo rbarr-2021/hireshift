@@ -1,5 +1,7 @@
 import type { UserRecord, UserRole } from "./models";
 
+const ADMIN_HOME = "/admin";
+
 export function hasSelectedRole(
   appUser: UserRecord | null | undefined,
 ): appUser is UserRecord & { role: UserRole; role_selected: true } {
@@ -7,6 +9,10 @@ export function hasSelectedRole(
 }
 
 export function getRoleHome(role: UserRole) {
+  if (role === "admin") {
+    return ADMIN_HOME;
+  }
+
   return role === "worker" ? "/dashboard/worker" : "/dashboard/business";
 }
 
@@ -15,6 +21,10 @@ export function getWorkerBrowsePath() {
 }
 
 export function getRoleSetupPath(role: UserRole) {
+  if (role === "admin") {
+    return ADMIN_HOME;
+  }
+
   return role === "worker" ? "/profile/setup/worker" : "/profile/setup/business";
 }
 
@@ -37,6 +47,10 @@ export function getRoleEntryPath(
   onboardingComplete: boolean,
   redirectTo?: string | null,
 ) {
+  if (role === "admin") {
+    return ADMIN_HOME;
+  }
+
   const nextRedirect = sanitiseAppRedirectPath(redirectTo);
 
   if (nextRedirect) {

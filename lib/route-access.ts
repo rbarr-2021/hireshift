@@ -55,12 +55,18 @@ export async function getRouteActor(request: NextRequest): Promise<RouteActor | 
 
 export async function isAdminUser(userId: string) {
   const supabaseAdmin = getSupabaseAdminClient();
-  const { data } = await supabaseAdmin
-    .from("admin_users")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle<AdminUserRecord>();
+  const [{ data: adminRow }, { data: appUserRoleRow }] = await Promise.all([
+    supabaseAdmin
+      .from("admin_users")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle<AdminUserRecord>(),
+    supabaseAdmin
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle<{ role: string | null }>(),
+  ]);
 
-  return Boolean(data);
+  return Boolean(adminRow || appUserRoleRow?.role === "admin");
 }
-

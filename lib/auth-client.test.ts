@@ -26,10 +26,17 @@ describe("auth-client", () => {
   it("routes completed users to their dashboards", () => {
     expect(getRoleEntryPath("worker", true)).toBe(getRoleHome("worker"));
     expect(getRoleEntryPath("business", true)).toBe(getRoleHome("business"));
+    expect(getRoleEntryPath("admin", true)).toBe(getRoleHome("admin"));
   });
 
   it("routes incomplete businesses to onboarding", () => {
     expect(getRoleEntryPath("business", false)).toBe(getRoleSetupPath("business"));
+  });
+
+  it("always routes admins to admin dashboard first", () => {
+    expect(getRoleEntryPath("admin", false)).toBe("/admin");
+    expect(getRoleEntryPath("admin", true, "/dashboard/business")).toBe("/admin");
+    expect(getRoleSetupPath("admin")).toBe("/admin");
   });
 
   it("prefers a safe explicit redirect target", () => {

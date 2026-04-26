@@ -47,9 +47,12 @@ export default function Login() {
     }
 
     const redirectTarget = getPendingRedirect();
+    const isAdminUser = appUser.role === "admin";
 
     console.info("[auth] redirect decision", {
-      reason: hasSelectedRole(appUser)
+      reason: isAdminUser
+        ? "login-to-admin"
+        : hasSelectedRole(appUser)
         ? appUser.onboarding_complete
           ? "login-to-dashboard"
           : appUser.role === "worker"
@@ -58,6 +61,12 @@ export default function Login() {
         : "login-to-role-select",
       pathname: "/login",
     });
+
+    if (isAdminUser) {
+      clearPostAuthIntent();
+      router.replace("/admin");
+      return;
+    }
 
     if (!hasSelectedRole(appUser)) {
         router.replace(redirectTarget ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}` : "/role-select");
@@ -170,7 +179,8 @@ export default function Login() {
         return;
       }
 
-      const adminAccess = await hasClientAdminAccess(resolved.appUser.id);
+      const adminAccess =
+        resolved.appUser.role === "admin" || (await hasClientAdminAccess(resolved.appUser.id));
 
       if (adminAccess) {
         const redirectTarget = getPendingRedirect();

@@ -30,6 +30,19 @@ export default function DashboardPage() {
       return;
     }
 
+    if (appUser.role === "admin") {
+      console.info("[auth] redirect decision", {
+        reason: "dashboard-to-admin",
+        pathname: "/dashboard",
+        hasSession,
+        authUserId,
+        role: appUser.role,
+        target: "/admin",
+      });
+      router.replace("/admin");
+      return;
+    }
+
     if (!hasSelectedRole(appUser)) {
       console.info("[auth] redirect decision", {
         reason: "dashboard-to-role-select",

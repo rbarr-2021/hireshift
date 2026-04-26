@@ -325,7 +325,7 @@ export const WEEK_DAYS = [
   { key: 0, label: "Sun" },
 ] as const;
 
-export type UserRole = (typeof USER_ROLES)[number];
+export type UserRole = (typeof USER_ROLES)[number] | "admin";
 export type HospitalityRole = string;
 export type BusinessSector = (typeof BUSINESS_SECTORS)[number];
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
