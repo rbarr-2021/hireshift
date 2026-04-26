@@ -1669,9 +1669,7 @@ export function WorkerProfileForm({
 
             {((mode === "onboarding" && currentStep.id === "availability") || isManageAvailability) ? (
             <>
-              <section id="worker-availability-section" className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-                <div />
-                <div className="space-y-3 sm:space-y-4">
+              <section id="worker-availability-section" className="space-y-3 sm:space-y-4">
                   <AvailabilityCalendar
                     entries={availabilityEntries}
                     onChange={setAvailabilityEntries}
@@ -1682,7 +1680,6 @@ export function WorkerProfileForm({
                       <textarea value={availabilitySummary} onChange={(event) => setAvailabilitySummary(event.target.value)} className="input min-h-28 resize-y" placeholder="Anything useful for employers to know, like preferred shift types or blackout dates." />
                     </div>
                   ) : null}
-                </div>
               </section>
 
             {mode === "onboarding" ? (
