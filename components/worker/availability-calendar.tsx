@@ -127,27 +127,31 @@ function statusCardClass(status: WorkerAvailabilityStatus, active: boolean) {
 
 function calendarCellClass(status?: WorkerAvailabilityStatus, selected = false, today = false) {
   const base =
-    "relative flex min-h-[3.2rem] w-full min-w-0 flex-col overflow-hidden rounded-[0.9rem] border px-1.5 py-1.5 text-left transition sm:min-h-[4.35rem] sm:rounded-[1rem] sm:px-2 sm:py-2 lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
+    "relative flex min-h-[3.65rem] w-full min-w-0 flex-col overflow-hidden rounded-[0.9rem] border px-1.5 py-1.5 text-left transition sm:min-h-[4.35rem] sm:rounded-[1rem] sm:px-2 sm:py-2 lg:min-h-[4.75rem] lg:rounded-[1.15rem] lg:px-3 lg:py-3";
 
   const selection = selected
     ? " border-[#00A7FF] ring-2 ring-[#00A7FF]/35"
     : today
-      ? " border-[#10D7FF]/35"
+      ? " border-[#8B5CF6]/70 text-white shadow-[0_0_10px_rgba(139,92,246,0.5)]"
       : " border-white/8";
 
+  const todaySurface = !selected && today
+    ? " bg-[linear-gradient(135deg,rgba(59,130,246,0.38),rgba(139,92,246,0.38))]"
+    : "";
+
   if (status === "available") {
-    return `${base}${selection} bg-[rgba(166,255,52,0.14)]`;
+    return `${base}${selection}${todaySurface || " bg-[rgba(166,255,52,0.14)]"}`;
   }
 
   if (status === "partial") {
-    return `${base}${selection} bg-[rgba(16,215,255,0.12)]`;
+    return `${base}${selection}${todaySurface || " bg-[rgba(16,215,255,0.12)]"}`;
   }
 
   if (status === "unavailable") {
-    return `${base}${selection} bg-[rgba(255,82,82,0.12)]`;
+    return `${base}${selection}${todaySurface || " bg-[rgba(255,82,82,0.12)]"}`;
   }
 
-  return `${base}${selection} bg-black/30`;
+  return `${base}${selection}${todaySurface || " bg-black/30"}`;
 }
 
 function calendarDotClass(status: WorkerAvailabilityStatus) {
@@ -601,16 +605,15 @@ export function AvailabilityCalendar({
                   >
                     <span
                       className={`text-[13px] font-semibold leading-none sm:text-base ${
-                        inMonth ? "text-stone-100" : "text-stone-500"
+                        isToday && !isSelected
+                          ? "text-white"
+                          : inMonth
+                            ? "text-stone-100"
+                            : "text-stone-500"
                       }`}
                     >
                       {day.getDate()}
                     </span>
-                    {isToday ? (
-                      <span className="mt-1 inline-flex w-fit rounded-full bg-[#00A7FF] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.06em] text-white sm:px-2 sm:text-[10px] sm:tracking-[0.1em]">
-                        Today
-                      </span>
-                    ) : null}
                     {entry ? (
                       <span className="mt-auto inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.08em] text-stone-700 sm:gap-1.5 sm:text-[10px] sm:tracking-[0.12em]">
                         <span
