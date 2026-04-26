@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import { useToast } from "@/components/ui/toast-provider";
 import { hasClientAdminAccess } from "@/lib/admin-access-client";
 import {
@@ -274,6 +276,7 @@ export default function Login() {
       <SiteHeader compact />
       <div className="public-shell flex items-center justify-center py-10">
       <div className="panel w-full max-w-md p-5 sm:p-8">
+        <NexHyrLogo className="mb-5" />
         <p className="section-label">
           NexHyr access
         </p>
@@ -334,6 +337,7 @@ export default function Login() {
         </p>
       </div>
     </div>
+      <SiteFooter />
     </>
   );
 }

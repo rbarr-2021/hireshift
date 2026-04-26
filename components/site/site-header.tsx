@@ -7,6 +7,7 @@ import { registerAuthListener, supabase } from "@/lib/supabase";
 import { hasClientAdminAccess } from "@/lib/admin-access-client";
 import { getRoleEntryPath, hasSelectedRole, resolveAuthState } from "@/lib/auth-client";
 import { clearSessionHintCookie } from "@/lib/session-hint";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import type { UserRecord } from "@/lib/models";
 
 type SiteHeaderProps = {
@@ -77,17 +78,18 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
       : "/role-select";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-black/72 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[rgba(2,6,23,0.78)] backdrop-blur-2xl">
       <div className="public-section flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-0 sm:py-4">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[1.15rem] border border-white/10 bg-stone-100 text-sm font-semibold text-stone-900 sm:h-11 sm:w-11 sm:rounded-2xl sm:text-lg">
-            K
-          </span>
+          <NexHyrLogo
+            variant="mark"
+            markClassName="h-9 w-9 rounded-[1.15rem] sm:h-11 sm:w-11 sm:rounded-2xl"
+          />
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500 sm:text-xs sm:tracking-[0.28em]">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.24em] text-[#BFDBFE] sm:text-xs sm:tracking-[0.28em]">
               NexHyr
             </p>
-            <p className="hidden text-sm text-stone-600 sm:block">
+            <p className="hidden text-sm text-stone-400 sm:block">
               Hospitality crew marketplace
             </p>
           </div>

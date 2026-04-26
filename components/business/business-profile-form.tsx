@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { supabase } from "@/lib/supabase";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
@@ -414,6 +415,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   return (
     <div className="min-h-screen bg-black px-4 py-10 pb-36 sm:pb-28">
       <div className="panel mx-auto max-w-4xl p-5 sm:p-8">
+        <NexHyrLogo className="mb-5" />
         {mode === "onboarding" ? (
           <OnboardingProgress role="business" step="profile" />
         ) : null}

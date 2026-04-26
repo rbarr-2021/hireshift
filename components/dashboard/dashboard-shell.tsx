@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { clearSessionHintCookie } from "@/lib/session-hint";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import type { UserRecord } from "@/lib/models";
 
 const workerLinks = [
@@ -110,19 +111,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-black text-stone-900">
+    <div className="min-h-screen bg-[var(--bg-app)] text-stone-900">
       <div className="mx-auto grid min-h-screen max-w-7xl gap-4 px-3 py-3 pb-32 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:py-4 lg:pb-4">
         <aside className="panel h-fit p-4 sm:p-5 lg:sticky lg:top-4 lg:p-6">
           <div className="flex items-start justify-between gap-3">
           <Link href="/" className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-stone-100 text-lg font-semibold text-stone-900">
-              K
-            </span>
+            <NexHyrLogo variant="mark" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-700">
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#BFDBFE]">
                 NexHyr
               </p>
-              <p className="text-sm text-stone-600">Crew operating system</p>
+              <p className="text-sm text-stone-400">Crew operating system</p>
             </div>
           </Link>
           <button
@@ -191,7 +190,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[rgba(6,11,23,0.96)] backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[rgba(6,11,23,0.94)] backdrop-blur-2xl lg:hidden">
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-gradient-to-r from-[rgba(6,11,23,0.96)] to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[rgba(6,11,23,0.96)] via-[rgba(6,11,23,0.86)] to-transparent" />

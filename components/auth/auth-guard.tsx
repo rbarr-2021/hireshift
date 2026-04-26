@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import {
   getRoleHome,
   getRoleSetupPath,
@@ -116,9 +117,7 @@ export function AuthGuard({
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
         <div className="panel w-full max-w-md p-5 text-center sm:p-8">
-          <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-            NexHyr
-          </p>
+          <NexHyrLogo className="justify-center" />
           <h1 className="mt-4 text-xl font-semibold text-stone-900 sm:text-2xl">
             Loading your workspace
           </h1>

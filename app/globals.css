@@ -1,28 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --brand-primary: #1f80e0;
-  --brand-secondary: #2b9cff;
-  --brand-rating: #67b7ff;
-  --brand-spotify-green: #2b9cff;
-  --bg-app: #060b17;
-  --bg-elevated: #0b1120;
-  --bg-surface: #0f1728;
-  --bg-surface-strong: #14203a;
-  --border-subtle: rgba(95, 184, 255, 0.16);
-  --border-strong: rgba(31, 128, 224, 0.28);
-  --text-primary: #f5f8ff;
-  --text-secondary: rgba(245, 248, 255, 0.82);
-  --text-muted: rgba(245, 248, 255, 0.62);
-  --success-bg: rgba(43, 156, 255, 0.16);
-  --success-text: #9bd0ff;
-  --warning-bg: rgba(95, 184, 255, 0.14);
-  --warning-text: #a9d8ff;
-  --danger-bg: rgba(255, 82, 82, 0.16);
-  --danger-text: #ff9b9b;
+  --brand-primary: #38bdf8;
+  --brand-electric: #3b82f6;
+  --brand-violet: #8b5cf6;
+  --brand-rating: #7dd3fc;
+  --brand-success: #22c55e;
+  --brand-warning: #f59e0b;
+  --brand-danger: #ef4444;
+
+  --bg-app: #020617;
+  --bg-elevated: #0b1220;
+  --bg-surface: rgba(11, 18, 32, 0.92);
+  --bg-surface-strong: rgba(15, 23, 42, 0.82);
+
+  --border-subtle: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(59, 130, 246, 0.34);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+
+  --success-bg: rgba(34, 197, 94, 0.16);
+  --success-text: #86efac;
+  --warning-bg: rgba(245, 158, 11, 0.16);
+  --warning-text: #fcd34d;
+  --danger-bg: rgba(239, 68, 68, 0.16);
+  --danger-text: #fca5a5;
+
+  --gradient-primary: linear-gradient(135deg, #38bdf8 0%, #3b82f6 48%, #8b5cf6 100%);
+  --gradient-surface:
+    radial-gradient(circle at 16% 8%, rgba(56, 189, 248, 0.2), transparent 34%),
+    radial-gradient(circle at 86% 4%, rgba(139, 92, 246, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(8, 14, 26, 0.98), rgba(4, 8, 18, 0.98));
+
   --shadow-soft:
-    0 24px 80px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 20px 56px rgba(2, 6, 23, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-glow:
+    0 12px 36px rgba(59, 130, 246, 0.3),
+    0 2px 12px rgba(139, 92, 246, 0.22);
 }
 
 html {
@@ -33,18 +50,19 @@ html {
 
 body {
   min-height: 100vh;
+  font-size: 16px;
   font-family:
-    "Avenir Next",
     var(--font-ui),
+    "Inter",
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(31, 128, 224, 0.24), transparent 30%),
-    radial-gradient(circle at top right, rgba(103, 183, 255, 0.14), transparent 24%),
-    linear-gradient(180deg, #08101d 0%, #060b17 42%, #0a1323 100%);
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.24), transparent 31%),
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.2), transparent 30%),
+    linear-gradient(180deg, #030816 0%, #020617 42%, #050b1a 100%);
   color: var(--text-primary);
   overflow-x: hidden;
 }
@@ -60,7 +78,7 @@ body {
 }
 
 ::selection {
-  background: rgba(31, 128, 224, 0.35);
+  background: rgba(59, 130, 246, 0.36);
   color: var(--text-primary);
 }
 
@@ -101,14 +119,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: brightness(0) saturate(100%) invert(78%) sepia(96%) saturate(1554%) hue-rotate(164deg)
     brightness(102%) contrast(103%);
   border-radius: 999px;
-  background-color: rgba(31, 128, 224, 0.14);
+  background-color: rgba(59, 130, 246, 0.2);
   padding: 0.35rem;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover {
-  background-color: rgba(31, 128, 224, 0.22);
+  background-color: rgba(139, 92, 246, 0.26);
 }
 
 @layer base {
@@ -122,8 +140,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .bg-stone-900 {
-    background:
-      linear-gradient(135deg, rgba(31, 128, 224, 0.98), rgba(103, 183, 255, 0.9)) !important;
+    background: var(--gradient-primary) !important;
     color: #f5f8ff !important;
   }
 
@@ -131,7 +148,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   .hover\:bg-stone-200:hover,
   .hover\:bg-stone-800:hover,
   .hover\:bg-white\/10:hover {
-    background-color: rgba(31, 128, 224, 0.12) !important;
+    background-color: rgba(59, 130, 246, 0.14) !important;
   }
 
   .border-stone-200,
@@ -156,16 +173,16 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .text-amber-700,
   .text-amber-300 {
-    color: var(--brand-primary) !important;
+    color: var(--brand-rating) !important;
   }
 
   .bg-amber-400 {
-    background-color: var(--brand-secondary) !important;
+    background-color: var(--brand-warning) !important;
     color: #f5f8ff !important;
   }
 
   .hover\:bg-amber-300:hover {
-    background-color: #67b7ff !important;
+    background-color: #fbbf24 !important;
   }
 
   .bg-amber-100,
@@ -188,19 +205,19 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .bg-emerald-50 {
-    background-color: rgba(43, 156, 255, 0.12) !important;
+    background-color: rgba(34, 197, 94, 0.12) !important;
   }
 
   .bg-emerald-500 {
-    background-color: var(--brand-spotify-green) !important;
+    background-color: var(--brand-success) !important;
   }
 
   .hover\:bg-emerald-600:hover {
-    background-color: #1f80e0 !important;
+    background-color: #16a34a !important;
   }
 
   .text-emerald-600 {
-    color: var(--brand-spotify-green) !important;
+    color: var(--brand-success) !important;
   }
 
   .shadow-sm {
@@ -211,8 +228,8 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 @layer components {
   .display-headline {
     font-family:
-      "Avenir Next",
       var(--font-ui),
+      "Inter",
       system-ui,
       -apple-system,
       BlinkMacSystemFont,
@@ -225,9 +242,11 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   .input {
     @apply w-full min-w-0 rounded-2xl border px-4 py-3 outline-none;
     border-color: var(--border-subtle);
-    background: rgba(4, 14, 26, 0.92);
+    background: rgba(9, 15, 29, 0.88);
     color: var(--text-primary);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 0 0 1px rgba(2, 6, 23, 0.28);
   }
 
   .input::placeholder {
@@ -235,23 +254,26 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .input:focus {
-    border-color: var(--brand-primary);
-    background: rgba(7, 18, 32, 1);
+    border-color: var(--brand-electric);
+    background: rgba(10, 18, 35, 1);
     box-shadow:
-      0 0 0 4px rgba(31, 128, 224, 0.16),
-      0 0 0 1px rgba(103, 183, 255, 0.28);
+      0 0 0 4px rgba(59, 130, 246, 0.22),
+      0 0 0 1px rgba(139, 92, 246, 0.38);
   }
 
   .primary-btn {
     @apply inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 text-center font-semibold;
-    background: linear-gradient(135deg, var(--brand-primary), var(--brand-rating));
-    color: #f5f8ff;
-    box-shadow: 0 12px 32px rgba(31, 128, 224, 0.3);
+    background: var(--gradient-primary);
+    color: var(--text-primary);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: var(--shadow-glow);
   }
 
   .primary-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 16px 36px rgba(31, 128, 224, 0.36);
+    box-shadow:
+      0 16px 40px rgba(59, 130, 246, 0.34),
+      0 6px 24px rgba(139, 92, 246, 0.26);
   }
 
   .primary-btn:disabled {
@@ -263,32 +285,58 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   .secondary-btn {
     @apply inline-flex min-h-12 items-center justify-center rounded-2xl border px-4 py-3 text-center text-sm font-medium;
     border-color: var(--border-subtle);
-    background: rgba(11, 17, 32, 0.86);
+    background: rgba(12, 19, 35, 0.72);
     color: var(--text-primary);
+    backdrop-filter: blur(6px);
   }
 
   .secondary-btn:hover {
-    background: rgba(20, 32, 58, 0.94);
-    border-color: var(--brand-primary);
+    background: rgba(16, 27, 49, 0.82);
+    border-color: var(--brand-electric);
+  }
+
+  .ghost-btn {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-medium;
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .ghost-btn:hover {
+    border-color: rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.55);
+    color: var(--text-primary);
+  }
+
+  .danger-btn {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold;
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(127, 29, 29, 0.25);
+    color: #fee2e2;
+  }
+
+  .danger-btn:hover {
+    border-color: rgba(248, 113, 113, 0.5);
+    background: rgba(185, 28, 28, 0.3);
   }
 
   .link-btn {
     @apply inline-flex min-h-11 items-center justify-center text-center text-sm;
-    color: var(--brand-rating);
+    color: #93c5fd;
   }
 
   .link-btn:hover {
-    color: var(--brand-primary);
+    color: #c4b5fd;
     text-decoration: underline;
   }
 
   .toggle-btn {
     @apply absolute right-4 top-1/2 -translate-y-1/2 text-sm;
-    color: var(--brand-rating);
+    color: #bfdbfe;
   }
 
   .toggle-btn:hover {
-    color: var(--brand-primary);
+    color: #c4b5fd;
   }
 
   .public-shell {
@@ -301,52 +349,54 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .panel {
     @apply w-full min-w-0 rounded-[1.5rem] border sm:rounded-[2rem];
-    background: linear-gradient(180deg, rgba(10, 22, 38, 0.96), rgba(6, 14, 26, 0.96));
+    background: var(--gradient-surface);
     border-color: var(--border-subtle);
     box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(12px);
   }
 
   .panel-soft {
     @apply w-full min-w-0 rounded-[1.5rem] border sm:rounded-3xl;
-    background: rgba(15, 23, 40, 0.82);
-    border-color: rgba(95, 184, 255, 0.12);
+    background: var(--bg-surface-strong);
+    border-color: var(--border-subtle);
+    backdrop-filter: blur(10px);
   }
 
   .section-label {
     @apply text-xs font-semibold uppercase tracking-[0.28em] sm:text-sm sm:tracking-[0.32em];
-    color: var(--brand-primary);
+    color: #93c5fd;
   }
 
   .status-badge {
     @apply inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em];
-    border: 1px solid rgba(95, 184, 255, 0.14);
-    background: rgba(20, 32, 58, 0.92);
+    border: 1px solid var(--border-subtle);
+    background: rgba(18, 30, 52, 0.9);
     color: var(--text-primary);
   }
 
   .status-badge--ready {
-    background: rgba(43, 156, 255, 0.14);
+    background: var(--success-bg);
     color: var(--success-text);
-    border-color: rgba(43, 156, 255, 0.24);
+    border-color: rgba(34, 197, 94, 0.3);
   }
 
   .status-badge--rating {
-    background: rgba(103, 183, 255, 0.12);
-    color: #c4e4ff;
-    border-color: rgba(103, 183, 255, 0.24);
+    background: rgba(139, 92, 246, 0.16);
+    color: #ddd6fe;
+    border-color: rgba(139, 92, 246, 0.32);
   }
 
   .info-banner {
     @apply rounded-3xl border px-4 py-4 text-sm;
-    background: rgba(20, 32, 58, 0.82);
-    border-color: rgba(95, 184, 255, 0.14);
+    background: rgba(17, 28, 48, 0.86);
+    border-color: var(--border-subtle);
     color: var(--text-secondary);
   }
 
   .action-needed-banner {
     @apply rounded-3xl border px-4 py-4 text-sm;
-    background: rgba(20, 32, 58, 0.92);
-    border-color: rgba(95, 184, 255, 0.28);
+    background: rgba(18, 30, 52, 0.94);
+    border-color: rgba(59, 130, 246, 0.4);
     color: #cfe6ff;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
@@ -360,13 +410,13 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
   .mobile-sticky-bar {
     @apply fixed inset-x-3 z-40 rounded-[1.4rem] border p-3 shadow-sm backdrop-blur-xl sm:inset-x-4;
-    background: rgba(4, 12, 22, 0.94);
-    border-color: rgba(95, 184, 255, 0.16);
+    background: rgba(8, 15, 28, 0.92);
+    border-color: var(--border-subtle);
   }
 
   .mobile-empty-state {
     @apply rounded-[1.5rem] border px-5 py-8 text-center sm:rounded-3xl sm:px-8;
-    background: rgba(15, 23, 40, 0.82);
-    border-color: rgba(95, 184, 255, 0.12);
+    background: var(--bg-surface-strong);
+    border-color: var(--border-subtle);
   }
 }

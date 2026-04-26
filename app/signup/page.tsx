@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { SiteHeader } from "@/components/site/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import { useToast } from "@/components/ui/toast-provider";
 import {
   getAppBaseUrl,
@@ -326,6 +328,7 @@ export default function Signup() {
         onSubmit={handleSignup}
         className="panel w-full max-w-md p-5 sm:p-8"
       >
+        <NexHyrLogo className="mb-5" />
         <p className="section-label">
           Join NexHyr
         </p>
@@ -417,6 +420,7 @@ export default function Signup() {
         </p>
       </form>
     </div>
+      <SiteFooter />
     </>
   );
 }

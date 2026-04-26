@@ -23,20 +23,20 @@ export const metadata: Metadata = {
     default: "NexHyr",
     template: "%s | NexHyr",
   },
-  description: "NexHyr is the hospitality staffing marketplace for fast shift cover and clear payouts.",
+  description: "Smarter Hiring. Better Hospitality.",
   openGraph: {
     title: "NexHyr",
-    description:
-      "NexHyr helps businesses book trusted hospitality workers and helps workers find reliable shifts.",
+    description: "Smarter Hiring. Better Hospitality.",
     url: siteUrl,
     siteName: "NexHyr",
     type: "website",
+    images: [{ url: "/icon.svg", width: 512, height: 512, alt: "NexHyr logo" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "NexHyr",
-    description:
-      "Fast hospitality staffing for businesses and workers, from booking through payout.",
+    description: "Smarter Hiring. Better Hospitality.",
+    images: ["/icon.svg"],
   },
 };
 

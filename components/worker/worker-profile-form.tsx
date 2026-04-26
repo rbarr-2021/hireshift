@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import { AvailabilityCalendar } from "@/components/worker/availability-calendar";
 import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
@@ -1263,6 +1264,7 @@ export function WorkerProfileForm({
   return (
       <div className="min-h-screen bg-black px-3 py-5 pb-44 sm:px-4 sm:py-10 sm:pb-28">
         <div className="panel mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
+          <NexHyrLogo className="mb-4" />
           <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="section-label">

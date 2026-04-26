@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { hasClientAdminAccess } from "@/lib/admin-access-client";
+import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -54,9 +55,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
         <div className="panel w-full max-w-md p-5 text-center sm:p-8">
-          <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-            NexHyr
-          </p>
+          <NexHyrLogo className="justify-center" />
           <h1 className="mt-4 text-xl font-semibold text-stone-900 sm:text-2xl">
             Loading admin access
           </h1>

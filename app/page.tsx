@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
 
 export default function HomePage() {
   return (
@@ -111,6 +112,7 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+      <SiteFooter />
     </>
   );
 }
