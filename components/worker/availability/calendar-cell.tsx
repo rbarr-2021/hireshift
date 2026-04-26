@@ -5,9 +5,11 @@ import type { WorkerAvailabilityStatus } from "@/lib/models";
 type CalendarCellProps = {
   dateKey: string;
   dayOfMonth: number;
+  weekdayLabel: string;
   inMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
+  isPreviewed?: boolean;
   status?: WorkerAvailabilityStatus;
   onClick: (dateKey: string) => void;
   onDragStart: (dateKey: string) => void;
@@ -24,16 +26,22 @@ function cellClass({
   status,
   isSelected,
   isToday,
+  isPreviewed,
 }: {
   status?: WorkerAvailabilityStatus;
   isSelected: boolean;
   isToday: boolean;
+  isPreviewed?: boolean;
 }) {
   const base =
     "relative flex aspect-square w-full min-w-0 flex-col overflow-hidden rounded-[0.9rem] border p-2 text-left transition duration-150 sm:rounded-[1rem] sm:p-2.5";
 
   if (isSelected) {
     return `${base} border-[#8B5CF6]/80 bg-[linear-gradient(135deg,rgba(59,130,246,0.52),rgba(139,92,246,0.56))] text-white shadow-[0_0_14px_rgba(139,92,246,0.45)]`;
+  }
+
+  if (isPreviewed) {
+    return `${base} border-[#8B5CF6]/45 bg-[rgba(139,92,246,0.12)] text-stone-100`;
   }
 
   if (status === "available") {
@@ -58,20 +66,32 @@ function cellClass({
 export function CalendarCell({
   dateKey,
   dayOfMonth,
+  weekdayLabel,
   inMonth,
   isToday,
   isSelected,
+  isPreviewed = false,
   status,
   onClick,
   onDragStart,
   onDragEnter,
 }: CalendarCellProps) {
   const inactiveMonthText = inMonth || isSelected ? "" : "text-stone-500";
+  const statusText =
+    status === "available"
+      ? "available"
+      : status === "partial"
+        ? "partially available"
+        : status === "unavailable"
+          ? "unavailable"
+          : "not set";
+  const ariaLabel = `${weekdayLabel} ${dayOfMonth}. ${isToday ? "Today. " : ""}${isSelected ? "Selected. " : ""}${isPreviewed ? "Week preview. " : ""}Status ${statusText}.`;
 
   return (
     <button
       type="button"
       data-date-key={dateKey}
+      aria-label={ariaLabel}
       onClick={() => onClick(dateKey)}
       onPointerDown={(event) => {
         if (event.button !== 0 && event.pointerType !== "touch") {
@@ -81,7 +101,7 @@ export function CalendarCell({
         onDragStart(dateKey);
       }}
       onPointerEnter={() => onDragEnter(dateKey)}
-      className={cellClass({ status, isSelected, isToday })}
+      className={`${cellClass({ status, isSelected, isToday, isPreviewed })} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B5CF6]/60`}
     >
       <span
         className={`text-sm font-semibold leading-none sm:text-base ${inactiveMonthText}`}

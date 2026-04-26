@@ -66,6 +66,7 @@ function buildCalendarDays(month: Date, todayKey: string) {
   const days: Array<{
     dateKey: string;
     dayOfMonth: number;
+    weekdayLabel: string;
     inMonth: boolean;
     isToday: boolean;
   }> = [];
@@ -82,6 +83,7 @@ function buildCalendarDays(month: Date, todayKey: string) {
     days.push({
       dateKey,
       dayOfMonth: day.getDate(),
+      weekdayLabel: new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(day),
       inMonth: day.getMonth() === month.getMonth() && day.getFullYear() === month.getFullYear(),
       isToday: dateKey === todayKey,
     });
@@ -133,6 +135,7 @@ export function AvailabilityCalendar({
   const todayKey = getDateKey(new Date());
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(new Date()));
   const [multiSelectEnabled, setMultiSelectEnabled] = useState(false);
+  const [weekPreviewIndex, setWeekPreviewIndex] = useState<number | null>(null);
 
   const {
     selectedDateKeys,
@@ -185,6 +188,70 @@ export function AvailabilityCalendar({
     return `${selectedDateKeys.length} days selected`;
   }, [selectedDateKeys]);
 
+  const monthDateKeys = useMemo(
+    () => calendarDays.filter((day) => day.inMonth).map((day) => day.dateKey),
+    [calendarDays],
+  );
+
+  const weekdayDateKeys = useMemo(
+    () =>
+      calendarDays
+        .filter((day) => day.inMonth)
+        .filter((day) => {
+          const dayIndex = parseDateKey(day.dateKey).getDay();
+          return dayIndex >= 1 && dayIndex <= 5;
+        })
+        .map((day) => day.dateKey),
+    [calendarDays],
+  );
+
+  const weekendDateKeys = useMemo(
+    () =>
+      calendarDays
+        .filter((day) => day.inMonth)
+        .filter((day) => {
+          const dayIndex = parseDateKey(day.dateKey).getDay();
+          return dayIndex === 0 || dayIndex === 6;
+        })
+        .map((day) => day.dateKey),
+    [calendarDays],
+  );
+
+  const quickFillActions = [
+    {
+      key: "full-week",
+      label: "Full week",
+      onClick: () => {
+        const anchorDateKey = selectedDateKeys[selectedDateKeys.length - 1] ?? todayKey;
+        const weekStart = (() => {
+          const parsed = parseDateKey(anchorDateKey);
+          const weekday = (parsed.getDay() + 6) % 7;
+          return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() - weekday);
+        })();
+        const weekKeys = Array.from({ length: 7 }, (_, index) =>
+          getDateKey(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index)),
+        ).filter((dateKey) => monthDateKeys.includes(dateKey));
+
+        setSelectedDateKeys(weekKeys);
+      },
+    },
+    {
+      key: "weekdays",
+      label: "Weekdays",
+      onClick: () => setSelectedDateKeys(weekdayDateKeys),
+    },
+    {
+      key: "weekend",
+      label: "Weekend",
+      onClick: () => setSelectedDateKeys(weekendDateKeys),
+    },
+    {
+      key: "clear",
+      label: "Clear",
+      onClick: clearSelection,
+    },
+  ];
+
   const applyStatusToSelectedDays = (status: WorkerAvailabilityStatus) => {
     if (selectedDateKeys.length === 0) {
       return;
@@ -230,7 +297,7 @@ export function AvailabilityCalendar({
   return (
     <div className="space-y-5 pb-28 sm:pb-0">
       <div className="panel-soft p-4 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-4">
           <div className="space-y-3">
             <p className="text-sm font-medium text-stone-500">Calendar availability</p>
             <div className="flex flex-wrap gap-2">
@@ -255,12 +322,38 @@ export function AvailabilityCalendar({
                 </p>
               ) : null}
             </div>
-            <p className="max-w-2xl text-sm leading-6 text-stone-500">
-              {selectedSummary}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 xl:hidden">
+              {quickFillActions.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={action.onClick}
+                  className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 text-[11px] font-semibold text-stone-200 transition hover:border-[#8B5CF6]/45 hover:bg-[rgba(139,92,246,0.22)]"
+                  aria-label={action.label}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-stone-400">
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
+                <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
+                Available
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
+                <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+                Partial
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
+                <span className="h-2 w-2 rounded-full bg-white/40" />
+                Unavailable
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
+                <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#3B82F6,#8B5CF6)]" />
+                Selected
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
@@ -286,11 +379,15 @@ export function AvailabilityCalendar({
             >
               Next
             </button>
+            </div>
+            <p className="max-w-2xl text-sm leading-6 text-stone-500">
+              {selectedSummary}
+            </p>
           </div>
         </div>
 
-        <div className="mt-6 grid items-start gap-6 2xl:grid-cols-[minmax(0,2.35fr)_360px] 2xl:gap-8">
-          <div className="min-w-0 2xl:flex 2xl:flex-col 2xl:justify-center">
+        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,2.2fr)_360px] xl:gap-8">
+          <div className="min-w-0 xl:flex xl:flex-col xl:justify-center">
             <h3 className="mb-3 text-lg font-semibold text-stone-100">
               {formatMonthLabel(visibleMonth)}
             </h3>
@@ -299,19 +396,22 @@ export function AvailabilityCalendar({
               selectedDateKeys={selectedDateKeys}
               entryMap={entryMap}
               isDragging={isDragging}
+              weekPreviewIndex={weekPreviewIndex}
+              onWeekPreview={setWeekPreviewIndex}
               onDayClick={handleDayClick}
               onDragStart={startDragSelection}
               onDragEnter={continueDragSelection}
             />
           </div>
 
-          <div className="hidden 2xl:block 2xl:min-w-[360px]">
+          <div className="hidden xl:block xl:min-w-[360px] xl:sticky xl:top-4">
             <BottomActionBar
               placement="desktop"
               visible={selectedDateKeys.length > 0}
               selectedCount={selectedDateKeys.length}
               onApplyStatus={applyStatusToSelectedDays}
               onClear={clearSelection}
+              quickFillActions={quickFillActions}
             />
           </div>
         </div>

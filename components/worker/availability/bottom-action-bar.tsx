@@ -7,6 +7,11 @@ type BottomActionBarProps = {
   visible: boolean;
   onApplyStatus: (status: WorkerAvailabilityStatus) => void;
   onClear: () => void;
+  quickFillActions?: Array<{
+    key: string;
+    label: string;
+    onClick: () => void;
+  }>;
   placement?: "mobile" | "desktop";
 };
 
@@ -27,6 +32,7 @@ export function BottomActionBar({
   visible,
   onApplyStatus,
   onClear,
+  quickFillActions = [],
   placement = "mobile",
 }: BottomActionBarProps) {
   if (placement === "desktop") {
@@ -42,6 +48,26 @@ export function BottomActionBar({
           <p className="mt-1 leading-6">
             The action panel updates instantly as you select.
           </p>
+          {quickFillActions.length > 0 ? (
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Quick fill
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {quickFillActions.map((action) => (
+                  <button
+                    key={action.key}
+                    type="button"
+                    onClick={action.onClick}
+                    className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-xs font-semibold text-stone-200 transition hover:border-[#8B5CF6]/45 hover:bg-[rgba(139,92,246,0.22)]"
+                    aria-label={action.label}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </aside>
       );
     }
@@ -54,6 +80,26 @@ export function BottomActionBar({
         <p className="mt-3 text-sm text-stone-200">
           Apply to {selectedCount} {selectedCount === 1 ? "day" : "days"}
         </p>
+        {quickFillActions.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+              Quick fill
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {quickFillActions.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={action.onClick}
+                  className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-xs font-semibold text-stone-200 transition hover:border-[#8B5CF6]/45 hover:bg-[rgba(139,92,246,0.22)]"
+                  aria-label={action.label}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-5 space-y-2.5">
           <button type="button" onClick={() => onApplyStatus("available")} className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold transition ${actionClass("available")}`}>
             Available

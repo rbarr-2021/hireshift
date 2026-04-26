@@ -34,6 +34,8 @@ export default function BusinessBookingPaymentPage() {
   const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [startingCheckout, setStartingCheckout] = useState(false);
+  const stripePublishableKey =
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null;
 
   useEffect(() => {
     let active = true;
@@ -95,6 +97,16 @@ export default function BusinessBookingPaymentPage() {
 
   const handleCheckout = async () => {
     if (!booking || startingCheckout) {
+      return;
+    }
+
+    if (!stripePublishableKey) {
+      showToast({
+        title: "Payment unavailable",
+        description:
+          "Stripe publishable key is missing in this environment. Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY and redeploy.",
+        tone: "error",
+      });
       return;
     }
 
