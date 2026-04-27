@@ -36,7 +36,7 @@ function buildWorkerStripeConnectSnapshot(
     stripe_connect_payouts_enabled: Boolean(account.payouts_enabled),
     stripe_connect_charges_enabled: Boolean(account.charges_enabled),
     stripe_connect_onboarding_completed_at:
-      account.details_submitted && account.payouts_enabled
+      account.charges_enabled && account.payouts_enabled
         ? new Date().toISOString()
         : null,
     stripe_connect_last_synced_at: new Date().toISOString(),

@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
       payoutsEnabled: snapshot.stripe_connect_payouts_enabled,
       detailsSubmitted: snapshot.stripe_connect_details_submitted,
       chargesEnabled: snapshot.stripe_connect_charges_enabled,
+      onboardingComplete:
+        snapshot.stripe_connect_charges_enabled &&
+        snapshot.stripe_connect_payouts_enabled,
     });
   } catch (error) {
     console.error("[worker-payout-refresh]", error);

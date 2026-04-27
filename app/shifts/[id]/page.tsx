@@ -38,13 +38,19 @@ type BusinessSummary = {
 };
 
 function formatSupabaseError(error: unknown) {
+  const payoutSetupMessage =
+    "You need to finish your payout setup with Stripe before accepting paid shifts.";
+
   if (error instanceof Error) {
     if (error.message.includes("another accepted shift during this time")) {
       return "You already have another accepted shift during these hours.";
     }
 
-    if (error.message.includes("Set up Stripe payouts")) {
-      return "Set up payouts before taking your first shift.";
+    if (
+      error.message.includes("Set up Stripe payouts") ||
+      error.message.includes("finish your payout setup with Stripe")
+    ) {
+      return payoutSetupMessage;
     }
 
     return error.message;
@@ -57,8 +63,11 @@ function formatSupabaseError(error: unknown) {
       return "You already have another accepted shift during these hours.";
     }
 
-    if (message.includes("Set up Stripe payouts")) {
-      return "Set up payouts before taking your first shift.";
+    if (
+      message.includes("Set up Stripe payouts") ||
+      message.includes("finish your payout setup with Stripe")
+    ) {
+      return payoutSetupMessage;
     }
 
     return message;
@@ -80,6 +89,7 @@ export default function ShiftDetailPage() {
   const [reliability, setReliability] = useState<WorkerReliabilityRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [taking, setTaking] = useState(false);
+  const [connectingPayoutSetup, setConnectingPayoutSetup] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const intentTake =
@@ -217,13 +227,14 @@ export default function ShiftDetailPage() {
     }
 
     if (!isWorkerPayoutReady(workerProfile)) {
+      const description =
+        "You need to finish your payout setup with Stripe before accepting paid shifts.";
       showToast({
         title: "Set up payouts to take this shift",
-        description:
-          "Connect Stripe once so NexHyr can pay you quickly after completed shifts.",
+        description,
         tone: "info",
       });
-      router.push(`/dashboard/worker/payments?redirect=${encodeURIComponent(targetPath)}`);
+      setMessage(description);
       return;
     }
 
@@ -278,6 +289,50 @@ export default function ShiftDetailPage() {
     }
 
     router.replace("/dashboard/worker");
+  };
+
+  const handleCompletePayoutSetup = async () => {
+    if (!listing) {
+      return;
+    }
+
+    setConnectingPayoutSetup(true);
+
+    try {
+      const redirectPath = `/shifts/${listing.id}?intent=take`;
+      const response = await fetch("/api/worker/payout-account/onboard", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ redirect: redirectPath }),
+      });
+
+      const payloadText = await response.text();
+      const payload = payloadText
+        ? (JSON.parse(payloadText) as { error?: string; url?: string })
+        : ({ error: "Stripe payout setup is not configured correctly yet." } as {
+            error?: string;
+            url?: string;
+          });
+
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Unable to open Stripe payout setup.");
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      const description =
+        error instanceof Error
+          ? error.message
+          : "Unable to open Stripe payout setup.";
+      showToast({
+        title: "Stripe setup unavailable",
+        description,
+        tone: "error",
+      });
+      setConnectingPayoutSetup(false);
+    }
   };
 
   const shiftLength = useMemo(() => {
@@ -409,7 +464,7 @@ export default function ShiftDetailPage() {
                   ? `You are temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`
                   : isWorkerPayoutReady(workerProfile)
                     ? "You are shift-ready. Take this shift now and it will move straight into your accepted work."
-                    : "Connect Stripe payouts once before your first shift so NexHyr can pay you after completion."
+                    : "You need to finish your payout setup with Stripe before accepting paid shifts."
                 : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
             </p>
             <div className="mt-5 flex flex-col gap-3">
@@ -440,6 +495,16 @@ export default function ShiftDetailPage() {
                     ? "Take shift"
                     : "Complete profile to take shift"}
               </button>
+              {appUser?.onboarding_complete && !isWorkerPayoutReady(workerProfile) ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCompletePayoutSetup()}
+                  disabled={connectingPayoutSetup}
+                  className="secondary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {connectingPayoutSetup ? "Opening Stripe..." : "Complete payout setup"}
+                </button>
+              ) : null}
               <Link href="/shifts" className="secondary-btn w-full">
                 Back to shifts
               </Link>

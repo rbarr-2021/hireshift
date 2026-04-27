@@ -50,6 +50,25 @@ function StripeBadge() {
   );
 }
 
+function getPayoutSetupStatus(workerProfile: WorkerProfileRecord | null) {
+  if (!workerProfile?.stripe_connect_account_id) {
+    return "not_set_up" as const;
+  }
+
+  if (
+    workerProfile.stripe_connect_charges_enabled &&
+    workerProfile.stripe_connect_payouts_enabled
+  ) {
+    return "ready" as const;
+  }
+
+  if (workerProfile.stripe_connect_details_submitted) {
+    return "pending_verification" as const;
+  }
+
+  return "setup_started" as const;
+}
+
 async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
   const text = await response.text();
 
@@ -186,6 +205,7 @@ function WorkerPaymentsPageContent() {
           detailsSubmitted?: boolean;
           payoutsEnabled?: boolean;
           chargesEnabled?: boolean;
+          onboardingComplete?: boolean;
         }>(response, "Stripe payout status is not configured correctly yet.");
 
         if (!response.ok) {
@@ -205,9 +225,9 @@ function WorkerPaymentsPageContent() {
                 stripe_connect_charges_enabled: payload.chargesEnabled ?? false,
                 stripe_connect_last_synced_at: new Date().toISOString(),
                 stripe_connect_onboarding_completed_at:
-                  payload.detailsSubmitted && payload.payoutsEnabled
+                  payload.onboardingComplete ?? (payload.chargesEnabled && payload.payoutsEnabled)
                     ? current.stripe_connect_onboarding_completed_at ?? new Date().toISOString()
-                    : current.stripe_connect_onboarding_completed_at,
+                    : null,
               }
             : current,
         );
@@ -215,16 +235,16 @@ function WorkerPaymentsPageContent() {
         if (stripeQuery === "connected") {
           const redirectTo = searchParams.get("redirect");
           showToast({
-            title: payload.payoutsEnabled
+            title: payload.payoutsEnabled && payload.chargesEnabled
               ? "Stripe payouts connected"
               : "Finish Stripe setup",
-            description: payload.payoutsEnabled
+            description: payload.payoutsEnabled && payload.chargesEnabled
               ? "Your payout account is ready for completed shift payments."
-              : "Stripe still needs a few payout details before we can send funds automatically.",
-            tone: payload.payoutsEnabled ? "success" : "info",
+              : "You need to finish your payout setup with Stripe before accepting paid shifts.",
+            tone: payload.payoutsEnabled && payload.chargesEnabled ? "success" : "info",
           });
 
-          if (payload.payoutsEnabled && redirectTo?.startsWith("/")) {
+          if (payload.payoutsEnabled && payload.chargesEnabled && redirectTo?.startsWith("/")) {
             router.replace(redirectTo);
           }
         }
@@ -275,6 +295,7 @@ function WorkerPaymentsPageContent() {
 
   const payoutAccountConnected = Boolean(workerProfile?.stripe_connect_account_id);
   const payoutAccountReady = isWorkerPayoutReady(workerProfile);
+  const payoutSetupStatus = getPayoutSetupStatus(workerProfile);
 
   const handleConnectPayouts = async () => {
     setConnecting(true);
@@ -428,6 +449,23 @@ function WorkerPaymentsPageContent() {
           <div className="mt-4 flex flex-wrap gap-2">
             <span className={payoutAccountConnected ? "status-badge status-badge--ready" : "status-badge"}>
               {payoutAccountConnected ? "Stripe account linked" : "Not linked"}
+            </span>
+            <span
+              className={
+                payoutSetupStatus === "ready"
+                  ? "status-badge status-badge--ready"
+                  : payoutSetupStatus === "pending_verification"
+                    ? "status-badge status-badge--rating"
+                    : "status-badge"
+              }
+            >
+              {payoutSetupStatus === "ready"
+                ? "Ready to receive payouts"
+                : payoutSetupStatus === "pending_verification"
+                  ? "Pending Stripe verification"
+                  : payoutSetupStatus === "setup_started"
+                    ? "Setup started"
+                    : "Not set up"}
             </span>
             <span
               className={
