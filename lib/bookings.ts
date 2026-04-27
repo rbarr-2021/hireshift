@@ -1,4 +1,4 @@
-import type { BookingRecord, BookingStatus } from "@/lib/models";
+import type { AttendanceStatus, BookingRecord, BookingStatus } from "@/lib/models";
 
 function buildDateTime(date: string, time: string) {
   return new Date(`${date}T${time}`);
@@ -119,6 +119,66 @@ export function formatAttendanceTimestamp(timestamp?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
+}
+
+export function calculateHoursBetweenTimestamps(
+  startedAt: string | null | undefined,
+  endedAt: string | null | undefined,
+) {
+  if (!startedAt || !endedAt) {
+    return null;
+  }
+
+  const started = new Date(startedAt);
+  const ended = new Date(endedAt);
+  const durationMinutes = (ended.getTime() - started.getTime()) / 60000;
+
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    return null;
+  }
+
+  return Math.round((durationMinutes / 60) * 100) / 100;
+}
+
+export function formatHoursValue(hours: number | null | undefined) {
+  if (hours === null || hours === undefined || !Number.isFinite(hours)) {
+    return null;
+  }
+
+  const rounded = Math.round(hours * 100) / 100;
+  return `${rounded.toFixed(2)}h`;
+}
+
+export function getCheckInWindow(
+  booking: Pick<BookingRecord, "shift_date" | "start_time">,
+) {
+  const shiftStart = getBookingStartDateTime(booking);
+  const opensAt = new Date(shiftStart.getTime() - 15 * 60 * 1000);
+  const closesAt = new Date(shiftStart.getTime() + 30 * 60 * 1000);
+
+  return { opensAt, closesAt, shiftStart };
+}
+
+export function isWithinCheckInWindow(
+  booking: Pick<BookingRecord, "shift_date" | "start_time">,
+  now = new Date(),
+) {
+  const { opensAt, closesAt } = getCheckInWindow(booking);
+  return now >= opensAt && now <= closesAt;
+}
+
+export function formatAttendanceStatusLabel(status: AttendanceStatus) {
+  const labels: Record<AttendanceStatus, string> = {
+    not_started: "Not started",
+    checked_in: "Checked in",
+    checked_out: "Checked out",
+    pending_approval: "Awaiting business approval",
+    approved: "Hours approved",
+    disputed: "Attendance disputed",
+    adjusted: "Hours adjusted",
+  };
+
+  return labels[status];
 }
 
 export function formatTimeUntilBooking(

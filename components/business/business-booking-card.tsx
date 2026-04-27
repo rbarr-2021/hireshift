@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import {
+  calculateBookingDurationHours,
+  formatAttendanceStatusLabel,
   formatAttendanceTimestamp,
+  formatHoursValue,
   bookingStatusClass,
   formatBookingDate,
   formatBookingTimeRange,
@@ -104,6 +107,34 @@ export function BusinessBookingCard({
           <span className="font-medium text-stone-900">Total:</span>{" "}
           {formatCurrency(booking.total_amount_gbp)}
         </p>
+        <p>
+          <span className="font-medium text-stone-900">Scheduled hours:</span>{" "}
+          {formatHoursValue(
+            booking.shift_duration_hours ??
+              calculateBookingDurationHours(
+                booking.start_time,
+                booking.end_time,
+                booking.shift_date,
+                booking.shift_end_date,
+              ),
+          ) ?? "Not set"}
+        </p>
+        <p>
+          <span className="font-medium text-stone-900">Attendance:</span>{" "}
+          {formatAttendanceStatusLabel(booking.attendance_status)}
+        </p>
+        {booking.worker_hours_claimed ? (
+          <p>
+            <span className="font-medium text-stone-900">Claimed hours:</span>{" "}
+            {formatHoursValue(booking.worker_hours_claimed)}
+          </p>
+        ) : null}
+        {booking.business_hours_approved ? (
+          <p>
+            <span className="font-medium text-stone-900">Approved hours:</span>{" "}
+            {formatHoursValue(booking.business_hours_approved)}
+          </p>
+        ) : null}
         {booking.worker_checked_in_at ? (
           <p>
             <span className="font-medium text-stone-900">Worker started:</span>{" "}
@@ -117,6 +148,11 @@ export function BusinessBookingCard({
           </p>
         ) : null}
       </div>
+      {booking.business_adjustment_reason ? (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+          {booking.business_adjustment_reason}
+        </p>
+      ) : null}
       {booking.notes ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.notes}

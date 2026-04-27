@@ -281,8 +281,80 @@ export default function BusinessDashboardPage() {
 
   const handleRecordOutcome = async (
     bookingId: string,
-    action: "confirm_shift" | "no_show" | "flag_issue",
+    action: "approve_hours" | "adjust_hours" | "dispute_hours" | "no_show",
   ) => {
+    const booking = bookings.find((item) => item.id === bookingId);
+
+    if (!booking) {
+      return;
+    }
+
+    let reason: string | undefined;
+    let adjustedHours: number | undefined;
+
+    if (action === "adjust_hours") {
+      const hoursInput = window.prompt(
+        "Enter approved hours for this shift.",
+        booking.worker_hours_claimed ? booking.worker_hours_claimed.toString() : "",
+      );
+
+      if (hoursInput === null) {
+        return;
+      }
+
+      const parsedHours = Number.parseFloat(hoursInput);
+
+      if (!Number.isFinite(parsedHours) || parsedHours <= 0) {
+        showToast({
+          title: "Invalid hours",
+          description: "Enter a valid approved hours value.",
+          tone: "error",
+        });
+        return;
+      }
+
+      const reasonInput = window.prompt("Add a reason for adjusting hours.");
+      if (reasonInput === null) {
+        return;
+      }
+
+      const trimmedReason = reasonInput.trim();
+      if (!trimmedReason) {
+        showToast({
+          title: "Reason required",
+          description: "Add a reason when adjusting worker hours.",
+          tone: "error",
+        });
+        return;
+      }
+
+      adjustedHours = parsedHours;
+      reason = trimmedReason;
+    }
+
+    if (action === "dispute_hours") {
+      const reasonInput = window.prompt("Describe the attendance issue for review.");
+      if (reasonInput === null) {
+        return;
+      }
+
+      const trimmedReason = reasonInput.trim();
+      if (!trimmedReason) {
+        showToast({
+          title: "Reason required",
+          description: "Add a reason to dispute attendance.",
+          tone: "error",
+        });
+        return;
+      }
+
+      reason = trimmedReason;
+    }
+
+    if (action === "no_show") {
+      reason = "Worker marked as no-show by business.";
+    }
+
     setActioningId(bookingId);
 
     try {
@@ -293,12 +365,8 @@ export default function BusinessDashboardPage() {
         },
         body: JSON.stringify({
           action,
-          reason:
-            action === "flag_issue"
-              ? "Issue raised by business after the shift."
-              : action === "no_show"
-                ? "Worker marked as no-show by business."
-                : undefined,
+          reason,
+          adjustedHours,
         }),
       });
 
@@ -333,18 +401,22 @@ export default function BusinessDashboardPage() {
 
       showToast({
         title:
-          action === "confirm_shift"
-            ? "Shift confirmed"
+          action === "approve_hours"
+            ? "Hours approved"
+            : action === "adjust_hours"
+              ? "Hours adjusted"
             : action === "no_show"
               ? "No-show recorded"
-              : "Issue flagged",
+              : "Attendance disputed",
         description:
-          action === "confirm_shift"
-            ? "The shift is confirmed and worker payout will move automatically."
+          action === "approve_hours"
+            ? "Attendance approved and payout can now move."
+            : action === "adjust_hours"
+              ? "Adjusted hours saved and payout can now move."
             : action === "no_show"
               ? "This no-show has been recorded and payout is paused."
-              : "This booking has been moved into dispute review.",
-        tone: action === "flag_issue" || action === "no_show" ? "info" : "success",
+              : "This shift has been moved into attendance dispute review.",
+        tone: action === "dispute_hours" || action === "no_show" ? "info" : "success",
       });
     } catch (error) {
       const message =
@@ -429,7 +501,7 @@ export default function BusinessDashboardPage() {
               <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutApprovals.length}</p>
             </div>
             <p className="max-w-xl text-sm leading-6 text-stone-600">
-              Fund the booking first, then confirm the shift after it ends. Payout is sent automatically unless an issue is raised.
+              Review attendance after each shift, approve or adjust hours, then payout can move automatically.
             </p>
           </div>
         </section>
@@ -524,7 +596,7 @@ export default function BusinessDashboardPage() {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => void handleRecordOutcome(booking.id, "confirm_shift")}
+                        onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
                         disabled={
                           actioningId === booking.id ||
                           !isBookingPaid(paymentsByBookingId[booking.id]) ||
@@ -533,7 +605,7 @@ export default function BusinessDashboardPage() {
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                       >
                         <span className="inline-flex items-center justify-center gap-2">
-                          {actioningId === booking.id ? "Updating..." : "Confirm shift"}
+                          {actioningId === booking.id ? "Updating..." : "Approve hours"}
                           {completedBookingIds.has(booking.id) ? (
                             <span
                               aria-label="Completed"
@@ -544,6 +616,28 @@ export default function BusinessDashboardPage() {
                           ) : null}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRecordOutcome(booking.id, "adjust_hours")}
+                        disabled={
+                          actioningId === booking.id ||
+                          !isBookingPaid(paymentsByBookingId[booking.id]) ||
+                          !(booking.worker_checked_out_at || isPastBooking(booking))
+                        }
+                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                      >
+                        Adjust hours
+                      </button>
+                      {booking.status !== "no_show" ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleRecordOutcome(booking.id, "dispute_hours")}
+                          disabled={actioningId === booking.id}
+                          className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                        >
+                          Dispute hours
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void handleRecordOutcome(booking.id, "no_show")}
@@ -592,7 +686,7 @@ export default function BusinessDashboardPage() {
                         {booking.status !== "completed" ? (
                           <button
                             type="button"
-                            onClick={() => void handleRecordOutcome(booking.id, "confirm_shift")}
+                            onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
                             disabled={
                               actioningId === booking.id ||
                               !isBookingPaid(payment) ||
@@ -600,17 +694,31 @@ export default function BusinessDashboardPage() {
                             }
                             className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                           >
-                            {actioningId === booking.id ? "Updating..." : "Confirm shift"}
+                            {actioningId === booking.id ? "Updating..." : "Approve hours"}
                           </button>
                         ) : null}
                         {payment?.payout_status !== "disputed" ? (
                           <button
                             type="button"
-                            onClick={() => void handleRecordOutcome(booking.id, "flag_issue")}
+                            onClick={() => void handleRecordOutcome(booking.id, "adjust_hours")}
+                            disabled={
+                              actioningId === booking.id ||
+                              !isBookingPaid(payment) ||
+                              !(booking.worker_checked_out_at || isPastBooking(booking))
+                            }
+                            className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                          >
+                            Adjust hours
+                          </button>
+                        ) : null}
+                        {payment?.payout_status !== "disputed" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleRecordOutcome(booking.id, "dispute_hours")}
                             disabled={actioningId === booking.id}
                             className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                           >
-                            Flag issue
+                            Dispute hours
                           </button>
                         ) : null}
                       </>
@@ -621,7 +729,7 @@ export default function BusinessDashboardPage() {
             ) : (
               <BusinessEmptyState
                 title="No post-shift actions waiting"
-                description="Once a funded shift ends, confirm it here so the worker payout can move automatically."
+                description="Once a shift ends, approve attendance hours here so worker payout can move automatically."
               />
             )}
           </div>

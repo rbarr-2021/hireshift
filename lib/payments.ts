@@ -144,6 +144,22 @@ export function getWorkerShiftStage(
     return "On hold";
   }
 
+  if (booking.attendance_status === "approved" || booking.attendance_status === "adjusted") {
+    return "Hours approved";
+  }
+
+  if (booking.attendance_status === "pending_approval") {
+    return "Awaiting business approval";
+  }
+
+  if (booking.attendance_status === "disputed") {
+    return "Disputed";
+  }
+
+  if (booking.attendance_status === "checked_in") {
+    return "In progress";
+  }
+
   if (payment?.payout_status === "in_progress" || payment?.payout_status === "approved_for_payout") {
     return "Payout on the way";
   }
@@ -208,11 +224,11 @@ export function getPayoutSupportCopy(payment?: PaymentRecord | PayoutStatus | nu
   }
 
   if (payoutStatus === "not_started") {
-    return "Payout starts once this shift has been funded and confirmed.";
+    return "Payout starts once this shift attendance is approved.";
   }
 
   if (payoutStatus === "pending") {
-    return "Payout is queued and waiting for release checks.";
+    return "Payout is queued and waiting for final release checks.";
   }
 
   if (payoutStatus === "in_progress") {

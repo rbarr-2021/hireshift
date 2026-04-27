@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
-import { getBookingEndDateTime, getBookingStartDateTime } from "@/lib/bookings";
+import {
+  calculateHoursBetweenTimestamps,
+  getBookingEndDateTime,
+  getBookingStartDateTime,
+  getCheckInWindow,
+} from "@/lib/bookings";
 import { getRouteActor } from "@/lib/route-access";
 import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -20,6 +25,9 @@ function getPaymentStatus(payment: PaymentRecord | null | undefined) {
 type AttendanceAction =
   | "check_in"
   | "check_out"
+  | "approve_hours"
+  | "adjust_hours"
+  | "dispute_hours"
   | "confirm_shift"
   | "flag_issue"
   | "no_show";
@@ -60,6 +68,10 @@ export async function POST(
         action?: AttendanceAction;
         managerName?: string;
         reason?: string;
+        notes?: string;
+        adjustedHours?: number | string | null;
+        latitude?: number | null;
+        longitude?: number | null;
       }
     | null;
   const action = body?.action;
@@ -88,6 +100,10 @@ export async function POST(
 
   const actorId = actor.authUser.id;
   const nowIso = new Date().toISOString();
+  const now = new Date(nowIso);
+
+  const normalizeCoordinate = (value: number | null | undefined) =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
 
   if (actor.appUser.role === "worker") {
     if (booking.worker_id !== actorId) {
@@ -109,10 +125,25 @@ export async function POST(
         );
       }
 
+      const { opensAt, closesAt } = getCheckInWindow(booking);
+      if (now < opensAt || now > closesAt) {
+        return NextResponse.json(
+          {
+            error:
+              "Check-in opens 15 minutes before your shift starts. Check-in closes 30 minutes after start.",
+          },
+          { status: 409 },
+        );
+      }
+
       await supabaseAdmin
         .from("bookings")
         .update({
           worker_checked_in_at: nowIso,
+          check_in_lat: normalizeCoordinate(body?.latitude),
+          check_in_lng: normalizeCoordinate(body?.longitude),
+          attendance_status: "checked_in",
+          attendance_notes: body?.notes?.trim() || booking.attendance_notes || null,
         })
         .eq("id", booking.id);
     } else if (action === "check_out") {
@@ -130,10 +161,27 @@ export async function POST(
         );
       }
 
+      const claimedHours = calculateHoursBetweenTimestamps(
+        booking.worker_checked_in_at,
+        nowIso,
+      );
+
+      if (!claimedHours || claimedHours <= 0) {
+        return NextResponse.json(
+          { error: "Shift hours could not be calculated. Please try again." },
+          { status: 409 },
+        );
+      }
+
       await supabaseAdmin
         .from("bookings")
         .update({
           worker_checked_out_at: nowIso,
+          check_out_lat: normalizeCoordinate(body?.latitude),
+          check_out_lng: normalizeCoordinate(body?.longitude),
+          worker_hours_claimed: claimedHours,
+          attendance_status: "pending_approval",
+          attendance_notes: body?.notes?.trim() || booking.attendance_notes || null,
         })
         .eq("id", booking.id);
     } else {
@@ -156,18 +204,31 @@ export async function POST(
   }
 
   if (action === "flag_issue") {
-    if (!payment) {
-      return NextResponse.json({ error: "No payment record found for this booking." }, { status: 404 });
+    if (!body?.reason?.trim()) {
+      return NextResponse.json(
+        { error: "Add a reason before disputing attendance." },
+        { status: 400 },
+      );
     }
 
     await supabaseAdmin
-      .from("payments")
+      .from("bookings")
       .update({
-        payout_status: "on_hold",
-        dispute_reason: body?.reason?.trim() || "Issue flagged by business.",
-        disputed_at: nowIso,
+        attendance_status: "disputed",
+        business_adjustment_reason: body.reason.trim(),
       })
-      .eq("id", payment.id);
+      .eq("id", booking.id);
+
+    if (payment) {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "on_hold",
+          dispute_reason: body.reason.trim(),
+          disputed_at: nowIso,
+        })
+        .eq("id", payment.id);
+    }
 
     const refreshed = await refreshBookingSnapshot(booking.id);
     return NextResponse.json(refreshed);
@@ -181,7 +242,14 @@ export async function POST(
       );
     }
 
-    await supabaseAdmin.from("bookings").update({ status: "no_show" }).eq("id", booking.id);
+    await supabaseAdmin
+      .from("bookings")
+      .update({
+        status: "no_show",
+        attendance_status: "disputed",
+        business_adjustment_reason: body?.reason?.trim() || "Worker marked as no-show by business.",
+      })
+      .eq("id", booking.id);
     await supabaseAdmin.rpc("record_worker_reliability_event", {
       target_worker_id: booking.worker_id,
       target_booking_id: booking.id,
@@ -206,23 +274,97 @@ export async function POST(
     return NextResponse.json(refreshed);
   }
 
-  if (action !== "confirm_shift") {
+  let mappedAction: "approve_hours" | "adjust_hours" | "dispute_hours" | null = null;
+  if (action === "confirm_shift" || action === "approve_hours") {
+    mappedAction = "approve_hours";
+  } else if (action === "adjust_hours") {
+    mappedAction = "adjust_hours";
+  } else if (action === "dispute_hours") {
+    mappedAction = "dispute_hours";
+  }
+
+  if (!mappedAction) {
     return NextResponse.json({ error: "That attendance action is not supported." }, { status: 409 });
   }
 
-  if (booking.status !== "accepted") {
+  if (!(booking.status === "accepted" || booking.status === "completed")) {
     return NextResponse.json(
-      { error: "Only accepted bookings can be confirmed." },
+      { error: "Only accepted or completed bookings can be updated." },
       { status: 409 },
     );
   }
 
-  if (!payment || getPaymentStatus(payment) !== "paid") {
+  if (mappedAction === "dispute_hours") {
+    if (!body?.reason?.trim()) {
+      return NextResponse.json(
+        { error: "Add a reason before disputing attendance." },
+        { status: 400 },
+      );
+    }
+
+    await supabaseAdmin
+      .from("bookings")
+      .update({
+        attendance_status: "disputed",
+        business_adjustment_reason: body.reason.trim(),
+      })
+      .eq("id", booking.id);
+
+    if (payment) {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "on_hold",
+          dispute_reason: body.reason.trim(),
+          disputed_at: nowIso,
+          failure_reason: "This shift has an unresolved attendance dispute.",
+        })
+        .eq("id", payment.id);
+    }
+
+    const refreshed = await refreshBookingSnapshot(booking.id);
+    return NextResponse.json(refreshed);
+  }
+
+  if (!booking.worker_checked_in_at || !booking.worker_checked_out_at) {
     return NextResponse.json(
-      { error: "Fund this booking before confirming the shift." },
+      { error: "Worker must check in and check out before attendance can be approved." },
       { status: 409 },
     );
   }
+
+  const claimedHours =
+    booking.worker_hours_claimed ??
+    calculateHoursBetweenTimestamps(booking.worker_checked_in_at, booking.worker_checked_out_at);
+
+  if (!claimedHours || claimedHours <= 0) {
+    return NextResponse.json(
+      { error: "Worker claimed hours are not available yet." },
+      { status: 409 },
+    );
+  }
+
+  const parsedAdjustedHours =
+    typeof body?.adjustedHours === "string"
+      ? Number.parseFloat(body.adjustedHours)
+      : body?.adjustedHours;
+
+  if (mappedAction === "adjust_hours" && (!Number.isFinite(parsedAdjustedHours ?? NaN) || (parsedAdjustedHours ?? 0) <= 0)) {
+    return NextResponse.json(
+      { error: "Enter the adjusted hours before saving." },
+      { status: 400 },
+    );
+  }
+
+  if (mappedAction === "adjust_hours" && !body?.reason?.trim()) {
+    return NextResponse.json(
+      { error: "Add a reason when adjusting worker hours." },
+      { status: 400 },
+    );
+  }
+
+  const approvedHours =
+    mappedAction === "adjust_hours" ? Number((parsedAdjustedHours ?? 0).toFixed(2)) : claimedHours;
 
   const scheduledTimes = buildScheduledAttendanceSnapshot(booking);
   const confirmedStart = booking.worker_checked_in_at ?? scheduledTimes.start;
@@ -232,6 +374,13 @@ export async function POST(
     .from("bookings")
     .update({
       status: "completed",
+      worker_hours_claimed: claimedHours,
+      business_hours_approved: approvedHours,
+      attendance_status: mappedAction === "adjust_hours" ? "adjusted" : "approved",
+      business_adjustment_reason: mappedAction === "adjust_hours" ? body?.reason?.trim() || null : null,
+      approved_by_business_at: nowIso,
+      approved_by_business_id: actorId,
+      attendance_notes: body?.notes?.trim() || booking.attendance_notes || null,
       business_confirmed_start_at: confirmedStart,
       business_confirmed_end_at: confirmedEnd,
       business_confirmed_at: nowIso,
@@ -248,6 +397,10 @@ export async function POST(
     event_metadata: {
       recorded_by: actorId,
       source: "business",
+      attendance_status: mappedAction === "adjust_hours" ? "adjusted" : "approved",
+      worker_hours_claimed: claimedHours,
+      business_hours_approved: approvedHours,
+      business_adjustment_reason: mappedAction === "adjust_hours" ? body?.reason?.trim() || null : null,
       manager_confirmation_name: body?.managerName?.trim() || null,
       worker_checked_in_at: booking.worker_checked_in_at,
       worker_checked_out_at: booking.worker_checked_out_at,
@@ -256,60 +409,67 @@ export async function POST(
     },
   });
 
-  await supabaseAdmin
-    .from("payments")
-    .update({
-      payout_status: "pending",
-      shift_completed_at: nowIso,
-      shift_completion_confirmed_by: actorId,
-      payout_approved_at: nowIso,
-      payout_approved_by: actorId,
-      dispute_reason: null,
-      disputed_at: null,
-      failure_reason: null,
-    })
-    .eq("id", payment.id);
+  if (payment) {
+    const paymentStatus = getPaymentStatus(payment);
+    const nextPayoutStatus = paymentStatus === "paid" ? "pending" : payment.payout_status;
 
-  const { data: workerProfile } = await supabaseAdmin
-    .from("worker_profiles")
-    .select("*")
-    .eq("user_id", booking.worker_id)
-    .maybeSingle<WorkerProfileRecord>();
-
-  if (!workerProfile) {
     await supabaseAdmin
       .from("payments")
       .update({
-        payout_status: "on_hold",
-        failure_reason:
-          "Worker profile could not be found, so Stripe payout cannot be sent yet.",
+        payout_status: nextPayoutStatus,
+        shift_completed_at: nowIso,
+        shift_completion_confirmed_by: actorId,
+        payout_approved_at: nowIso,
+        payout_approved_by: actorId,
+        dispute_reason: null,
+        disputed_at: null,
+        failure_reason: null,
       })
       .eq("id", payment.id);
-  } else {
-    try {
-      await tryAutomaticWorkerPayoutTransfer({
-        payment: {
-          ...payment,
-          payout_status: "pending",
-          shift_completed_at: nowIso,
-          shift_completion_confirmed_by: actorId,
-          payout_approved_at: nowIso,
-          payout_approved_by: actorId,
-          dispute_reason: null,
-          disputed_at: null,
-          failure_reason: null,
-        },
-        workerProfile,
-      });
-    } catch {
-      await supabaseAdmin
-        .from("payments")
-        .update({
-          payout_status: "on_hold",
-          failure_reason:
-            "Automatic Stripe payout could not be completed yet. Review the worker payout account and retry.",
-        })
-        .eq("id", payment.id);
+
+    if (paymentStatus === "paid") {
+      const { data: workerProfile } = await supabaseAdmin
+        .from("worker_profiles")
+        .select("*")
+        .eq("user_id", booking.worker_id)
+        .maybeSingle<WorkerProfileRecord>();
+
+      if (!workerProfile) {
+        await supabaseAdmin
+          .from("payments")
+          .update({
+            payout_status: "on_hold",
+            failure_reason:
+              "Worker profile could not be found, so Stripe payout cannot be sent yet.",
+          })
+          .eq("id", payment.id);
+      } else {
+        try {
+          await tryAutomaticWorkerPayoutTransfer({
+            payment: {
+              ...payment,
+              payout_status: "pending",
+              shift_completed_at: nowIso,
+              shift_completion_confirmed_by: actorId,
+              payout_approved_at: nowIso,
+              payout_approved_by: actorId,
+              dispute_reason: null,
+              disputed_at: null,
+              failure_reason: null,
+            },
+            workerProfile,
+          });
+        } catch {
+          await supabaseAdmin
+            .from("payments")
+            .update({
+              payout_status: "on_hold",
+              failure_reason:
+                "Automatic Stripe payout could not be completed yet. Review the worker payout account and retry.",
+            })
+            .eq("id", payment.id);
+        }
+      }
     }
   }
 

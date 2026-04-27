@@ -6,9 +6,13 @@ import { useParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import {
+  formatAttendanceStatusLabel,
   formatBookingDate,
   formatAttendanceTimestamp,
+  formatHoursValue,
   formatBookingTimeRange,
+  getCheckInWindow,
+  isWithinCheckInWindow,
 } from "@/lib/bookings";
 import type {
   BookingRecord,
@@ -16,6 +20,7 @@ import type {
   PaymentRecord,
   UserRecord,
 } from "@/lib/models";
+import { getCurrentCoordinates } from "@/lib/geolocation";
 import {
   formatPaymentStatus,
   formatPayoutStatus,
@@ -51,6 +56,15 @@ export default function WorkerBookingDetailPage() {
   const [business, setBusiness] = useState<BusinessSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingAttendance, setUpdatingAttendance] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -166,12 +180,17 @@ export default function WorkerBookingDetailPage() {
     setUpdatingAttendance(true);
 
     try {
+      const coordinates = await getCurrentCoordinates();
       const response = await fetchWithSession(`/api/bookings/${booking.id}/attendance`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null,
+        }),
       });
       const payload = (await response.json()) as {
         error?: string;
@@ -212,6 +231,28 @@ export default function WorkerBookingDetailPage() {
   };
 
   const workerPayout = payment?.worker_payout_gbp ?? booking.total_amount_gbp - booking.platform_fee_gbp;
+  const checkInWindow = getCheckInWindow(booking);
+  const canCheckInNow = isWithinCheckInWindow(booking, now);
+  const checkInWindowMessage =
+    now > checkInWindow.closesAt
+      ? "Check-in window has closed for this shift."
+      : `Check-in opens 15 minutes before your shift starts at ${new Intl.DateTimeFormat(
+          "en-GB",
+          {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          },
+        ).format(checkInWindow.opensAt)}.`;
+  const attendanceStageMessage =
+    booking.attendance_status === "approved" || booking.attendance_status === "adjusted"
+      ? "Hours approved"
+      : booking.attendance_status === "pending_approval"
+        ? "Awaiting business approval"
+        : booking.attendance_status === "checked_in"
+          ? "Shift in progress"
+          : null;
 
   return (
     <div className="space-y-6">
@@ -257,6 +298,13 @@ export default function WorkerBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Location:</span> {business?.location || booking.location}</p>
             <p><span className="font-medium text-stone-900">Agreed rate:</span> {formatCurrency(booking.hourly_rate_gbp)}/hr</p>
             <p><span className="font-medium text-stone-900">Expected payout:</span> {formatCurrency(workerPayout)}</p>
+            <p><span className="font-medium text-stone-900">Attendance:</span> {formatAttendanceStatusLabel(booking.attendance_status)}</p>
+            {booking.worker_hours_claimed ? (
+              <p><span className="font-medium text-stone-900">Claimed hours:</span> {formatHoursValue(booking.worker_hours_claimed)}</p>
+            ) : null}
+            {booking.business_hours_approved ? (
+              <p><span className="font-medium text-stone-900">Approved hours:</span> {formatHoursValue(booking.business_hours_approved)}</p>
+            ) : null}
             {booking.worker_checked_in_at ? (
               <p><span className="font-medium text-stone-900">Started:</span> {formatAttendanceTimestamp(booking.worker_checked_in_at)}</p>
             ) : null}
@@ -301,18 +349,30 @@ export default function WorkerBookingDetailPage() {
                 {payment.dispute_reason}
               </p>
             ) : null}
+            {attendanceStageMessage ? (
+              <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                {attendanceStageMessage}
+              </p>
+            ) : null}
           </div>
           {booking.status === "accepted" ? (
             <div className="mt-5 flex flex-col gap-3">
               {!booking.worker_checked_in_at ? (
-                <button
-                  type="button"
-                  onClick={() => void handleAttendance("check_in")}
-                  disabled={updatingAttendance}
-                  className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {updatingAttendance ? "Updating..." : "Start shift"}
-                </button>
+                <>
+                  {!canCheckInNow ? (
+                    <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                      {checkInWindowMessage}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void handleAttendance("check_in")}
+                    disabled={updatingAttendance || !canCheckInNow}
+                    className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {updatingAttendance ? "Updating..." : "Start shift"}
+                  </button>
+                </>
               ) : null}
               {booking.worker_checked_in_at && !booking.worker_checked_out_at ? (
                 <button
@@ -323,6 +383,16 @@ export default function WorkerBookingDetailPage() {
                 >
                   {updatingAttendance ? "Updating..." : "End shift"}
                 </button>
+              ) : null}
+              {booking.attendance_status === "pending_approval" ? (
+                <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                  Awaiting business approval.
+                </p>
+              ) : null}
+              {(booking.attendance_status === "approved" || booking.attendance_status === "adjusted") ? (
+                <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                  Hours approved.
+                </p>
               ) : null}
             </div>
           ) : null}

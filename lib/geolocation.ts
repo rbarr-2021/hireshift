@@ -21,6 +21,12 @@ export type GeolocationAddress = {
   accuracyMeters: number;
 };
 
+export type GeolocationCoordinates = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+};
+
 function buildAddressLine1(address: ReverseGeocodeAddress | undefined) {
   if (!address) {
     return "";
@@ -95,4 +101,32 @@ export async function getAddressFromCurrentLocation(): Promise<GeolocationAddres
     postcode,
     accuracyMeters: position.coords.accuracy,
   };
+}
+
+export async function getCurrentCoordinates(): Promise<GeolocationCoordinates | null> {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return null;
+  }
+
+  if (!navigator.geolocation) {
+    return null;
+  }
+
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false,
+        timeout: 7000,
+        maximumAge: 60000,
+      });
+    });
+
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracyMeters: position.coords.accuracy,
+    };
+  } catch {
+    return null;
+  }
 }

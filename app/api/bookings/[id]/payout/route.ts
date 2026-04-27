@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
+import { isWorkerPayoutReady } from "@/lib/payout-readiness";
 import { getRouteActor } from "@/lib/route-access";
 import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -65,7 +66,13 @@ export async function POST(
       );
     }
 
-    await supabaseAdmin.from("bookings").update({ status: "completed" }).eq("id", booking.id);
+    await supabaseAdmin
+      .from("bookings")
+      .update({
+        status: "completed",
+        attendance_status: booking.worker_checked_out_at ? "pending_approval" : booking.attendance_status,
+      })
+      .eq("id", booking.id);
     await supabaseAdmin.rpc("record_worker_reliability_event", {
       target_worker_id: booking.worker_id,
       target_booking_id: booking.id,
@@ -108,6 +115,41 @@ export async function POST(
       );
     }
 
+    if (booking.attendance_status === "disputed") {
+      return NextResponse.json(
+        { error: "This shift has an unresolved attendance dispute." },
+        { status: 409 },
+      );
+    }
+
+    if (!(booking.attendance_status === "approved" || booking.attendance_status === "adjusted")) {
+      return NextResponse.json(
+        { error: "Approve attendance hours before releasing payout." },
+        { status: 409 },
+      );
+    }
+
+    if (!booking.business_hours_approved || booking.business_hours_approved <= 0) {
+      return NextResponse.json(
+        { error: "Approved attendance hours are required before payout release." },
+        { status: 409 },
+      );
+    }
+
+    if (payment.status === "refunded" || payment.status === "disputed" || payment.payout_status === "on_hold") {
+      return NextResponse.json(
+        { error: "Payout is blocked while this payment is under review." },
+        { status: 409 },
+      );
+    }
+
+    if (!(payment.payout_status === "pending" || payment.payout_status === "not_started")) {
+      return NextResponse.json(
+        { error: "Payout can only be released from a pending state." },
+        { status: 409 },
+      );
+    }
+
     await supabaseAdmin
       .from("payments")
       .update({
@@ -136,6 +178,22 @@ export async function POST(
         })
         .eq("id", payment.id);
     } else {
+      if (!isWorkerPayoutReady(workerProfile)) {
+        await supabaseAdmin
+          .from("payments")
+          .update({
+            payout_status: "on_hold",
+            failure_reason:
+              "Worker payout account setup is incomplete. Ask the worker to finish Stripe onboarding.",
+          })
+          .eq("id", payment.id);
+
+        return NextResponse.json(
+          { error: "Worker payout setup is incomplete." },
+          { status: 409 },
+        );
+      }
+
       try {
         await tryAutomaticWorkerPayoutTransfer({
           payment: {

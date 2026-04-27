@@ -9,7 +9,13 @@ import {
   type WorkerBookingBusinessSnapshot,
 } from "@/components/worker/worker-booking-card";
 import { loadWorkerBookingsSnapshot } from "@/components/worker/worker-bookings-loader";
-import { isPastBooking } from "@/lib/bookings";
+import {
+  formatHoursValue,
+  getCheckInWindow,
+  isPastBooking,
+  isWithinCheckInWindow,
+} from "@/lib/bookings";
+import { getCurrentCoordinates } from "@/lib/geolocation";
 import { fetchWithSession } from "@/lib/route-client";
 import type {
   BookingRecord,
@@ -84,12 +90,17 @@ export default function WorkerAcceptedJobsPage() {
     setActioningId(booking.id);
 
     try {
+      const coordinates = await getCurrentCoordinates();
       const response = await fetchWithSession(`/api/bookings/${booking.id}/attendance`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null,
+        }),
       });
 
       const payload = (await response.json()) as {
@@ -219,11 +230,26 @@ export default function WorkerAcceptedJobsPage() {
               actions={
                 !isPastBooking(booking) ? (
                   <>
+                    {!booking.worker_checked_in_at && !isWithinCheckInWindow(booking, countdownNow) ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        {countdownNow > getCheckInWindow(booking).closesAt
+                          ? "Check-in window has closed for this shift."
+                          : `Check-in opens at ${new Intl.DateTimeFormat("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }).format(getCheckInWindow(booking).opensAt)}.`}
+                      </p>
+                    ) : null}
                     {!booking.worker_checked_in_at ? (
                       <button
                         type="button"
                         onClick={() => void handleAttendance(booking, "check_in")}
-                        disabled={actioningId === booking.id}
+                        disabled={
+                          actioningId === booking.id ||
+                          !isWithinCheckInWindow(booking, countdownNow)
+                        }
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                       >
                         {actioningId === booking.id ? "Updating..." : "Start shift"}
@@ -248,6 +274,17 @@ export default function WorkerAcceptedJobsPage() {
                       >
                         {actioningId === booking.id ? "Updating..." : "Cancel shift"}
                       </button>
+                    ) : null}
+                    {booking.attendance_status === "pending_approval" ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        Awaiting business approval.
+                      </p>
+                    ) : null}
+                    {(booking.attendance_status === "approved" || booking.attendance_status === "adjusted") ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        Hours approved
+                        {booking.business_hours_approved ? `: ${formatHoursValue(booking.business_hours_approved)}` : "."}
+                      </p>
                     ) : null}
                   </>
                 ) : undefined

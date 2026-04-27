@@ -284,6 +284,15 @@ export const PAYOUT_STATUSES = [
   "paid",
   "disputed",
 ] as const;
+export const ATTENDANCE_STATUSES = [
+  "not_started",
+  "checked_in",
+  "checked_out",
+  "pending_approval",
+  "approved",
+  "disputed",
+  "adjusted",
+] as const;
 export const SHIFT_LISTING_STATUSES = ["open", "claimed", "cancelled"] as const;
 export const WORKER_AVAILABILITY_STATUSES = [
   "available",
@@ -341,6 +350,7 @@ export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 export type ShiftListingStatus = (typeof SHIFT_LISTING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type BusinessDocumentType = (typeof BUSINESS_DOCUMENT_TYPES)[number];
@@ -570,6 +580,18 @@ export type BookingRecord = {
   platform_fee_gbp: number;
   worker_checked_in_at: string | null;
   worker_checked_out_at: string | null;
+  check_in_lat: number | null;
+  check_in_lng: number | null;
+  check_out_lat: number | null;
+  check_out_lng: number | null;
+  worker_hours_claimed: number | null;
+  business_hours_approved: number | null;
+  attendance_status: AttendanceStatus;
+  business_adjustment_reason: string | null;
+  approved_by_business_at: string | null;
+  approved_by_business_id: string | null;
+  admin_override_reason: string | null;
+  attendance_notes: string | null;
   business_confirmed_start_at: string | null;
   business_confirmed_end_at: string | null;
   business_confirmed_at: string | null;
