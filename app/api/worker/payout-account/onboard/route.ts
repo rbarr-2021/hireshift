@@ -43,7 +43,7 @@ function formatStripeConnectSetupError(error: unknown) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { redirect?: string | null };
+    await request.json().catch(() => ({}));
     const actor = await getRouteActor(request);
 
     if (!actor) {
@@ -91,14 +91,11 @@ export async function POST(request: NextRequest) {
     });
 
     const siteUrl = getSiteUrl();
-    const redirectParam =
-      body.redirect && body.redirect.startsWith("/")
-        ? `&redirect=${encodeURIComponent(body.redirect)}`
-        : "";
+    const workerPaymentsUrl = `${siteUrl}/dashboard/worker/payments`;
     const onboardingLink = await createWorkerStripeOnboardingLink({
       accountId: account.id,
-      returnUrl: `${siteUrl}/dashboard/worker/payments?stripe=connected${redirectParam}`,
-      refreshUrl: `${siteUrl}/dashboard/worker/payments?stripe=refresh${redirectParam}`,
+      returnUrl: workerPaymentsUrl,
+      refreshUrl: workerPaymentsUrl,
     });
 
     return NextResponse.json({ url: onboardingLink.url });

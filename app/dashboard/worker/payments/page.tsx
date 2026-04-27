@@ -382,35 +382,27 @@ function WorkerPaymentsPageContent() {
                 <StripeBadge />
               </div>
               <p className="mt-2 text-2xl font-semibold text-stone-900">
-                {payoutAccountReady
-                  ? "Ready for automatic payout"
-                  : payoutAccountConnected
-                    ? "Finish payout setup"
-                    : "Connect payouts"}
+                {payoutAccountReady ? "Payout setup complete" : "Finish payout setup"}
               </p>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
                 {payoutAccountReady
-                  ? "Completed shifts can now move from approval to Stripe payout automatically."
-                  : payoutAccountConnected
-                    ? "Your Stripe account exists, but a few payout details still need to be completed before we can send funds."
-                    : "Connect your payout details once through Stripe so approved shifts can be paid out automatically."}
+                  ? "You’re ready to receive payouts after approved shifts."
+                  : "You need to finish your secure Stripe setup before accepting paid shifts."}
               </p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              <button
-                type="button"
-                onClick={() => void handleConnectPayouts()}
-                disabled={connecting}
-                className="primary-btn w-full gap-2 px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                <StripeBadge />
-                {connecting
-                  ? "Opening Stripe..."
-                  : payoutAccountConnected
-                    ? "Finish Stripe setup"
-                    : "Connect with Stripe"}
-              </button>
-              {payoutAccountConnected ? (
+              {!payoutAccountReady ? (
+                <button
+                  type="button"
+                  onClick={() => void handleConnectPayouts()}
+                  disabled={connecting}
+                  className="primary-btn w-full gap-2 px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  <StripeBadge />
+                  {connecting ? "Opening Stripe..." : "Complete payout setup"}
+                </button>
+              ) : null}
+              {payoutAccountReady ? (
                 <button
                   type="button"
                   onClick={() => void handleOpenStripeDashboard()}
@@ -422,10 +414,13 @@ function WorkerPaymentsPageContent() {
               ) : null}
             </div>
           </div>
+          {payoutAccountReady ? (
+            <p className="mt-3 text-sm leading-6 text-stone-600">
+              Update your bank account, personal details, or payout settings securely in Stripe.
+              Stripe will open securely. When finished, you can close that tab and return to NexHyr.
+            </p>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className={payoutAccountConnected ? "status-badge status-badge--ready" : "status-badge"}>
-              {payoutAccountConnected ? "Stripe account linked" : "Not linked"}
-            </span>
             <span
               className={
                 payoutSetupStatus === "ready"
@@ -433,31 +428,7 @@ function WorkerPaymentsPageContent() {
                   : "status-badge status-badge--rating"
               }
             >
-              {payoutSetupStatus === "ready"
-                ? "Ready to receive payouts"
-                : "Finish Stripe setup"}
-            </span>
-            <span
-              className={
-                workerProfile?.stripe_connect_details_submitted
-                  ? "status-badge status-badge--ready"
-                  : "status-badge status-badge--rating"
-              }
-            >
-              {workerProfile?.stripe_connect_details_submitted
-                ? "Details submitted"
-                : "Details still needed"}
-            </span>
-            <span
-              className={
-                workerProfile?.stripe_connect_payouts_enabled
-                  ? "status-badge status-badge--ready"
-                  : "status-badge status-badge--rating"
-              }
-            >
-              {workerProfile?.stripe_connect_payouts_enabled
-                ? "Automatic payouts enabled"
-                : "Payouts not enabled yet"}
+              {payoutSetupStatus === "ready" ? "Complete" : "Incomplete"}
             </span>
             {refreshingStripeStatus ? (
               <span className="status-badge status-badge--rating">Refreshing status</span>
