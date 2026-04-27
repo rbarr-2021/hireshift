@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import type { PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { getStripeClient } from "@/lib/stripe";
+import { getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 type WorkerStripeConnectSnapshot = Pick<
@@ -43,6 +44,28 @@ function buildWorkerStripeConnectSnapshot(
   };
 }
 
+function getWorkerBusinessProfileDefaults(): Stripe.AccountCreateParams.BusinessProfile {
+  const siteUrl = getSiteUrl();
+  let url: string | undefined;
+
+  try {
+    const parsed = new URL(siteUrl);
+    const isHttp = parsed.protocol === "https:" || parsed.protocol === "http:";
+    const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+
+    if (isHttp && !isLocalhost) {
+      url = parsed.toString();
+    }
+  } catch {
+    url = undefined;
+  }
+
+  return {
+    product_description: "Hospitality worker providing shift-based services through NexHyr.",
+    url,
+  };
+}
+
 export async function ensureWorkerStripeConnectAccount(input: {
   workerId: string;
   email: string | null;
@@ -53,7 +76,10 @@ export async function ensureWorkerStripeConnectAccount(input: {
   if (input.currentAccountId) {
     try {
       const account = await stripe.accounts.retrieve(input.currentAccountId);
-      return { account, isNew: false };
+      const updatedAccount = await stripe.accounts.update(account.id, {
+        business_profile: getWorkerBusinessProfileDefaults(),
+      });
+      return { account: updatedAccount, isNew: false };
     } catch (error) {
       if (!isMissingStripeAccountError(error)) {
         throw error;
@@ -76,6 +102,7 @@ export async function ensureWorkerStripeConnectAccount(input: {
       },
     },
     business_type: "individual",
+    business_profile: getWorkerBusinessProfileDefaults(),
     metadata: {
       worker_user_id: input.workerId,
     },

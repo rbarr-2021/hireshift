@@ -51,22 +51,10 @@ function StripeBadge() {
 }
 
 function getPayoutSetupStatus(workerProfile: WorkerProfileRecord | null) {
-  if (!workerProfile?.stripe_connect_account_id) {
-    return "not_set_up" as const;
-  }
-
-  if (
-    workerProfile.stripe_connect_charges_enabled &&
-    workerProfile.stripe_connect_payouts_enabled
-  ) {
-    return "ready" as const;
-  }
-
-  if (workerProfile.stripe_connect_details_submitted) {
-    return "pending_verification" as const;
-  }
-
-  return "setup_started" as const;
+  return workerProfile?.stripe_connect_charges_enabled &&
+    workerProfile?.stripe_connect_payouts_enabled
+    ? "ready"
+    : "finish_setup";
 }
 
 async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
@@ -98,6 +86,84 @@ function WorkerPaymentsPageContent() {
 
   useEffect(() => {
     let active = true;
+
+    const refreshStripeStatus = async (showConnectedToast: boolean) => {
+      setRefreshingStripeStatus(true);
+
+      try {
+        const response = await fetchWithSession("/api/worker/payout-account/refresh", {
+          method: "POST",
+        });
+        const payload = await readJsonResponse<{
+          error?: string;
+          connected?: boolean;
+          detailsSubmitted?: boolean;
+          payoutsEnabled?: boolean;
+          chargesEnabled?: boolean;
+        }>(response, "Stripe payout status is not configured correctly yet.");
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Unable to refresh payout status.");
+        }
+
+        if (!active) {
+          return;
+        }
+
+        const {
+          data: { user: refreshedUser },
+        } = await supabase.auth.getUser();
+
+        if (!refreshedUser || !active) {
+          return;
+        }
+
+        const refreshedWorkerProfileResult = await supabase
+          .from("worker_profiles")
+          .select("*")
+          .eq("user_id", refreshedUser.id)
+          .maybeSingle<WorkerProfileRecord>();
+
+        if (!active) {
+          return;
+        }
+
+        setWorkerProfile(refreshedWorkerProfileResult.data ?? null);
+
+        if (showConnectedToast) {
+          const redirectTo = searchParams.get("redirect");
+          const ready = Boolean(payload.payoutsEnabled && payload.chargesEnabled);
+
+          showToast({
+            title: ready ? "Stripe payouts connected" : "Finish Stripe setup",
+            description: ready
+              ? "Your payout account is ready for completed shift payments."
+              : "You need to finish your payout setup with Stripe before accepting paid shifts.",
+            tone: ready ? "success" : "info",
+          });
+
+          if (ready && redirectTo?.startsWith("/")) {
+            router.replace(redirectTo);
+          }
+        }
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : "Unable to refresh payout status.";
+        showToast({
+          title: "Payout status unavailable",
+          description: message,
+          tone: "error",
+        });
+      } finally {
+        if (active) {
+          setRefreshingStripeStatus(false);
+        }
+      }
+    };
 
     const loadPayments = async () => {
       const {
@@ -173,6 +239,7 @@ function WorkerPaymentsPageContent() {
           return accumulator;
         }, {}),
       );
+      await refreshStripeStatus(searchParams.get("stripe") === "connected");
       setLoading(false);
     };
 
@@ -181,98 +248,7 @@ function WorkerPaymentsPageContent() {
     return () => {
       active = false;
     };
-  }, []);
-
-  useEffect(() => {
-    const stripeQuery = searchParams.get("stripe");
-
-    if (!workerProfile?.stripe_connect_account_id && stripeQuery !== "connected") {
-      return;
-    }
-
-    let active = true;
-
-    const syncStripeStatus = async () => {
-      setRefreshingStripeStatus(true);
-
-      try {
-        const response = await fetchWithSession("/api/worker/payout-account/refresh", {
-          method: "POST",
-        });
-        const payload = await readJsonResponse<{
-          error?: string;
-          connected?: boolean;
-          detailsSubmitted?: boolean;
-          payoutsEnabled?: boolean;
-          chargesEnabled?: boolean;
-          onboardingComplete?: boolean;
-        }>(response, "Stripe payout status is not configured correctly yet.");
-
-        if (!response.ok) {
-          throw new Error(payload.error || "Unable to refresh payout status.");
-        }
-
-        if (!active) {
-          return;
-        }
-
-        setWorkerProfile((current) =>
-          current
-            ? {
-                ...current,
-                stripe_connect_details_submitted: payload.detailsSubmitted ?? false,
-                stripe_connect_payouts_enabled: payload.payoutsEnabled ?? false,
-                stripe_connect_charges_enabled: payload.chargesEnabled ?? false,
-                stripe_connect_last_synced_at: new Date().toISOString(),
-                stripe_connect_onboarding_completed_at:
-                  payload.onboardingComplete ?? (payload.chargesEnabled && payload.payoutsEnabled)
-                    ? current.stripe_connect_onboarding_completed_at ?? new Date().toISOString()
-                    : null,
-              }
-            : current,
-        );
-
-        if (stripeQuery === "connected") {
-          const redirectTo = searchParams.get("redirect");
-          showToast({
-            title: payload.payoutsEnabled && payload.chargesEnabled
-              ? "Stripe payouts connected"
-              : "Finish Stripe setup",
-            description: payload.payoutsEnabled && payload.chargesEnabled
-              ? "Your payout account is ready for completed shift payments."
-              : "You need to finish your payout setup with Stripe before accepting paid shifts.",
-            tone: payload.payoutsEnabled && payload.chargesEnabled ? "success" : "info",
-          });
-
-          if (payload.payoutsEnabled && payload.chargesEnabled && redirectTo?.startsWith("/")) {
-            router.replace(redirectTo);
-          }
-        }
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        const message =
-          error instanceof Error ? error.message : "Unable to refresh payout status.";
-        showToast({
-          title: "Payout status unavailable",
-          description: message,
-          tone: "error",
-        });
-      } finally {
-        if (active) {
-          setRefreshingStripeStatus(false);
-        }
-      }
-    };
-
-    void syncStripeStatus();
-
-    return () => {
-      active = false;
-    };
-  }, [router, searchParams, showToast, workerProfile?.stripe_connect_account_id]);
+  }, [router, searchParams, showToast]);
 
   const upcomingPayout = useMemo(
     () => getUpcomingPayout(bookings, paymentsByBookingId),
@@ -454,18 +430,12 @@ function WorkerPaymentsPageContent() {
               className={
                 payoutSetupStatus === "ready"
                   ? "status-badge status-badge--ready"
-                  : payoutSetupStatus === "pending_verification"
-                    ? "status-badge status-badge--rating"
-                    : "status-badge"
+                  : "status-badge status-badge--rating"
               }
             >
               {payoutSetupStatus === "ready"
                 ? "Ready to receive payouts"
-                : payoutSetupStatus === "pending_verification"
-                  ? "Pending Stripe verification"
-                  : payoutSetupStatus === "setup_started"
-                    ? "Setup started"
-                    : "Not set up"}
+                : "Finish Stripe setup"}
             </span>
             <span
               className={
