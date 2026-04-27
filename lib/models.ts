@@ -260,20 +260,29 @@ export const BOOKING_STATUSES = [
 ] as const;
 export const PAYMENT_STATUSES = [
   "pending",
+  "paid",
+  "failed",
+  "refunded",
+  "disputed",
+  // Legacy values kept for backwards compatibility during migration.
   "authorized",
   "captured",
   "released",
-  "refunded",
-  "failed",
 ] as const;
 export const PAYOUT_STATUSES = [
+  "not_started",
+  "pending",
+  "in_progress",
+  "completed",
+  "failed",
+  "on_hold",
+  // Legacy values kept for backwards compatibility during migration.
   "pending_confirmation",
   "awaiting_shift_completion",
   "awaiting_business_approval",
   "approved_for_payout",
   "paid",
   "disputed",
-  "on_hold",
 ] as const;
 export const SHIFT_LISTING_STATUSES = ["open", "claimed", "cancelled"] as const;
 export const WORKER_AVAILABILITY_STATUSES = [
@@ -585,15 +594,19 @@ export type PaymentRecord = {
   platform_fee_gbp: number;
   worker_payout_gbp: number;
   status: PaymentStatus;
+  payment_status?: PaymentStatus | null;
   payout_status: PayoutStatus;
   shift_completed_at: string | null;
   shift_completion_confirmed_by: string | null;
   payout_approved_at: string | null;
   payout_approved_by: string | null;
   payout_sent_at: string | null;
+  transfer_started_at?: string | null;
+  transfer_failed_at?: string | null;
+  failure_reason?: string | null;
   dispute_reason: string | null;
   disputed_at: string | null;
-  payout_hold_reason: string | null;
+  payout_hold_reason?: string | null;
   created_at: string;
   updated_at: string;
 };

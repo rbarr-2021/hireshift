@@ -7,6 +7,15 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getPaymentStatus(payment: PaymentRecord | null | undefined) {
+  if (!payment) {
+    return null;
+  }
+
+  const row = payment as PaymentRecord & { payment_status?: string | null };
+  return row.payment_status ?? payment.status ?? null;
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -69,12 +78,12 @@ export async function POST(
       await supabaseAdmin
         .from("payments")
         .update({
-          payout_status: "awaiting_business_approval",
+          payout_status: "pending",
           shift_completed_at: new Date().toISOString(),
           shift_completion_confirmed_by: actor.authUser.id,
           dispute_reason: null,
           disputed_at: null,
-          payout_hold_reason: null,
+          failure_reason: null,
         })
         .eq("id", payment.id);
     }
@@ -85,7 +94,7 @@ export async function POST(
       return NextResponse.json({ error: "No payment record found for this booking." }, { status: 404 });
     }
 
-    if (!(payment.status === "captured" || payment.status === "released")) {
+    if (getPaymentStatus(payment) !== "paid") {
       return NextResponse.json(
         { error: "The booking must be paid before payout can be approved." },
         { status: 409 },
@@ -102,12 +111,12 @@ export async function POST(
     await supabaseAdmin
       .from("payments")
       .update({
-        payout_status: "approved_for_payout",
+        payout_status: "pending",
         payout_approved_at: new Date().toISOString(),
         payout_approved_by: actor.authUser.id,
         dispute_reason: null,
         disputed_at: null,
-        payout_hold_reason: null,
+        failure_reason: null,
       })
       .eq("id", payment.id);
 
@@ -122,7 +131,7 @@ export async function POST(
         .from("payments")
         .update({
           payout_status: "on_hold",
-          payout_hold_reason:
+          failure_reason:
             "Worker profile could not be found, so Stripe payout cannot be sent yet.",
         })
         .eq("id", payment.id);
@@ -131,10 +140,10 @@ export async function POST(
         await tryAutomaticWorkerPayoutTransfer({
           payment: {
             ...payment,
-            payout_status: "approved_for_payout",
+            payout_status: "pending",
             payout_approved_at: new Date().toISOString(),
             payout_approved_by: actor.authUser.id,
-            payout_hold_reason: null,
+            failure_reason: null,
             dispute_reason: null,
             disputed_at: null,
           },
@@ -145,7 +154,7 @@ export async function POST(
           .from("payments")
           .update({
             payout_status: "on_hold",
-            payout_hold_reason:
+            failure_reason:
               "Automatic Stripe payout could not be completed yet. Review the worker payout account and retry.",
           })
           .eq("id", payment.id);
@@ -161,7 +170,7 @@ export async function POST(
     await supabaseAdmin
       .from("payments")
       .update({
-        payout_status: "disputed",
+        payout_status: "on_hold",
         dispute_reason: body?.reason?.trim() || "Issue flagged by business.",
         disputed_at: new Date().toISOString(),
       })

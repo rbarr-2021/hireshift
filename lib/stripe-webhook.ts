@@ -22,6 +22,11 @@ type PaymentLookupIdentifiers = {
   transferId?: string | null;
 };
 
+function getPaymentStatus(payment: PaymentRecord) {
+  const row = payment as PaymentRecord & { payment_status?: string | null };
+  return row.payment_status ?? payment.status ?? null;
+}
+
 function buildBaseEventMetadata(event: Stripe.Event) {
   return {
     stripe_event_id: event.id,
@@ -160,11 +165,13 @@ async function updatePaymentSucceededByBooking(
   const { data } = await supabaseAdmin
     .from("payments")
     .update({
-      status: "captured",
-      payout_status: "awaiting_shift_completion",
+      payment_status: "paid",
+      payout_status: "pending",
       stripe_checkout_session_id: sessionId ?? undefined,
       stripe_checkout_url: null,
       stripe_payment_intent_id: paymentIntent ?? undefined,
+      failure_reason: null,
+      transfer_failed_at: null,
     })
     .eq("booking_id", bookingId)
     .select("*")
@@ -270,9 +277,9 @@ async function updatePaymentFailed(
   const supabaseAdmin = getSupabaseAdminClient();
 
   await supabaseAdmin.from("payments").update({
-    status: "failed",
+    payment_status: "failed",
     payout_status: "on_hold",
-    payout_hold_reason: "Payment could not be completed.",
+    failure_reason: "Payment could not be completed.",
     stripe_payment_intent_id: paymentIntentId ?? payment.stripe_payment_intent_id,
   }).eq("id", payment.id);
 
@@ -325,6 +332,10 @@ async function handleTransferCreated(event: Stripe.TransferCreatedEvent): Promis
       .from("payments")
       .update({
         stripe_transfer_id: transfer.id,
+        payout_status: "in_progress",
+        transfer_started_at: new Date().toISOString(),
+        transfer_failed_at: null,
+        failure_reason: null,
       })
       .eq("id", payment.id);
   }
@@ -340,40 +351,20 @@ async function handlePayoutPaid(event: Stripe.PayoutPaidEvent): Promise<WebhookO
   const payout = event.data.object;
   const payoutMetadata = payout.metadata ?? {};
 
-  // Stripe payout events usually represent account-level settlement and may not map 1:1
-  // to a booking. We only mutate payment state when metadata makes it explicit.
+  // Stripe payout events are account-level settlements and are not reliably mappable
+  // to a single booking in the current model. We log only; no payout completion mutation.
   const payment = await findPaymentByIdentifiers({
     bookingId: payoutMetadata.booking_id ?? null,
     paymentId: payoutMetadata.payment_id ?? null,
     transferId: payoutMetadata.transfer_id ?? null,
   });
 
-  if (!payment) {
-    return {
-      bookingId: payoutMetadata.booking_id ?? null,
-      paymentId: null,
-      matched: false,
-      note: "payout.paid unmatched; logged for admin review.",
-    };
-  }
-
-  const supabaseAdmin = getSupabaseAdminClient();
-  await supabaseAdmin
-    .from("payments")
-    .update({
-      payout_status: "paid",
-      payout_sent_at: new Date().toISOString(),
-      status: payment.status === "captured" ? "released" : payment.status,
-      payout_hold_reason: null,
-      dispute_reason: null,
-      disputed_at: null,
-    })
-    .eq("id", payment.id);
-
   return {
-    bookingId: payment.booking_id,
-    paymentId: payment.id,
-    matched: true,
+    bookingId: payment?.booking_id ?? (payoutMetadata.booking_id ?? null),
+    paymentId: payment?.id ?? null,
+    matched: Boolean(payment),
+    note:
+      "payout.paid logged only. No automatic completion update applied because account-level payout mapping is not guaranteed.",
   };
 }
 
@@ -400,9 +391,9 @@ async function handleChargeRefunded(event: Stripe.Event): Promise<WebhookOutcome
   await supabaseAdmin
     .from("payments")
     .update({
-      status: "refunded",
+      payment_status: "refunded",
       payout_status: "on_hold",
-      payout_hold_reason: "Charge refunded in Stripe.",
+      failure_reason: "Charge refunded in Stripe.",
     })
     .eq("id", payment.id);
 
@@ -440,9 +431,10 @@ async function handleRefundUpdated(event: Stripe.Event): Promise<WebhookOutcome>
   await supabaseAdmin
     .from("payments")
     .update({
-      status: refund.status === "succeeded" ? "refunded" : payment.status,
+      payment_status:
+        refund.status === "succeeded" ? "refunded" : getPaymentStatus(payment) ?? "pending",
       payout_status: "on_hold",
-      payout_hold_reason:
+      failure_reason:
         refund.status === "failed"
           ? "Refund attempt failed in Stripe."
           : "Refund update received from Stripe.",
@@ -483,10 +475,80 @@ async function handleDisputeEvent(event: Stripe.Event): Promise<WebhookOutcome> 
   await supabaseAdmin
     .from("payments")
     .update({
-      payout_status: "disputed",
+      payment_status: "disputed",
+      payout_status: "on_hold",
       dispute_reason: `Stripe dispute (${event.type}): ${reason}`,
       disputed_at: new Date().toISOString(),
-      payout_hold_reason: "Payout paused while this Stripe dispute is reviewed.",
+      failure_reason: "Payout paused while this Stripe dispute is reviewed.",
+    })
+    .eq("id", payment.id);
+
+  return {
+    bookingId: payment.booking_id,
+    paymentId: payment.id,
+    matched: true,
+  };
+}
+
+async function handleTransferFailed(event: Stripe.Event): Promise<WebhookOutcome> {
+  const transfer = event.data.object as unknown as Stripe.Transfer;
+  const payment = await findPaymentByIdentifiers({
+    bookingId: transfer.metadata?.booking_id ?? null,
+    paymentId: transfer.metadata?.payment_id ?? null,
+    transferId: transfer.id,
+  });
+
+  if (!payment) {
+    return {
+      bookingId: transfer.metadata?.booking_id ?? null,
+      paymentId: null,
+      matched: false,
+      note: "transfer.failed unmatched; logged for admin review.",
+    };
+  }
+
+  const supabaseAdmin = getSupabaseAdminClient();
+  await supabaseAdmin
+    .from("payments")
+    .update({
+      payout_status: "failed",
+      transfer_failed_at: new Date().toISOString(),
+      failure_reason: "Stripe reported transfer.failed.",
+    })
+    .eq("id", payment.id);
+
+  return {
+    bookingId: payment.booking_id,
+    paymentId: payment.id,
+    matched: true,
+  };
+}
+
+async function handleTransferReversed(event: Stripe.Event): Promise<WebhookOutcome> {
+  const reversal = event.data.object as unknown as Stripe.TransferReversal;
+  const transferId = typeof reversal.transfer === "string" ? reversal.transfer : null;
+  const payment = await findPaymentByIdentifiers({
+    bookingId: reversal.metadata?.booking_id ?? null,
+    paymentId: reversal.metadata?.payment_id ?? null,
+    transferId,
+  });
+
+  if (!payment) {
+    return {
+      bookingId: reversal.metadata?.booking_id ?? null,
+      paymentId: null,
+      matched: false,
+      note: "transfer.reversed unmatched; logged for admin review.",
+    };
+  }
+
+  const supabaseAdmin = getSupabaseAdminClient();
+  await supabaseAdmin
+    .from("payments")
+    .update({
+      payout_status: "on_hold",
+      transfer_failed_at: new Date().toISOString(),
+      failure_reason: "Stripe reported transfer.reversed.",
     })
     .eq("id", payment.id);
 
@@ -545,21 +607,23 @@ export async function handleStripeWebhookPost(request: NextRequest) {
     note: "Event logged with no payment mutation required.",
   };
 
-  switch (event.type) {
+  const eventType = event.type as string;
+
+  switch (eventType) {
     case "checkout.session.completed":
-      outcome = await updatePaymentSucceeded(event);
+      outcome = await updatePaymentSucceeded(event as Stripe.CheckoutSessionCompletedEvent);
       break;
     case "payment_intent.succeeded":
-      outcome = await updatePaymentIntentSucceeded(event);
+      outcome = await updatePaymentIntentSucceeded(event as Stripe.PaymentIntentSucceededEvent);
       break;
     case "payment_intent.payment_failed":
-      outcome = await updatePaymentFailed(event);
+      outcome = await updatePaymentFailed(event as Stripe.PaymentIntentPaymentFailedEvent);
       break;
     case "checkout.session.async_payment_failed":
-      outcome = await updatePaymentFailed(event);
+      outcome = await updatePaymentFailed(event as Stripe.CheckoutSessionAsyncPaymentFailedEvent);
       break;
     case "account.updated":
-      await syncWorkerConnectSnapshot(event);
+      await syncWorkerConnectSnapshot(event as Stripe.AccountUpdatedEvent);
       outcome = {
         bookingId: null,
         paymentId: null,
@@ -568,10 +632,16 @@ export async function handleStripeWebhookPost(request: NextRequest) {
       };
       break;
     case "transfer.created":
-      outcome = await handleTransferCreated(event);
+      outcome = await handleTransferCreated(event as Stripe.TransferCreatedEvent);
+      break;
+    case "transfer.failed":
+      outcome = await handleTransferFailed(event);
+      break;
+    case "transfer.reversed":
+      outcome = await handleTransferReversed(event);
       break;
     case "payout.paid":
-      outcome = await handlePayoutPaid(event);
+      outcome = await handlePayoutPaid(event as Stripe.PayoutPaidEvent);
       break;
     case "charge.refunded":
       outcome = await handleChargeRefunded(event);

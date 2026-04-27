@@ -5,14 +5,26 @@ import type {
   PayoutStatus,
 } from "@/lib/models";
 
+function getPaymentStatusValue(payment?: PaymentRecord | null) {
+  if (!payment) {
+    return null;
+  }
+
+  const row = payment as PaymentRecord & { payment_status?: PaymentStatus | null };
+  return row.payment_status ?? payment.status ?? null;
+}
+
 export function formatPaymentStatus(status: PaymentStatus) {
   const labels: Record<PaymentStatus, string> = {
     pending: "Unpaid",
+    paid: "Paid",
+    failed: "Failed",
+    refunded: "Refunded",
+    disputed: "Disputed",
+    // Legacy labels (kept during transition).
     authorized: "Authorised",
     captured: "Paid",
     released: "Released",
-    refunded: "Refunded",
-    failed: "Failed",
   };
 
   return labels[status];
@@ -21,11 +33,14 @@ export function formatPaymentStatus(status: PaymentStatus) {
 export function paymentStatusClass(status: PaymentStatus) {
   const classes: Record<PaymentStatus, string> = {
     pending: "status-badge",
+    paid: "status-badge status-badge--ready",
+    failed: "bg-red-100 text-red-900",
+    refunded: "bg-stone-200 text-stone-800",
+    disputed: "bg-red-100 text-red-900",
+    // Legacy classes.
     authorized: "status-badge status-badge--rating",
     captured: "status-badge status-badge--ready",
     released: "bg-stone-200 text-stone-800",
-    refunded: "bg-stone-200 text-stone-800",
-    failed: "bg-red-100 text-red-900",
   };
 
   return classes[status];
@@ -33,13 +48,19 @@ export function paymentStatusClass(status: PaymentStatus) {
 
 export function formatPayoutStatus(status: PayoutStatus) {
   const labels: Record<PayoutStatus, string> = {
+    not_started: "Not started",
+    pending: "Pending",
+    in_progress: "In progress",
+    completed: "Completed",
+    failed: "Failed",
+    on_hold: "On hold",
+    // Legacy labels.
     pending_confirmation: "Pending confirmation",
     awaiting_shift_completion: "Awaiting shift completion",
     awaiting_business_approval: "Awaiting business approval",
     approved_for_payout: "Approved for payout",
     paid: "Paid",
     disputed: "Disputed",
-    on_hold: "On hold",
   };
 
   return labels[status];
@@ -47,24 +68,32 @@ export function formatPayoutStatus(status: PayoutStatus) {
 
 export function payoutStatusClass(status: PayoutStatus) {
   const classes: Record<PayoutStatus, string> = {
+    not_started: "status-badge",
+    pending: "status-badge status-badge--rating",
+    in_progress: "status-badge status-badge--rating",
+    completed: "status-badge status-badge--ready",
+    failed: "bg-red-100 text-red-900",
+    on_hold: "bg-amber-100 text-amber-900",
+    // Legacy classes.
     pending_confirmation: "status-badge",
     awaiting_shift_completion: "status-badge status-badge--rating",
     awaiting_business_approval: "status-badge status-badge--rating",
     approved_for_payout: "status-badge status-badge--ready",
     paid: "status-badge status-badge--ready",
     disputed: "bg-red-100 text-red-900",
-    on_hold: "bg-amber-100 text-amber-900",
   };
 
   return classes[status];
 }
 
 export function getBookingPaymentSummary(payment?: PaymentRecord | null) {
-  return payment ? formatPaymentStatus(payment.status) : "Unpaid";
+  const status = getPaymentStatusValue(payment);
+  return status ? formatPaymentStatus(status) : "Unpaid";
 }
 
 export function isBookingPaid(payment?: PaymentRecord | null) {
-  return payment?.status === "captured" || payment?.status === "released";
+  const status = getPaymentStatusValue(payment);
+  return status === "paid" || status === "captured" || status === "released";
 }
 
 export function isBookingPayable(booking: BookingRecord, payment?: PaymentRecord | null) {
@@ -103,11 +132,11 @@ export function getWorkerShiftStage(
   booking: BookingRecord,
   payment?: PaymentRecord | null,
 ) {
-  if (payment?.payout_status === "paid") {
+  if (payment?.payout_status === "completed" || payment?.payout_status === "paid") {
     return "Paid";
   }
 
-  if (payment?.payout_status === "disputed") {
+  if (payment?.payout_status === "failed" || payment?.payout_status === "disputed") {
     return "Disputed";
   }
 
@@ -115,15 +144,15 @@ export function getWorkerShiftStage(
     return "On hold";
   }
 
-  if (payment?.payout_status === "approved_for_payout") {
+  if (payment?.payout_status === "in_progress" || payment?.payout_status === "approved_for_payout") {
     return "Payout on the way";
   }
 
-  if (payment?.payout_status === "awaiting_business_approval") {
+  if (payment?.payout_status === "pending" || payment?.payout_status === "awaiting_business_approval") {
     return "Awaiting business confirmation";
   }
 
-  if (payment?.payout_status === "awaiting_shift_completion") {
+  if (payment?.payout_status === "not_started" || payment?.payout_status === "awaiting_shift_completion") {
     if (booking.worker_checked_in_at && !booking.worker_checked_out_at) {
       return "In progress";
     }
@@ -178,6 +207,26 @@ export function getPayoutSupportCopy(payment?: PaymentRecord | PayoutStatus | nu
     return "Payout starts once the shift is paid and later confirmed complete.";
   }
 
+  if (payoutStatus === "not_started") {
+    return "Payout starts once this shift has been funded and confirmed.";
+  }
+
+  if (payoutStatus === "pending") {
+    return "Payout is queued and waiting for release checks.";
+  }
+
+  if (payoutStatus === "in_progress") {
+    return "Payout transfer is in progress through Stripe.";
+  }
+
+  if (payoutStatus === "completed") {
+    return "This payout has been sent.";
+  }
+
+  if (payoutStatus === "failed") {
+    return "Payout could not be completed and needs review.";
+  }
+
   if (payoutStatus === "pending_confirmation") {
     return "This shift still needs to be funded by the business before payout can move.";
   }
@@ -214,7 +263,10 @@ export function getUpcomingPayout(
 
     if (
       payment &&
-      (payment.payout_status === "approved_for_payout" ||
+      (payment.payout_status === "in_progress" ||
+        payment.payout_status === "pending" ||
+        payment.payout_status === "not_started" ||
+        payment.payout_status === "approved_for_payout" ||
         payment.payout_status === "awaiting_business_approval" ||
         payment.payout_status === "awaiting_shift_completion")
     ) {
@@ -236,7 +288,9 @@ export function getLastPaidPayout(
     }))
     .filter(
       (entry): entry is { booking: BookingRecord; payment: PaymentRecord } =>
-        Boolean(entry.payment) && entry.payment.payout_status === "paid",
+        Boolean(entry.payment) &&
+        (entry.payment.payout_status === "paid" ||
+          entry.payment.payout_status === "completed"),
     )
     .sort((left, right) => {
       const leftTime = left.payment.payout_sent_at ? Date.parse(left.payment.payout_sent_at) : 0;

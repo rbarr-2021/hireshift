@@ -6,6 +6,15 @@ import { getRouteActor } from "@/lib/route-access";
 import { getSiteUrl, getStripeClient } from "@/lib/stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
+function getPaymentStatus(payment: PaymentRecord | null | undefined) {
+  if (!payment) {
+    return null;
+  }
+
+  const row = payment as PaymentRecord & { payment_status?: string | null };
+  return row.payment_status ?? payment.status ?? null;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -49,7 +58,8 @@ export async function POST(
       .eq("booking_id", booking.id)
       .maybeSingle<PaymentRecord>();
 
-    if (existingPayment?.status === "captured" || existingPayment?.status === "released") {
+    const existingPaymentStatus = getPaymentStatus(existingPayment);
+    if (existingPaymentStatus === "paid") {
       return NextResponse.json(
         { error: "This booking has already been paid." },
         { status: 409 },
@@ -101,7 +111,7 @@ export async function POST(
 
     if (
       existingPayment?.stripe_checkout_session_id &&
-      existingPayment.status === "pending"
+      existingPaymentStatus === "pending"
     ) {
       try {
         const existingSession = await stripe.checkout.sessions.retrieve(
@@ -160,8 +170,8 @@ export async function POST(
         gross_amount_gbp: pricing.businessTotalGbp,
         platform_fee_gbp: pricing.platformFeeGbp,
         worker_payout_gbp: pricing.workerPayGbp,
-        status: "pending",
-        payout_status: "pending_confirmation",
+        payment_status: "pending",
+        payout_status: "not_started",
         shift_completed_at: null,
         shift_completion_confirmed_by: null,
         payout_approved_at: null,
@@ -169,7 +179,7 @@ export async function POST(
         payout_sent_at: null,
         dispute_reason: null,
         disputed_at: null,
-        payout_hold_reason: null,
+        failure_reason: null,
         stripe_checkout_session_id: checkoutSession.id,
         stripe_checkout_url: checkoutSession.url,
         stripe_checkout_expires_at: checkoutSession.expires_at

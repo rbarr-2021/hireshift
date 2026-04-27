@@ -8,6 +8,15 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getPaymentStatus(payment: PaymentRecord | null | undefined) {
+  if (!payment) {
+    return null;
+  }
+
+  const row = payment as PaymentRecord & { payment_status?: string | null };
+  return row.payment_status ?? payment.status ?? null;
+}
+
 type AttendanceAction =
   | "check_in"
   | "check_out"
@@ -154,7 +163,7 @@ export async function POST(
     await supabaseAdmin
       .from("payments")
       .update({
-        payout_status: "disputed",
+        payout_status: "on_hold",
         dispute_reason: body?.reason?.trim() || "Issue flagged by business.",
         disputed_at: nowIso,
       })
@@ -185,10 +194,10 @@ export async function POST(
       await supabaseAdmin
         .from("payments")
         .update({
-          payout_status: "disputed",
+          payout_status: "on_hold",
           dispute_reason: body?.reason?.trim() || "Worker marked as no-show by business.",
           disputed_at: nowIso,
-          payout_hold_reason: "Payout paused while this no-show is reviewed.",
+          failure_reason: "Payout paused while this no-show is reviewed.",
         })
         .eq("id", payment.id);
     }
@@ -208,7 +217,7 @@ export async function POST(
     );
   }
 
-  if (!payment || !(payment.status === "captured" || payment.status === "released")) {
+  if (!payment || getPaymentStatus(payment) !== "paid") {
     return NextResponse.json(
       { error: "Fund this booking before confirming the shift." },
       { status: 409 },
@@ -250,14 +259,14 @@ export async function POST(
   await supabaseAdmin
     .from("payments")
     .update({
-      payout_status: "approved_for_payout",
+      payout_status: "pending",
       shift_completed_at: nowIso,
       shift_completion_confirmed_by: actorId,
       payout_approved_at: nowIso,
       payout_approved_by: actorId,
       dispute_reason: null,
       disputed_at: null,
-      payout_hold_reason: null,
+      failure_reason: null,
     })
     .eq("id", payment.id);
 
@@ -272,7 +281,7 @@ export async function POST(
       .from("payments")
       .update({
         payout_status: "on_hold",
-        payout_hold_reason:
+        failure_reason:
           "Worker profile could not be found, so Stripe payout cannot be sent yet.",
       })
       .eq("id", payment.id);
@@ -281,14 +290,14 @@ export async function POST(
       await tryAutomaticWorkerPayoutTransfer({
         payment: {
           ...payment,
-          payout_status: "approved_for_payout",
+          payout_status: "pending",
           shift_completed_at: nowIso,
           shift_completion_confirmed_by: actorId,
           payout_approved_at: nowIso,
           payout_approved_by: actorId,
           dispute_reason: null,
           disputed_at: null,
-          payout_hold_reason: null,
+          failure_reason: null,
         },
         workerProfile,
       });
@@ -297,7 +306,7 @@ export async function POST(
         .from("payments")
         .update({
           payout_status: "on_hold",
-          payout_hold_reason:
+          failure_reason:
             "Automatic Stripe payout could not be completed yet. Review the worker payout account and retry.",
         })
         .eq("id", payment.id);

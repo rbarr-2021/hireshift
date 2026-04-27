@@ -14,6 +14,15 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getPaymentStatus(payment: PaymentRecord | null | undefined) {
+  if (!payment) {
+    return null;
+  }
+
+  const row = payment as PaymentRecord & { payment_status?: string | null };
+  return row.payment_status ?? payment.status ?? null;
+}
+
 async function getAdminSummary(bookingId: string) {
   const supabaseAdmin = getSupabaseAdminClient();
   const { data: booking } = await supabaseAdmin
@@ -110,10 +119,7 @@ export async function PATCH(
     .eq("booking_id", booking.id)
     .maybeSingle<PaymentRecord>();
 
-  if (
-    (payment?.status === "captured" || payment?.status === "released") &&
-    nextStatus === "cancelled"
-  ) {
+  if (getPaymentStatus(payment) === "paid" && nextStatus === "cancelled") {
     return NextResponse.json(
       { error: "Paid bookings cannot be cancelled here until refund handling is added." },
       { status: 409 },
@@ -159,12 +165,12 @@ export async function PATCH(
       await supabaseAdmin
         .from("payments")
         .update({
-          payout_status: "approved_for_payout",
+          payout_status: "pending",
           payout_approved_at: new Date().toISOString(),
           payout_approved_by: actor.authUser.id,
           dispute_reason: null,
           disputed_at: null,
-          payout_hold_reason: null,
+          failure_reason: null,
         })
         .eq("id", payment.id);
 
@@ -179,7 +185,7 @@ export async function PATCH(
           .from("payments")
           .update({
             payout_status: "on_hold",
-            payout_hold_reason:
+            failure_reason:
               "Worker profile could not be found, so Stripe payout cannot be sent yet.",
           })
           .eq("id", payment.id);
@@ -188,10 +194,10 @@ export async function PATCH(
           await tryAutomaticWorkerPayoutTransfer({
             payment: {
               ...payment,
-              payout_status: "approved_for_payout",
+              payout_status: "pending",
               payout_approved_at: new Date().toISOString(),
               payout_approved_by: actor.authUser.id,
-              payout_hold_reason: null,
+              failure_reason: null,
               dispute_reason: null,
               disputed_at: null,
             },
@@ -202,7 +208,7 @@ export async function PATCH(
             .from("payments")
             .update({
               payout_status: "on_hold",
-              payout_hold_reason:
+              failure_reason:
                 "Automatic Stripe payout could not be completed yet. Review the worker payout account and retry.",
             })
             .eq("id", payment.id);
@@ -222,19 +228,20 @@ export async function PATCH(
       await supabaseAdmin
         .from("payments")
         .update({
-          payout_status: "paid",
+          payout_status: "completed",
           payout_sent_at: new Date().toISOString(),
-          status: payment.status === "captured" ? "released" : payment.status,
+          payment_status: getPaymentStatus(payment) === "paid" ? "paid" : getPaymentStatus(payment),
           dispute_reason: null,
           disputed_at: null,
-          payout_hold_reason: null,
+          failure_reason: null,
         })
         .eq("id", payment.id);
     } else if (payoutAction === "dispute") {
       await supabaseAdmin
         .from("payments")
         .update({
-          payout_status: "disputed",
+          payment_status: "disputed",
+          payout_status: "on_hold",
           dispute_reason: actionReason || "Issue flagged by admin.",
           disputed_at: new Date().toISOString(),
         })
@@ -244,7 +251,7 @@ export async function PATCH(
         .from("payments")
         .update({
           payout_status: "on_hold",
-          payout_hold_reason: actionReason || "Payout placed on hold by admin.",
+          failure_reason: actionReason || "Payout placed on hold by admin.",
         })
         .eq("id", payment.id);
     } else {
