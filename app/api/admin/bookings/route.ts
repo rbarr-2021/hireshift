@@ -4,6 +4,7 @@ import type {
   BookingRecord,
   BusinessProfileRecord,
   MarketplaceUserRecord,
+  PaymentEventRecord,
   PaymentRecord,
   ShiftListingRecord,
   WorkerProfileRecord,
@@ -55,11 +56,20 @@ export async function GET(request: NextRequest) {
     .limit(120)
     .returns<ShiftListingRecord[]>();
 
-  const [paymentsResult, workerUsersResult, workerProfilesResult, businessUsersResult, businessProfilesResult, shiftListingsResult] =
+  const paymentEventsResultPromise = bookingIds.length
+    ? supabaseAdmin
+        .from("payment_events")
+        .select("*")
+        .in("booking_id", bookingIds)
+        .order("created_at", { ascending: false })
+    : Promise.resolve({ data: [] as PaymentEventRecord[] });
+
+  const [paymentsResult, paymentEventsResult, workerUsersResult, workerProfilesResult, businessUsersResult, businessProfilesResult, shiftListingsResult] =
     await Promise.all([
       bookingIds.length
         ? supabaseAdmin.from("payments").select("*").in("booking_id", bookingIds)
         : Promise.resolve({ data: [] as PaymentRecord[] }),
+      paymentEventsResultPromise,
       workerIds.length
         ? supabaseAdmin.from("marketplace_users").select("*").in("id", workerIds)
         : Promise.resolve({ data: [] as MarketplaceUserRecord[] }),
@@ -78,6 +88,7 @@ export async function GET(request: NextRequest) {
   let items = buildAdminBookingSummaries({
     bookings,
     payments: (paymentsResult.data as PaymentRecord[] | null) ?? [],
+    paymentEvents: (paymentEventsResult.data as PaymentEventRecord[] | null) ?? [],
     workerUsers: (workerUsersResult.data as MarketplaceUserRecord[] | null) ?? [],
     workerProfiles: (workerProfilesResult.data as WorkerProfileRecord[] | null) ?? [],
     businessUsers: (businessUsersResult.data as MarketplaceUserRecord[] | null) ?? [],
@@ -184,11 +195,11 @@ export async function GET(request: NextRequest) {
 
   const counts = {
     pending: items.filter((item) => item.booking.status === "pending").length,
-    approved: items.filter((item) => item.payment?.payout_status === "approved_for_payout").length,
+    approved: items.filter((item) => item.nextActionLabel === "Ready to release payout").length,
     completed: items.filter((item) => item.booking.status === "completed").length,
-    disputed: items.filter((item) => item.payment?.payout_status === "disputed").length,
+    disputed: items.filter((item) => item.payment?.status === "disputed").length,
     onHold: items.filter((item) => item.payment?.payout_status === "on_hold").length,
-    paid: items.filter((item) => item.payment?.payout_status === "paid").length,
+    paid: items.filter((item) => item.payment?.payout_status === "completed").length,
   };
 
   return NextResponse.json({ items, counts, unfulfilledListings });

@@ -1,8 +1,10 @@
 import type {
+  AttendanceStatus,
   BookingRecord,
   PaymentRecord,
   PaymentStatus,
   PayoutStatus,
+  WorkerProfileRecord,
 } from "@/lib/models";
 
 function getPaymentStatusValue(payment?: PaymentRecord | null) {
@@ -268,6 +270,101 @@ export function getPayoutSupportCopy(payment?: PaymentRecord | PayoutStatus | nu
   }
 
   return "Payout is temporarily on hold while this booking is reviewed.";
+}
+
+export function getAdminNextActionLabel(input: {
+  payment: PaymentRecord | null;
+  attendanceStatus: AttendanceStatus | null;
+  approvedHours: number | null;
+  workerProfile?: WorkerProfileRecord | null;
+}) {
+  const paymentStatus = input.payment ? getPaymentStatusValue(input.payment) : null;
+  const payoutStatus = input.payment?.payout_status ?? null;
+  const workerReady = Boolean(
+    input.workerProfile?.stripe_connect_charges_enabled &&
+      input.workerProfile?.stripe_connect_payouts_enabled,
+  );
+
+  if (!input.payment || paymentStatus === "pending") {
+    return "Awaiting payment";
+  }
+
+  if (paymentStatus === "refunded") {
+    return "Refunded";
+  }
+
+  if (paymentStatus === "disputed") {
+    return "Disputed";
+  }
+
+  if (payoutStatus === "on_hold") {
+    return "On hold";
+  }
+
+  if (payoutStatus === "failed") {
+    return "Retry payout";
+  }
+
+  if (payoutStatus === "in_progress") {
+    return "Payout in progress";
+  }
+
+  if (payoutStatus === "completed" || payoutStatus === "paid") {
+    return "Payout completed";
+  }
+
+  if (
+    input.attendanceStatus !== "approved" &&
+    input.attendanceStatus !== "adjusted"
+  ) {
+    if (
+      input.attendanceStatus === "checked_in" ||
+      input.attendanceStatus === "checked_out" ||
+      input.attendanceStatus === "pending_approval"
+    ) {
+      return "Awaiting business approval";
+    }
+    return "Awaiting shift completion";
+  }
+
+  if (!input.approvedHours || input.approvedHours <= 0) {
+    return "Awaiting business approval";
+  }
+
+  if (!workerReady) {
+    return "Worker payout setup needed";
+  }
+
+  if (paymentStatus === "paid" && (payoutStatus === "pending" || payoutStatus === "not_started")) {
+    return "Ready to release payout";
+  }
+
+  return "Awaiting review";
+}
+
+export function getPaymentEventLabel(eventType: string) {
+  const labels: Record<string, string> = {
+    "checkout.session.completed": "Business payment succeeded",
+    "payment_intent.succeeded": "Business payment confirmed",
+    "payment_intent.payment_failed": "Business payment failed",
+    "checkout.session.async_payment_failed": "Business payment failed",
+    "transfer.created": "Payout transfer started",
+    "transfer.failed": "Transfer failed",
+    "transfer.reversed": "Transfer reversed",
+    "payout.paid": "Stripe payout paid",
+    "charge.refunded": "Refund recorded",
+    "refund.updated": "Refund updated",
+    "charge.dispute.created": "Dispute opened",
+    "charge.dispute.updated": "Dispute updated",
+    "charge.dispute.closed": "Dispute closed",
+    "admin.release_payout": "Admin released payout",
+    "admin.hold_payout": "Admin placed payout on hold",
+    "admin.retry_payout": "Admin retried payout",
+    "admin.refund_payment": "Admin initiated refund",
+    "admin.flag_issue": "Admin flagged issue",
+  };
+
+  return labels[eventType] ?? eventType.replaceAll(".", " ");
 }
 
 export function getUpcomingPayout(

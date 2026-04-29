@@ -633,6 +633,39 @@ export type PaymentRecord = {
   updated_at: string;
 };
 
+export type PaymentEventRecord = {
+  id: string;
+  booking_id: string | null;
+  payment_id: string | null;
+  event_type: string;
+  source: string;
+  stripe_event_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AdminPaymentActionType =
+  | "release_payout"
+  | "hold_payout"
+  | "retry_payout"
+  | "refund_payment"
+  | "flag_issue";
+
+export type AdminPaymentActionRecord = {
+  id: string;
+  booking_id: string;
+  payment_id: string;
+  admin_user_id: string;
+  action_type: AdminPaymentActionType;
+  reason: string | null;
+  previous_payment_status: PaymentStatus | null;
+  previous_payout_status: PayoutStatus | null;
+  new_payment_status: PaymentStatus | null;
+  new_payout_status: PayoutStatus | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export type AdminUserRecord = {
   user_id: string;
   created_at: string;

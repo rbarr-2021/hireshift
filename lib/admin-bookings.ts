@@ -2,11 +2,13 @@ import type {
   BookingRecord,
   BusinessProfileRecord,
   MarketplaceUserRecord,
+  PaymentEventRecord,
   PaymentRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
 import {
   formatBookingLifecycleLabel,
+  getAdminNextActionLabel,
   formatPaymentStatus,
   formatPayoutStatus,
 } from "@/lib/payments";
@@ -21,11 +23,14 @@ export type AdminBookingSummary = {
   lifecycleLabel: string;
   paymentLabel: string;
   payoutLabel: string;
+  nextActionLabel: string;
+  paymentEvents: PaymentEventRecord[];
 };
 
 export function buildAdminBookingSummaries(input: {
   bookings: BookingRecord[];
   payments: PaymentRecord[];
+  paymentEvents: PaymentEventRecord[];
   workerUsers: MarketplaceUserRecord[];
   workerProfiles: WorkerProfileRecord[];
   businessUsers: MarketplaceUserRecord[];
@@ -45,6 +50,15 @@ export function buildAdminBookingSummaries(input: {
       (candidate) => candidate.user_id === booking.business_id,
     );
 
+    const paymentEvents = payment
+      ? input.paymentEvents
+          .filter((candidate) => candidate.payment_id === payment.id)
+          .sort(
+            (left, right) =>
+              Date.parse(right.created_at) - Date.parse(left.created_at),
+          )
+      : [];
+
     return {
       booking,
       payment,
@@ -61,6 +75,13 @@ export function buildAdminBookingSummaries(input: {
       lifecycleLabel: formatBookingLifecycleLabel(booking, payment),
       paymentLabel: payment ? formatPaymentStatus(payment.status) : "Unpaid",
       payoutLabel: payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation",
+      nextActionLabel: getAdminNextActionLabel({
+        payment,
+        attendanceStatus: booking.attendance_status,
+        approvedHours: booking.business_hours_approved,
+        workerProfile: workerProfile ?? null,
+      }),
+      paymentEvents,
     };
   });
 }
