@@ -14,6 +14,12 @@ import type {
 import { getRouteActor, isAdminUser } from "@/lib/route-access";
 import { getStripeClient } from "@/lib/stripe";
 import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
+import {
+  getPlatformPaymentControls,
+  guardPayoutByControls,
+  guardRefundByControls,
+  withDefaultPlatformPaymentControls,
+} from "@/lib/platform-payment-controls";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -236,6 +242,10 @@ export async function PATCH(
       return NextResponse.json({ error: "No payment record found for this booking." }, { status: 404 });
     }
 
+    const platformControls = withDefaultPlatformPaymentControls(
+      await getPlatformPaymentControls(),
+    );
+
     if (payoutAction === "approve_payout") {
       if (getPaymentStatus(payment) !== "paid") {
         return NextResponse.json({ error: "Business payment must be marked paid first." }, { status: 409 });
@@ -267,6 +277,15 @@ export async function PATCH(
           { error: "Worker payout setup is incomplete." },
           { status: 409 },
         );
+      }
+
+      const payoutControlCheck = guardPayoutByControls({
+        controls: platformControls,
+        payoutAmountGbp: payment.worker_payout_gbp,
+      });
+
+      if (!payoutControlCheck.ok) {
+        return NextResponse.json({ error: payoutControlCheck.reason }, { status: 409 });
       }
 
       await supabaseAdmin
@@ -340,6 +359,15 @@ export async function PATCH(
         return NextResponse.json({ error: "Worker payout setup is incomplete." }, { status: 409 });
       }
 
+      const payoutControlCheck = guardPayoutByControls({
+        controls: platformControls,
+        payoutAmountGbp: payment.worker_payout_gbp,
+      });
+
+      if (!payoutControlCheck.ok) {
+        return NextResponse.json({ error: payoutControlCheck.reason }, { status: 409 });
+      }
+
       try {
         await tryAutomaticWorkerPayoutTransfer({
           payment,
@@ -369,6 +397,17 @@ export async function PATCH(
           { error: "Refund reason is required." },
           { status: 400 },
         );
+      }
+
+      const requestedRefundAmount =
+        refundAmountGbp && refundAmountGbp > 0 ? refundAmountGbp : payment.gross_amount_gbp;
+      const refundControlCheck = guardRefundByControls({
+        controls: platformControls,
+        refundAmountGbp: requestedRefundAmount,
+      });
+
+      if (!refundControlCheck.ok) {
+        return NextResponse.json({ error: refundControlCheck.reason }, { status: 409 });
       }
 
       if (payment.payout_status === "in_progress" || payment.payout_status === "completed" || Boolean(payment.stripe_transfer_id)) {

@@ -62,6 +62,17 @@ type AdminPaymentItem = {
   paymentEvents: PaymentEventItem[];
 };
 
+type PlatformPaymentControls = {
+  payouts_enabled: boolean;
+  refunds_enabled: boolean;
+  admin_manual_release_required: boolean;
+  max_single_payout_gbp: number | null;
+  max_single_refund_gbp: number | null;
+  emergency_hold_enabled: boolean;
+  emergency_hold_reason: string | null;
+  test_mode_banner_enabled: boolean;
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -114,6 +125,9 @@ export default function AdminPaymentsPage() {
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const [actionBusyByBooking, setActionBusyByBooking] = useState<Record<string, boolean>>({});
   const [syncBusyByBooking, setSyncBusyByBooking] = useState<Record<string, boolean>>({});
+  const [controls, setControls] = useState<PlatformPaymentControls | null>(null);
+  const [controlsBusy, setControlsBusy] = useState(false);
+  const [stripeTestModeActive, setStripeTestModeActive] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -154,6 +168,87 @@ export default function AdminPaymentsPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentFilter, query]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadControls = async () => {
+      try {
+        const response = await fetchWithSession("/api/admin/payment-controls");
+        const payload = (await response.json()) as {
+          error?: string;
+          controls?: PlatformPaymentControls;
+          stripe_mode?: { test_mode_active?: boolean };
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Unable to load platform controls.");
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setControls(payload.controls ?? null);
+        setStripeTestModeActive(Boolean(payload.stripe_mode?.test_mode_active));
+      } catch (nextError) {
+        if (!active) {
+          return;
+        }
+        showToast({
+          title: "Controls unavailable",
+          description:
+            nextError instanceof Error
+              ? nextError.message
+              : "Unable to load platform controls.",
+          tone: "error",
+        });
+      }
+    };
+
+    void loadControls();
+
+    return () => {
+      active = false;
+    };
+  }, [showToast]);
+
+  const saveControls = async () => {
+    if (!controls) {
+      return;
+    }
+
+    setControlsBusy(true);
+
+    try {
+      const response = await fetchWithSession("/api/admin/payment-controls", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(controls),
+      });
+      const payload = (await response.json()) as { error?: string; controls?: PlatformPaymentControls };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to save controls.");
+      }
+
+      setControls(payload.controls ?? controls);
+      showToast({
+        title: "Controls updated",
+        description: "Operational payment controls have been saved.",
+        tone: "success",
+      });
+    } catch (nextError) {
+      showToast({
+        title: "Save failed",
+        description:
+          nextError instanceof Error ? nextError.message : "Unable to save controls.",
+        tone: "error",
+      });
+    } finally {
+      setControlsBusy(false);
+    }
+  };
 
   const runAction = async (input: {
     bookingId: string;
@@ -290,6 +385,172 @@ export default function AdminPaymentsPage() {
           See what has been paid, what is approved, and what is safe to release next.
         </p>
       </div>
+
+      {controls?.emergency_hold_enabled ? (
+        <section className="rounded-2xl border border-amber-300/40 bg-amber-100/10 px-4 py-3 text-sm text-amber-100">
+          Emergency payment hold is active
+          {controls.emergency_hold_reason ? `: ${controls.emergency_hold_reason}` : "."}
+        </section>
+      ) : null}
+      {controls && !controls.payouts_enabled ? (
+        <section className="rounded-2xl border border-red-300/40 bg-red-100/10 px-4 py-3 text-sm text-red-100">
+          Payouts are currently disabled.
+        </section>
+      ) : null}
+      {controls && !controls.refunds_enabled ? (
+        <section className="rounded-2xl border border-red-300/40 bg-red-100/10 px-4 py-3 text-sm text-red-100">
+          Refunds are currently disabled.
+        </section>
+      ) : null}
+      {controls?.test_mode_banner_enabled && stripeTestModeActive ? (
+        <section className="rounded-2xl border border-blue-300/40 bg-blue-100/10 px-4 py-3 text-sm text-blue-100">
+          Stripe test mode appears to be active.
+        </section>
+      ) : null}
+
+      {controls ? (
+        <section className="panel-soft p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-stone-900">Platform payment controls</h2>
+            <button
+              type="button"
+              onClick={() => void saveControls()}
+              disabled={controlsBusy}
+              className="secondary-btn px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {controlsBusy ? "Saving..." : "Save controls"}
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm text-stone-200">
+              <input
+                type="checkbox"
+                checked={controls.payouts_enabled}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? { ...previous, payouts_enabled: event.target.checked }
+                      : previous,
+                  )
+                }
+              />
+              Payouts enabled
+            </label>
+            <label className="flex items-center gap-2 text-sm text-stone-200">
+              <input
+                type="checkbox"
+                checked={controls.refunds_enabled}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? { ...previous, refunds_enabled: event.target.checked }
+                      : previous,
+                  )
+                }
+              />
+              Refunds enabled
+            </label>
+            <label className="flex items-center gap-2 text-sm text-stone-200">
+              <input
+                type="checkbox"
+                checked={controls.admin_manual_release_required}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? { ...previous, admin_manual_release_required: event.target.checked }
+                      : previous,
+                  )
+                }
+              />
+              Manual admin payout release required
+            </label>
+            <label className="flex items-center gap-2 text-sm text-stone-200">
+              <input
+                type="checkbox"
+                checked={controls.test_mode_banner_enabled}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? { ...previous, test_mode_banner_enabled: event.target.checked }
+                      : previous,
+                  )
+                }
+              />
+              Test mode banner enabled
+            </label>
+            <label className="flex items-center gap-2 text-sm text-stone-200">
+              <input
+                type="checkbox"
+                checked={controls.emergency_hold_enabled}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? { ...previous, emergency_hold_enabled: event.target.checked }
+                      : previous,
+                  )
+                }
+              />
+              Emergency hold enabled
+            </label>
+            <label className="text-sm text-stone-200">
+              Emergency hold reason
+              <input
+                value={controls.emergency_hold_reason ?? ""}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? { ...previous, emergency_hold_reason: event.target.value }
+                      : previous,
+                  )
+                }
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-stone-100"
+              />
+            </label>
+            <label className="text-sm text-stone-200">
+              Max single payout (GBP)
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={controls.max_single_payout_gbp ?? ""}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? {
+                          ...previous,
+                          max_single_payout_gbp:
+                            event.target.value === "" ? null : Number(event.target.value),
+                        }
+                      : previous,
+                  )
+                }
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-stone-100"
+              />
+            </label>
+            <label className="text-sm text-stone-200">
+              Max single refund (GBP)
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={controls.max_single_refund_gbp ?? ""}
+                onChange={(event) =>
+                  setControls((previous) =>
+                    previous
+                      ? {
+                          ...previous,
+                          max_single_refund_gbp:
+                            event.target.value === "" ? null : Number(event.target.value),
+                        }
+                      : previous,
+                  )
+                }
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-stone-100"
+              />
+            </label>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <section className="panel-soft p-5">

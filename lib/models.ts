@@ -655,7 +655,8 @@ export type AdminPaymentActionType =
   | "hold_payout"
   | "retry_payout"
   | "refund_payment"
-  | "flag_issue";
+  | "flag_issue"
+  | "platform_payment_controls_updated";
 
 export type AdminPaymentActionRecord = {
   id: string;
@@ -699,6 +700,21 @@ export type ShiftListingRecord = {
   claimed_booking_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PlatformPaymentControlsRecord = {
+  id: string;
+  payouts_enabled: boolean;
+  refunds_enabled: boolean;
+  admin_manual_release_required: boolean;
+  max_single_payout_gbp: number | null;
+  max_single_refund_gbp: number | null;
+  emergency_hold_enabled: boolean;
+  emergency_hold_reason: string | null;
+  test_mode_banner_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
 };
 
 export type WorkerDiscoveryFilters = {
