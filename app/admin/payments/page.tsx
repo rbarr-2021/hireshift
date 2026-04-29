@@ -45,6 +45,12 @@ type AdminPaymentItem = {
     stripe_transfer_id: string | null;
     failure_reason: string | null;
     dispute_reason: string | null;
+    stripe_last_synced_at: string | null;
+    stripe_payment_status: string | null;
+    stripe_transfer_status: string | null;
+    reconciliation_status: string | null;
+    reconciliation_issue: string | null;
+    reconciliation_checked_at: string | null;
   } | null;
   workerName: string;
   businessName: string;
@@ -107,6 +113,7 @@ export default function AdminPaymentsPage() {
   const [query, setQuery] = useState("");
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const [actionBusyByBooking, setActionBusyByBooking] = useState<Record<string, boolean>>({});
+  const [syncBusyByBooking, setSyncBusyByBooking] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     setLoading(true);
@@ -203,6 +210,38 @@ export default function AdminPaymentsPage() {
       });
     } finally {
       setActionBusyByBooking((previous) => ({ ...previous, [input.bookingId]: false }));
+    }
+  };
+
+  const runStripeSync = async (bookingId: string) => {
+    setSyncBusyByBooking((previous) => ({ ...previous, [bookingId]: true }));
+
+    try {
+      const response = await fetchWithSession(`/api/admin/bookings/${bookingId}/reconcile`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Stripe sync failed.");
+      }
+
+      showToast({
+        title: "Stripe sync complete",
+        description: "Reconciliation status has been updated.",
+        tone: "success",
+      });
+
+      await load();
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Stripe sync failed.";
+      showToast({
+        title: "Sync failed",
+        description: message,
+        tone: "error",
+      });
+    } finally {
+      setSyncBusyByBooking((previous) => ({ ...previous, [bookingId]: false }));
     }
   };
 
@@ -335,6 +374,7 @@ export default function AdminPaymentsPage() {
               }
 
               const isBusy = Boolean(actionBusyByBooking[item.booking.id]);
+              const syncBusy = Boolean(syncBusyByBooking[item.booking.id]);
               const canRelease =
                 payment.status === "paid" &&
                 (payment.payout_status === "pending" || payment.payout_status === "not_started") &&
@@ -410,7 +450,17 @@ export default function AdminPaymentsPage() {
                       <span className="font-medium text-stone-100">Next action:</span>{" "}
                       {item.nextActionLabel}
                     </p>
+                    <p>
+                      <span className="font-medium text-stone-100">Reconciliation:</span>{" "}
+                      {payment.reconciliation_status ?? "needs_review"}
+                    </p>
                   </div>
+
+                  {payment.reconciliation_issue ? (
+                    <p className="mt-3 rounded-xl border border-amber-200/40 bg-amber-100/10 px-3 py-2 text-sm text-amber-100">
+                      {payment.reconciliation_issue}
+                    </p>
+                  ) : null}
 
                   <div className="mt-5 flex flex-wrap gap-2">
                     <button
@@ -427,6 +477,14 @@ export default function AdminPaymentsPage() {
                     <Link href={`/admin/bookings/${item.booking.id}`} className="secondary-btn px-4 py-2 text-sm">
                       Open booking
                     </Link>
+                    <button
+                      type="button"
+                      disabled={syncBusy}
+                      onClick={() => void runStripeSync(item.booking.id)}
+                      className="secondary-btn px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {syncBusy ? "Syncing..." : "Sync with Stripe"}
+                    </button>
                     {canRelease ? (
                       <button
                         type="button"
@@ -538,6 +596,26 @@ export default function AdminPaymentsPage() {
                             {payment.failure_reason}
                           </p>
                         ) : null}
+                        <p>
+                          <span className="font-medium text-stone-100">Stripe payment state:</span>{" "}
+                          {payment.stripe_payment_status ?? "-"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-stone-100">Stripe transfer state:</span>{" "}
+                          {payment.stripe_transfer_status ?? "-"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-stone-100">Last synced:</span>{" "}
+                          {payment.stripe_last_synced_at
+                            ? new Date(payment.stripe_last_synced_at).toLocaleString("en-GB")
+                            : "-"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-stone-100">Reconciled:</span>{" "}
+                          {payment.reconciliation_checked_at
+                            ? new Date(payment.reconciliation_checked_at).toLocaleString("en-GB")
+                            : "-"}
+                        </p>
                       </div>
 
                       <details className="rounded-xl border border-white/10 bg-black/40 p-3">
