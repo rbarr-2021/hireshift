@@ -629,6 +629,12 @@ export type PaymentRecord = {
   dispute_reason: string | null;
   disputed_at: string | null;
   payout_hold_reason?: string | null;
+  stripe_last_synced_at?: string | null;
+  stripe_payment_status?: string | null;
+  stripe_transfer_status?: string | null;
+  reconciliation_status?: string | null;
+  reconciliation_issue?: string | null;
+  reconciliation_checked_at?: string | null;
   created_at: string;
   updated_at: string;
 };
