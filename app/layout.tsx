@@ -4,7 +4,9 @@ import { Manrope } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { MobileScrollReset } from "@/components/navigation/mobile-scroll-reset";
+import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt";
 import { ToastProvider } from "@/components/ui/toast-provider";
+import type { Viewport } from "next";
 
 const disneyStyleSans = Manrope({
   subsets: ["latin"],
@@ -38,6 +40,21 @@ export const metadata: Metadata = {
     description: "Smarter Hiring. Better Hospitality.",
     images: ["/icon.svg"],
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "NexHyr",
+  },
+  icons: {
+    apple: [{ url: "/icons/icon-192.png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
@@ -53,6 +70,7 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <MobileScrollReset />
             </Suspense>
+            <PwaInstallPrompt />
             {children}
           </ToastProvider>
         </AuthProvider>
