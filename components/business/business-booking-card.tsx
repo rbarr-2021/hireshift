@@ -37,11 +37,19 @@ export function BusinessBookingCard({
   worker,
   actions,
   payment,
+  paymentLabel,
+  paymentTone,
+  payoutLabel,
+  payoutTone,
 }: {
   booking: BookingRecord;
   worker?: WorkerSnapshot;
   actions?: React.ReactNode;
   payment?: PaymentRecord | null;
+  paymentLabel?: string;
+  paymentTone?: string;
+  payoutLabel?: string;
+  payoutTone?: string;
 }) {
   const trustStatus = getBusinessTrustStatusLabel(booking, payment ?? null);
   const nextActionLabel = getBookingNextAction({
@@ -66,6 +74,12 @@ export function BusinessBookingCard({
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <span className="status-badge status-badge--ready">{trustStatus}</span>
+          {paymentLabel ? (
+            <span className={`status-badge ${paymentTone ?? ""}`.trim()}>{paymentLabel}</span>
+          ) : null}
+          {payoutLabel ? (
+            <span className={`status-badge ${payoutTone ?? ""}`.trim()}>{payoutLabel}</span>
+          ) : null}
         </div>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">

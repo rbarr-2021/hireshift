@@ -1,6 +1,7 @@
 import {
   getBookingEndDateTime,
   getBookingStartDateTime,
+  isWithinCheckInWindow,
 } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { getPaymentStatusValue } from "@/lib/payments";
