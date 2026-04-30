@@ -33,26 +33,12 @@ export function AuthGuard({
 
     if (!hasSession || !authUserId) {
       const nextReason = pathname === "/role-select" ? "verified-login" : "session-required";
-      console.info("[auth] redirect decision", {
-        reason: nextReason,
-        pathname,
-        hasSession,
-        authUserId,
-        role: null,
-      });
       router.replace(`/login?message=${nextReason}`);
       return;
     }
 
     if (!appUser) {
       const nextReason = pathname === "/role-select" ? "verified-login" : "session-required";
-      console.info("[auth] redirect decision", {
-        reason: "missing-app-user",
-        pathname,
-        hasSession,
-        authUserId,
-        role: null,
-      });
       router.replace(`/login?message=${nextReason}`);
       return;
     }
@@ -62,27 +48,12 @@ export function AuthGuard({
         return;
       }
 
-      console.info("[auth] redirect decision", {
-        reason: "missing-role-selection",
-        pathname,
-        hasSession,
-        authUserId,
-        role: appUser.role,
-      });
       router.replace("/role-select");
       return;
     }
 
     if (allowedRoles && !allowedRoles.includes(appUser.role)) {
       const target = getRoleHome(appUser.role);
-      console.info("[auth] redirect decision", {
-        reason: "role-mismatch",
-        pathname,
-        hasSession,
-        authUserId,
-        role: appUser.role,
-        target,
-      });
       router.replace(target);
       return;
     }
@@ -91,14 +62,6 @@ export function AuthGuard({
       const onboardingPath = getRoleSetupPath(appUser.role);
 
       if (pathname !== onboardingPath) {
-        console.info("[auth] redirect decision", {
-          reason: "onboarding-required",
-          pathname,
-          hasSession,
-          authUserId,
-          role: appUser.role,
-          target: onboardingPath,
-        });
         router.replace(onboardingPath);
         return;
       }

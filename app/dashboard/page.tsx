@@ -19,65 +19,27 @@ export default function DashboardPage() {
     }
 
     if (!hasSession || !authUserId || !appUser) {
-      console.info("[auth] redirect decision", {
-        reason: "dashboard-to-login",
-        pathname: "/dashboard",
-        hasSession,
-        authUserId,
-        role: appUser?.role ?? null,
-      });
       router.replace("/login?message=session-required");
       return;
     }
 
     if (appUser.role === "admin") {
-      console.info("[auth] redirect decision", {
-        reason: "dashboard-to-admin",
-        pathname: "/dashboard",
-        hasSession,
-        authUserId,
-        role: appUser.role,
-        target: "/admin",
-      });
       router.replace("/admin");
       return;
     }
 
     if (!hasSelectedRole(appUser)) {
-      console.info("[auth] redirect decision", {
-        reason: "dashboard-to-role-select",
-        pathname: "/dashboard",
-        hasSession,
-        authUserId,
-        role: appUser.role,
-      });
       router.replace("/role-select");
       return;
     }
 
     if (!appUser.onboarding_complete) {
       const target = getRoleEntryPath(appUser.role, false);
-      console.info("[auth] redirect decision", {
-        reason: appUser.role === "worker" ? "dashboard-to-shifts" : "dashboard-to-onboarding",
-        pathname: "/dashboard",
-        hasSession,
-        authUserId,
-        role: appUser.role,
-        target,
-      });
       router.replace(target);
       return;
     }
 
     const target = getRoleHome(appUser.role);
-    console.info("[auth] redirect decision", {
-      reason: "dashboard-to-home",
-      pathname: "/dashboard",
-      hasSession,
-      authUserId,
-      role: appUser.role,
-      target,
-    });
     router.replace(target);
   }, [appUser, authUserId, hasSession, loading, router]);
 

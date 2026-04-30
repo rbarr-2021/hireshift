@@ -719,7 +719,7 @@ export function AdminUsersManager({
                                 Open
                               </a>
                             ) : (
-                              <span className="status-badge">Unavailable</span>
+                              <span className="status-badge">No preview</span>
                             )}
                           </div>
                         ))

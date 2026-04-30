@@ -49,19 +49,6 @@ export default function Login() {
     const redirectTarget = getPendingRedirect();
     const isAdminUser = appUser.role === "admin";
 
-    console.info("[auth] redirect decision", {
-      reason: isAdminUser
-        ? "login-to-admin"
-        : hasSelectedRole(appUser)
-        ? appUser.onboarding_complete
-          ? "login-to-dashboard"
-          : appUser.role === "worker"
-            ? "login-to-shifts"
-            : "login-to-onboarding"
-        : "login-to-role-select",
-      pathname: "/login",
-    });
-
     if (isAdminUser) {
       clearPostAuthIntent();
       router.replace("/admin");
@@ -103,11 +90,6 @@ export default function Login() {
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitLockRef.current || loading || authLoading) {
-      console.info("[login] blocked duplicate submit", {
-        loading,
-        authLoading,
-        locked: submitLockRef.current,
-      });
       return;
     }
 
@@ -116,21 +98,11 @@ export default function Login() {
     setMessage(null);
     const attemptId = submitAttemptRef.current + 1;
     submitAttemptRef.current = attemptId;
-    console.info("[login] submit fired", {
-      attemptId,
-      hasEmail: Boolean(email),
-      passwordLength: password.length,
-    });
 
     try {
-      console.info("[login] starting signInWithPassword", { attemptId });
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
-      console.info("[login] signInWithPassword response", {
-        attemptId,
-        error: error?.message ?? null,
       });
 
       if (error) {
@@ -146,8 +118,6 @@ export default function Login() {
       }
 
       setSessionHintCookie();
-
-      console.info("[login] resolving auth state", { attemptId });
       const resolved = await resolveAuthState();
 
       if (!resolved?.appUser) {
@@ -244,7 +214,6 @@ export default function Login() {
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : "Unexpected login error. Please try again.";
-      console.error("[login] caught exception", { attemptId, error });
       clearSessionHintCookie();
       setMessage(nextMessage);
       showToast({
@@ -253,7 +222,6 @@ export default function Login() {
         tone: "error",
       });
     } finally {
-      console.info("[login] request settled", { attemptId });
       submitLockRef.current = false;
       setLoading(false);
     }

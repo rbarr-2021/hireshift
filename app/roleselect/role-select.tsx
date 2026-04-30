@@ -81,27 +81,12 @@ async function getOrCreateAppUserRow(authUser: { id: string; email?: string | nu
     .maybeSingle<UserRecord>();
 
   if (selectResult.error) {
-    console.error("[role-select] users select failed", {
-      userId: authUser.id,
-      error: selectResult.error,
-    });
     throw selectResult.error;
   }
 
   if (selectResult.data) {
-    console.info("[role-select] users row loaded", {
-      userId: authUser.id,
-      role: selectResult.data.role,
-      roleSelected: selectResult.data.role_selected,
-      onboardingComplete: selectResult.data.onboarding_complete,
-    });
     return selectResult.data;
   }
-
-  console.warn("[role-select] users row missing, attempting recovery", {
-    userId: authUser.id,
-    email: authUser.email ?? null,
-  });
 
   const recoveryPayload = {
     id: authUser.id,
@@ -118,19 +103,8 @@ async function getOrCreateAppUserRow(authUser: { id: string; email?: string | nu
     .single<UserRecord>();
 
   if (insertResult.error) {
-    console.error("[role-select] users recovery insert failed", {
-      userId: authUser.id,
-      payload: recoveryPayload,
-      error: insertResult.error,
-    });
     throw insertResult.error;
   }
-
-  console.info("[role-select] users row recovered", {
-    userId: authUser.id,
-    role: insertResult.data.role,
-    roleSelected: insertResult.data.role_selected,
-  });
 
   return insertResult.data;
 }
@@ -172,13 +146,6 @@ export default function RoleSelect() {
         }
 
         if (!user) {
-          console.info("[auth] redirect decision", {
-            reason: "role-select-to-login",
-            pathname: "/role-select",
-            hasSession,
-            authUserId,
-            role: null,
-          });
           router.replace("/login?message=verified-login");
           return;
         }
@@ -196,14 +163,6 @@ export default function RoleSelect() {
         }
 
         if (adminAccess) {
-          console.info("[auth] redirect decision", {
-            reason: "role-select-to-admin",
-            pathname: "/role-select",
-            hasSession,
-            authUserId: user.id,
-            role: data.role,
-            target: "/admin",
-          });
           router.replace("/admin");
           return;
         }
@@ -214,19 +173,6 @@ export default function RoleSelect() {
             data.onboarding_complete,
             getPendingRedirect(),
           );
-          console.info("[auth] redirect decision", {
-            reason:
-              data.onboarding_complete
-                ? "role-select-to-home"
-                : data.role === "worker"
-                  ? "role-select-to-shifts"
-                  : "role-select-to-onboarding",
-            pathname: "/role-select",
-            hasSession,
-            authUserId: user.id,
-            role: data.role,
-            target,
-          });
           router.replace(target);
           return;
         }
@@ -274,9 +220,6 @@ export default function RoleSelect() {
     if (userError || !user) {
       setLoading(false);
       setMessage(userError?.message || "You need to log in before continuing.");
-      console.error("[role-select] auth user unavailable during save", {
-        error: userError,
-      });
       showToast({
         title: "Login required",
         description: userError?.message || "You need to log in before continuing.",
@@ -293,11 +236,6 @@ export default function RoleSelect() {
     setLoading(false);
 
     if (error) {
-      console.error("[role-select] users update failed", {
-        userId: user.id,
-        payload: { role, role_selected: true, onboarding_complete: false },
-        error,
-      });
       const nextError = formatRoleSelectError(error);
       setMessage(nextError.message);
       showToast({ title: nextError.title, description: nextError.message, tone: "error" });
@@ -322,14 +260,6 @@ export default function RoleSelect() {
         ? "/profile/setup/business"
         : getRoleEntryPath("worker", false, redirectTarget);
 
-    console.info("[auth] redirect decision", {
-      reason: "role-select-complete",
-      pathname: "/role-select",
-      hasSession,
-      authUserId: user.id,
-      role,
-      target,
-    });
     if (role === "worker") {
       clearPostAuthIntent();
     }

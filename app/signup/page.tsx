@@ -118,22 +118,6 @@ export default function Signup() {
     const redirectTarget = getPendingRedirect();
     const isAdminUser = appUser.role === "admin";
 
-    console.info("[auth] redirect decision", {
-      reason: isAdminUser
-        ? "signup-to-admin"
-        : hasSelectedRole(appUser)
-        ? appUser.onboarding_complete
-          ? "signup-to-dashboard"
-          : appUser.role === "worker"
-            ? "signup-to-shifts"
-            : "signup-to-onboarding"
-        : "signup-to-role-select",
-      pathname: "/signup",
-      hasSession: true,
-      authUserId: appUser.id,
-      role: appUser.role,
-    });
-
     if (isAdminUser) {
       clearPostAuthIntent();
       router.replace("/admin");
@@ -172,12 +156,6 @@ export default function Signup() {
     setMessage(null);
 
     if (submitLockRef.current || loading || authLoading || cooldownSeconds > 0) {
-      console.info("[signup] blocked duplicate submit", {
-        loading,
-        authLoading,
-        cooldownSeconds,
-        locked: submitLockRef.current,
-      });
       return;
     }
 
@@ -195,15 +173,8 @@ export default function Signup() {
     setLoading(true);
     const attemptId = submitAttemptRef.current + 1;
     submitAttemptRef.current = attemptId;
-    console.info("[signup] submit fired", {
-      attemptId,
-      hasEmail: Boolean(email),
-      passwordLength: password.length,
-      confirmPasswordLength: confirmPassword.length,
-    });
 
     try {
-      console.info("[signup] resolving current auth state", { attemptId });
       const resolved = await resolveAuthState();
 
       if (resolved?.authUser) {
@@ -224,12 +195,6 @@ export default function Signup() {
         options: {
           emailRedirectTo: `${getAppBaseUrl()}/auth/callback?next=${encodeURIComponent("/login")}`,
         },
-      });
-      console.info("[signup] signUp response", {
-        attemptId,
-        hasUser: Boolean(data.user),
-        hasSession: Boolean(data.session),
-        error: error?.message ?? null,
       });
 
       if (error) {
@@ -309,7 +274,6 @@ export default function Signup() {
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : "Unexpected signup error. Please try again.";
-      console.error("[signup] caught exception", { attemptId, error });
       clearSessionHintCookie();
       setMessage(nextMessage);
       showToast({
@@ -318,7 +282,6 @@ export default function Signup() {
         tone: "error",
       });
     } finally {
-      console.info("[signup] request settled", { attemptId });
       submitLockRef.current = false;
       setLoading(false);
     }

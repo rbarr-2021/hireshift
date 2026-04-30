@@ -242,7 +242,7 @@ export default function WorkerShiftBrowsePage() {
       <div className="panel-soft p-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-2 text-sm text-stone-600">
-            <span className="font-medium text-stone-900">Job Serch</span>
+                  <span className="font-medium text-stone-900">Job Search</span>
             <select
               value={filters.query}
               onChange={(event) => {

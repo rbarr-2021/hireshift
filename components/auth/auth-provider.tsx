@@ -51,13 +51,6 @@ async function restoreSessionFromUrl() {
   const refreshToken = hashParams.get("refresh_token");
   const code = searchParams.get("code");
 
-  console.info("[auth] session loading start", {
-    hasAccessToken: Boolean(accessToken),
-    hasRefreshToken: Boolean(refreshToken),
-    hasCode: Boolean(code),
-    pathname: window.location.pathname,
-  });
-
   if (accessToken && refreshToken) {
     const { error } = await supabase.auth.setSession({
       access_token: accessToken,
@@ -69,10 +62,6 @@ async function restoreSessionFromUrl() {
     }
 
     window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
-    console.info("[auth] session restored", {
-      source: "hash",
-      pathname: window.location.pathname,
-    });
     return;
   }
 
@@ -87,17 +76,8 @@ async function restoreSessionFromUrl() {
     nextUrl.searchParams.delete("code");
     nextUrl.searchParams.delete("type");
     window.history.replaceState({}, document.title, `${nextUrl.pathname}${nextUrl.search}`);
-    console.info("[auth] session restored", {
-      source: "code",
-      pathname: window.location.pathname,
-    });
     return;
   }
-
-  console.info("[auth] session restored", {
-    source: "existing",
-    pathname: typeof window !== "undefined" ? window.location.pathname : "",
-  });
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -116,10 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthUserId(null);
       setAppUser(null);
       clearSessionHintCookie();
-      console.info("[auth] redirect decision", {
-        reason: "no-session",
-        pathname: typeof window !== "undefined" ? window.location.pathname : "",
-      });
       return null;
     }
 
@@ -135,10 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthUserId(null);
       setAppUser(null);
       clearSessionHintCookie();
-      console.info("[auth] redirect decision", {
-        reason: "invalid-session",
-        pathname: typeof window !== "undefined" ? window.location.pathname : "",
-      });
       return null;
     }
 
@@ -149,21 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setHasSession(false);
       setAuthUserId(null);
       setAppUser(null);
-      console.info("[auth] redirect decision", {
-        reason: "suspended-user",
-        pathname: typeof window !== "undefined" ? window.location.pathname : "",
-      });
       return null;
     }
 
     setAuthUserId(user.id);
     setAppUser(nextAppUser);
-    console.info("[auth] session restored", {
-      source: "resolved",
-      authUserId: user.id,
-      hasAppUser: Boolean(nextAppUser),
-      pathname: typeof window !== "undefined" ? window.location.pathname : "",
-    });
     return nextAppUser;
   };
 
@@ -175,7 +137,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await restoreSessionFromUrl();
         await refreshAuthState();
       } catch (error) {
-        console.error("[auth] session bootstrap failed", { error });
         clearSessionHintCookie();
         if (active) {
           setAuthUserId(null);
@@ -191,12 +152,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void bootstrapAuth();
 
     const unsubscribe = registerAuthListener("auth-provider", async (event, session) => {
-      console.info("[auth] auth listener event", {
-        event,
-        hasSession: Boolean(session),
-        pathname: typeof window !== "undefined" ? window.location.pathname : "",
-      });
-
       if (!active) {
         return;
       }
