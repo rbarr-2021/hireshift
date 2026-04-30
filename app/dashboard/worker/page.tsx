@@ -402,9 +402,9 @@ export default function WorkerDashboardPage() {
       </div>
 
       <AdminContactCard
+        accountType="worker"
         title="Need admin help?"
         description="If anything is unclear with shifts, profile checks, or payout status, message admin here."
-        subjectPlaceholder="Issue with shift, profile, or payout"
       />
     </div>
   );

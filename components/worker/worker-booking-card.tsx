@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  formatArrivalConfirmationStatusLabel,
   formatAttendanceTimestamp,
   bookingStatusClass,
   formatBookingDate,
@@ -132,6 +133,10 @@ export function WorkerBookingCard({
           {trustStatus}
         </p>
         <p>
+          <span className="font-medium text-stone-900">Arrival:</span>{" "}
+          {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}
+        </p>
+        <p>
           <span className="font-medium text-stone-900">Timing:</span>{" "}
           {timingGuidance}
         </p>
@@ -169,6 +174,26 @@ export function WorkerBookingCard({
           <p className="mt-2 text-sm leading-6 text-stone-500">
             {booking.notes}
           </p>
+          {booking.meeting_point ? (
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Meeting point: {booking.meeting_point}
+            </p>
+          ) : null}
+          {booking.site_contact_name ? (
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Ask for: {booking.site_contact_name}
+            </p>
+          ) : null}
+          {booking.site_contact_phone ? (
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Contact phone: {booking.site_contact_phone}
+            </p>
+          ) : null}
+          {booking.arrival_instructions ? (
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              Arrival instructions: {booking.arrival_instructions}
+            </p>
+          ) : null}
         </div>
       ) : null}
       {actions || showDetailLink ? (

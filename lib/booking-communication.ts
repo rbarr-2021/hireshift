@@ -73,6 +73,12 @@ export function getWorkerTrustStatusLabel(
   }
 
   if (booking.attendance_status === "checked_in") {
+    if (booking.arrival_confirmation_status === "business_confirmed") {
+      return "Arrival confirmed";
+    }
+    if (booking.arrival_confirmation_status === "issue_reported") {
+      return "Arrival issue reported";
+    }
     return "Shift in progress";
   }
 
@@ -116,6 +122,12 @@ export function getBusinessTrustStatusLabel(
   }
 
   if (booking.attendance_status === "checked_in") {
+    if (booking.arrival_confirmation_status === "business_confirmed") {
+      return "Arrival confirmed";
+    }
+    if (booking.arrival_confirmation_status === "issue_reported") {
+      return "Arrival issue reported";
+    }
     return "Worker checked in";
   }
 
@@ -185,6 +197,13 @@ export function getBookingNextAction(input: {
 
   if (paymentStatus !== "paid") {
     return "Pay estimated amount";
+  }
+
+  if (
+    input.booking.attendance_status === "checked_in" &&
+    input.booking.arrival_confirmation_status !== "business_confirmed"
+  ) {
+    return "Confirm arrival";
   }
 
   if ((input.payment?.top_up_due_gbp ?? 0) > 0 || input.payment?.settlement_status === "top_up_required") {

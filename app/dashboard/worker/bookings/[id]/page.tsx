@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import {
+  formatArrivalConfirmationStatusLabel,
   formatAttendanceStatusLabel,
   formatBookingDate,
   formatAttendanceTimestamp,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
+import { AdminContactCard } from "@/components/support/admin-contact-card";
 import {
   getBookingNextAction,
   getShiftTimingGuidance,
@@ -219,7 +221,7 @@ export default function WorkerBookingDetailPage() {
         title: action === "check_in" ? "Shift started" : "Shift finished",
         description:
           action === "check_in"
-            ? "Your start time has been logged."
+            ? "You’re checked in. Ask for the named contact and wait for the business to confirm your arrival."
             : "Your finish time has been logged for business confirmation.",
         tone: "success",
       });
@@ -326,6 +328,15 @@ export default function WorkerBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Agreed rate:</span> {formatCurrency(booking.hourly_rate_gbp)}/hr</p>
             <p><span className="font-medium text-stone-900">Expected payout:</span> {formatCurrency(workerPayout)}</p>
             <p><span className="font-medium text-stone-900">Attendance:</span> {formatAttendanceStatusLabel(booking.attendance_status)}</p>
+            <p><span className="font-medium text-stone-900">Arrival:</span> {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}</p>
+            <p><span className="font-medium text-stone-900">Meeting point:</span> {booking.meeting_point || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Ask for:</span> {booking.site_contact_name || business?.contact || "Business contact"}</p>
+            {booking.site_contact_phone ? (
+              <p><span className="font-medium text-stone-900">Contact phone:</span> {booking.site_contact_phone}</p>
+            ) : null}
+            {booking.arrival_instructions ? (
+              <p><span className="font-medium text-stone-900">Arrival instructions:</span> {booking.arrival_instructions}</p>
+            ) : null}
             {booking.worker_hours_claimed ? (
               <p><span className="font-medium text-stone-900">Claimed hours:</span> {formatHoursValue(booking.worker_hours_claimed)}</p>
             ) : null}
@@ -363,7 +374,7 @@ export default function WorkerBookingDetailPage() {
             </div>
             {!paymentSecured ? (
               <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                You’re confirmed once the business payment is secured.
+                Payment is not secured yet. Contact support before attending.
               </p>
             ) : null}
             <div className="flex items-center justify-between gap-4">
@@ -430,6 +441,14 @@ export default function WorkerBookingDetailPage() {
           ) : null}
         </aside>
       </div>
+      <AdminContactCard
+        accountType="worker"
+        bookingId={booking.id}
+        roleLabel={booking.requested_role_label}
+        shiftDate={booking.shift_date}
+        title="Contact Support"
+        description="Having an issue? Contact support and we’ll help."
+      />
     </div>
   );
 }

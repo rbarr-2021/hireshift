@@ -15,6 +15,7 @@ import { formatPaymentStatus, formatPayoutStatus } from "@/lib/payments";
 import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
+import { AdminContactCard } from "@/components/support/admin-contact-card";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -317,6 +318,14 @@ export default function BusinessBookingPaymentPage() {
           )}
         </aside>
       </div>
+      <AdminContactCard
+        accountType="business"
+        bookingId={booking.id}
+        roleLabel={booking.requested_role_label}
+        shiftDate={booking.shift_date}
+        title="Contact Support"
+        description="Having an issue? Contact support and we’ll help."
+      />
     </div>
   );
 }

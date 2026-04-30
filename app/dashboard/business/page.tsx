@@ -281,7 +281,13 @@ export default function BusinessDashboardPage() {
 
   const handleRecordOutcome = async (
     bookingId: string,
-    action: "approve_hours" | "adjust_hours" | "dispute_hours" | "no_show",
+    action:
+      | "confirm_arrival"
+      | "report_arrival_issue"
+      | "approve_hours"
+      | "adjust_hours"
+      | "dispute_hours"
+      | "no_show",
   ) => {
     const booking = bookings.find((item) => item.id === bookingId);
 
@@ -354,6 +360,22 @@ export default function BusinessDashboardPage() {
     if (action === "no_show") {
       reason = "Worker marked as no-show by business.";
     }
+    if (action === "report_arrival_issue") {
+      const reasonInput = window.prompt("What is the arrival issue?");
+      if (reasonInput === null) {
+        return;
+      }
+      const trimmedReason = reasonInput.trim();
+      if (!trimmedReason) {
+        showToast({
+          title: "Reason required",
+          description: "Add a short reason for the arrival issue.",
+          tone: "error",
+        });
+        return;
+      }
+      reason = trimmedReason;
+    }
 
     setActioningId(bookingId);
 
@@ -401,6 +423,11 @@ export default function BusinessDashboardPage() {
 
       showToast({
         title:
+          action === "confirm_arrival"
+            ? "Arrival confirmed"
+            : action === "report_arrival_issue"
+              ? "Arrival issue reported"
+            :
           action === "approve_hours"
             ? "Hours approved"
             : action === "adjust_hours"
@@ -409,6 +436,11 @@ export default function BusinessDashboardPage() {
               ? "No-show recorded"
               : "Attendance disputed",
         description:
+          action === "confirm_arrival"
+            ? "Arrival confirmed. You can approve final hours after the shift."
+            : action === "report_arrival_issue"
+              ? "Arrival issue reported and payout is now on hold for review."
+            :
           action === "approve_hours"
             ? "Attendance approved and payout can now move."
             : action === "adjust_hours"
@@ -586,6 +618,28 @@ export default function BusinessDashboardPage() {
                   }
                   actions={
                     <>
+                      {booking.worker_checked_in_at &&
+                      booking.arrival_confirmation_status !== "business_confirmed" ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleRecordOutcome(booking.id, "confirm_arrival")}
+                          disabled={actioningId === booking.id}
+                          className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                        >
+                          Confirm arrival
+                        </button>
+                      ) : null}
+                      {booking.worker_checked_in_at &&
+                      booking.arrival_confirmation_status !== "issue_reported" ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleRecordOutcome(booking.id, "report_arrival_issue")}
+                          disabled={actioningId === booking.id}
+                          className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                        >
+                          Worker not here / issue
+                        </button>
+                      ) : null}
                       {!isBookingPaid(paymentsByBookingId[booking.id]) ? (
                         <Link
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
@@ -694,6 +748,17 @@ export default function BusinessDashboardPage() {
                     payoutTone={payment ? payoutStatusClass(payment.payout_status) : undefined}
                     actions={
                       <>
+                        {booking.worker_checked_in_at &&
+                        booking.arrival_confirmation_status !== "business_confirmed" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleRecordOutcome(booking.id, "confirm_arrival")}
+                            disabled={actioningId === booking.id}
+                            className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                          >
+                            Confirm arrival
+                          </button>
+                        ) : null}
                         {booking.status !== "completed" ? (
                           <button
                             type="button"
@@ -846,9 +911,9 @@ export default function BusinessDashboardPage() {
       </div>
 
       <AdminContactCard
+        accountType="business"
         title="Need admin support?"
         description="For approval questions, disputes, or payout help, message admin directly."
-        subjectPlaceholder="Issue with booking, approval, or payout"
       />
     </div>
   );

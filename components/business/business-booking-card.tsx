@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   calculateBookingDurationHours,
+  formatArrivalConfirmationStatusLabel,
   formatAttendanceStatusLabel,
   formatAttendanceTimestamp,
   formatHoursValue,
@@ -138,6 +139,10 @@ export function BusinessBookingCard({
           {formatAttendanceStatusLabel(booking.attendance_status)}
         </p>
         <p>
+          <span className="font-medium text-stone-900">Arrival:</span>{" "}
+          {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}
+        </p>
+        <p>
           <span className="font-medium text-stone-900">Timing:</span> {timingGuidance}
         </p>
         {booking.worker_hours_claimed ? (
@@ -168,6 +173,11 @@ export function BusinessBookingCard({
       {booking.business_adjustment_reason ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.business_adjustment_reason}
+        </p>
+      ) : null}
+      {booking.arrival_confirmation_note ? (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+          {booking.arrival_confirmation_note}
         </p>
       ) : null}
       <div className="mt-4 flex flex-wrap items-center gap-2">

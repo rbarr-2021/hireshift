@@ -32,6 +32,8 @@ function getPaymentStatus(payment: PaymentRecord | null | undefined) {
 type AttendanceAction =
   | "check_in"
   | "check_out"
+  | "confirm_arrival"
+  | "report_arrival_issue"
   | "approve_hours"
   | "adjust_hours"
   | "dispute_hours"
@@ -58,6 +60,31 @@ async function refreshBookingSnapshot(bookingId: string) {
     booking: bookingResult.data ?? null,
     payment: paymentResult.data ?? null,
   };
+}
+
+async function logArrivalEvent(input: {
+  bookingId: string;
+  paymentId?: string | null;
+  eventType:
+    | "worker_checked_in"
+    | "business_arrival_confirmed"
+    | "arrival_issue_reported";
+  actorUserId?: string | null;
+  reason?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  const supabaseAdmin = getSupabaseAdminClient();
+  await supabaseAdmin.from("payment_events").insert({
+    booking_id: input.bookingId,
+    payment_id: input.paymentId ?? null,
+    event_type: input.eventType,
+    source: "system",
+    metadata: {
+      actor_user_id: input.actorUserId ?? null,
+      reason: input.reason ?? null,
+      ...(input.metadata ?? {}),
+    },
+  });
 }
 
 export async function POST(
@@ -160,9 +187,17 @@ export async function POST(
           check_in_lat: normalizeCoordinate(body?.latitude),
           check_in_lng: normalizeCoordinate(body?.longitude),
           attendance_status: "checked_in",
+          arrival_confirmation_status: "worker_checked_in",
+          arrival_confirmation_note: null,
           attendance_notes: body?.notes?.trim() || booking.attendance_notes || null,
         })
         .eq("id", booking.id);
+      await logArrivalEvent({
+        bookingId: booking.id,
+        paymentId: payment?.id ?? null,
+        eventType: "worker_checked_in",
+        actorUserId: actorId,
+      });
     } else if (action === "check_out") {
       if (!booking.worker_checked_in_at) {
         return NextResponse.json(
@@ -283,6 +318,77 @@ export async function POST(
           dispute_reason: body?.reason?.trim() || "Worker marked as no-show by business.",
           disputed_at: nowIso,
           failure_reason: "Payout paused while this no-show is reviewed.",
+        })
+        .eq("id", payment.id);
+    }
+
+    const refreshed = await refreshBookingSnapshot(booking.id);
+    return NextResponse.json(refreshed);
+  }
+
+  if (action === "confirm_arrival") {
+    if (!booking.worker_checked_in_at) {
+      return NextResponse.json(
+        { error: "Worker has not checked in yet." },
+        { status: 409 },
+      );
+    }
+
+    await supabaseAdmin
+      .from("bookings")
+      .update({
+        arrival_confirmation_status: "business_confirmed",
+        business_arrival_confirmed_at: nowIso,
+        business_arrival_confirmed_by: actorId,
+        arrival_confirmation_note: body?.notes?.trim() || null,
+      })
+      .eq("id", booking.id);
+
+    await logArrivalEvent({
+      bookingId: booking.id,
+      paymentId: payment?.id ?? null,
+      eventType: "business_arrival_confirmed",
+      actorUserId: actorId,
+      reason: body?.notes?.trim() || null,
+    });
+
+    const refreshed = await refreshBookingSnapshot(booking.id);
+    return NextResponse.json(refreshed);
+  }
+
+  if (action === "report_arrival_issue") {
+    const reason = body?.reason?.trim();
+
+    if (!reason) {
+      return NextResponse.json(
+        { error: "Add a short reason before reporting an arrival issue." },
+        { status: 400 },
+      );
+    }
+
+    await supabaseAdmin
+      .from("bookings")
+      .update({
+        arrival_confirmation_status: "issue_reported",
+        arrival_confirmation_note: reason,
+      })
+      .eq("id", booking.id);
+
+    await logArrivalEvent({
+      bookingId: booking.id,
+      paymentId: payment?.id ?? null,
+      eventType: "arrival_issue_reported",
+      actorUserId: actorId,
+      reason,
+    });
+
+    if (payment) {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payout_status: "on_hold",
+          dispute_reason: reason,
+          disputed_at: nowIso,
         })
         .eq("id", payment.id);
     }

@@ -93,6 +93,10 @@ function BookingEntryPageContent() {
   const [rate, setRate] = useState("");
   const [rateError, setRateError] = useState("");
   const [notes, setNotes] = useState("");
+  const [meetingPoint, setMeetingPoint] = useState("");
+  const [siteContactName, setSiteContactName] = useState("");
+  const [siteContactPhone, setSiteContactPhone] = useState("");
+  const [arrivalInstructions, setArrivalInstructions] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -287,6 +291,12 @@ function BookingEntryPageContent() {
       hourly_rate_gbp: numericRate,
       location: businessLocation,
       notes: notes.trim() || null,
+      meeting_point: meetingPoint.trim() || null,
+      site_contact_name: siteContactName.trim() || null,
+      site_contact_phone: siteContactPhone.trim() || null,
+      arrival_instructions: arrivalInstructions.trim() || null,
+      arrival_confirmation_status: "not_checked_in" as const,
+      arrival_confirmation_note: null,
       status: "pending" as const,
       total_amount_gbp: totalAmount.businessTotalGbp,
       platform_fee_gbp: totalAmount.platformFeeGbp,
@@ -510,6 +520,49 @@ function BookingEntryPageContent() {
                 placeholder="Share service style, dress code, access notes, or anything the worker should know."
               />
             </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                <span className="font-medium text-stone-900">Meeting point</span>
+                <input
+                  type="text"
+                  value={meetingPoint}
+                  onChange={(event) => setMeetingPoint(event.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
+                  placeholder="Main bar entrance, reception desk, kitchen pass..."
+                />
+              </label>
+              <label className="space-y-2 text-sm text-stone-600">
+                <span className="font-medium text-stone-900">Site contact name</span>
+                <input
+                  type="text"
+                  value={siteContactName}
+                  onChange={(event) => setSiteContactName(event.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
+                  placeholder="Who the worker should ask for"
+                />
+              </label>
+              <label className="space-y-2 text-sm text-stone-600">
+                <span className="font-medium text-stone-900">Site contact phone</span>
+                <input
+                  type="tel"
+                  value={siteContactPhone}
+                  onChange={(event) => setSiteContactPhone(event.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
+                  placeholder="Optional direct contact number"
+                />
+              </label>
+              <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                <span className="font-medium text-stone-900">Arrival instructions</span>
+                <textarea
+                  value={arrivalInstructions}
+                  onChange={(event) => setArrivalInstructions(event.target.value)}
+                  rows={3}
+                  className="w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-stone-100 outline-none transition focus:border-[#00A7FF]"
+                  placeholder="Help the worker arrive smoothly by adding where to go and who to ask for."
+                />
+              </label>
+            </div>
 
             <div className="rounded-[1.5rem] border border-white/10 bg-black/30 px-4 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -293,6 +293,12 @@ export const ATTENDANCE_STATUSES = [
   "disputed",
   "adjusted",
 ] as const;
+export const ARRIVAL_CONFIRMATION_STATUSES = [
+  "not_checked_in",
+  "worker_checked_in",
+  "business_confirmed",
+  "issue_reported",
+] as const;
 export const SHIFT_LISTING_STATUSES = ["open", "claimed", "cancelled"] as const;
 export const WORKER_AVAILABILITY_STATUSES = [
   "available",
@@ -351,6 +357,8 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+export type ArrivalConfirmationStatus =
+  (typeof ARRIVAL_CONFIRMATION_STATUSES)[number];
 export type ShiftListingStatus = (typeof SHIFT_LISTING_STATUSES)[number];
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type BusinessDocumentType = (typeof BUSINESS_DOCUMENT_TYPES)[number];
@@ -599,6 +607,14 @@ export type BookingRecord = {
   business_confirmed_at: string | null;
   business_confirmed_by: string | null;
   manager_confirmation_name: string | null;
+  meeting_point: string | null;
+  site_contact_name: string | null;
+  site_contact_phone: string | null;
+  arrival_instructions: string | null;
+  business_arrival_confirmed_at: string | null;
+  business_arrival_confirmed_by: string | null;
+  arrival_confirmation_status: ArrivalConfirmationStatus;
+  arrival_confirmation_note: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -304,6 +304,21 @@ export default function WorkerAcceptedJobsPage() {
                         Awaiting business approval.
                       </p>
                     ) : null}
+                    {booking.arrival_confirmation_status === "worker_checked_in" ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        Checked in - awaiting arrival confirmation.
+                      </p>
+                    ) : null}
+                    {booking.arrival_confirmation_status === "business_confirmed" ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        Arrival confirmed.
+                      </p>
+                    ) : null}
+                    {booking.arrival_confirmation_status === "issue_reported" ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        Arrival issue reported. Support is reviewing.
+                      </p>
+                    ) : null}
                     {(booking.attendance_status === "approved" || booking.attendance_status === "adjusted") ? (
                       <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                         Hours approved

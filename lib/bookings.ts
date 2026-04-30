@@ -1,4 +1,9 @@
-import type { AttendanceStatus, BookingRecord, BookingStatus } from "@/lib/models";
+import type {
+  ArrivalConfirmationStatus,
+  AttendanceStatus,
+  BookingRecord,
+  BookingStatus,
+} from "@/lib/models";
 
 function buildDateTime(date: string, time: string) {
   return new Date(`${date}T${time}`);
@@ -176,6 +181,19 @@ export function formatAttendanceStatusLabel(status: AttendanceStatus) {
     approved: "Hours approved",
     disputed: "Attendance disputed",
     adjusted: "Hours adjusted",
+  };
+
+  return labels[status];
+}
+
+export function formatArrivalConfirmationStatusLabel(
+  status: ArrivalConfirmationStatus,
+) {
+  const labels: Record<ArrivalConfirmationStatus, string> = {
+    not_checked_in: "Worker not checked in yet",
+    worker_checked_in: "Worker checked in",
+    business_confirmed: "Arrival confirmed",
+    issue_reported: "Arrival issue reported",
   };
 
   return labels[status];
