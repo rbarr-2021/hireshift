@@ -338,6 +338,15 @@ export default function WorkerBookingDetailPage() {
             {booking.arrival_instructions ? (
               <p><span className="font-medium text-stone-900">Arrival instructions:</span> {booking.arrival_instructions}</p>
             ) : null}
+            <p><span className="font-medium text-stone-900">Dress code:</span> {booking.dress_code || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Equipment required:</span> {booking.equipment_required || "None listed"}</p>
+            <p><span className="font-medium text-stone-900">Experience level:</span> {booking.experience_level_required || "Not specified"}</p>
+            <p className="sm:col-span-2"><span className="font-medium text-stone-900">Expected duties:</span> {booking.expected_duties || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Parking info:</span> {booking.parking_info || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Staff entrance:</span> {booking.staff_entrance_info || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Break policy:</span> {booking.break_policy || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Meal provided:</span> {booking.meal_provided ? "Yes" : "No"}</p>
+            <p className="sm:col-span-2"><span className="font-medium text-stone-900">Safety/PPE:</span> {booking.safety_or_ppe_requirements || "Not provided"}</p>
             {booking.worker_hours_claimed ? (
               <p><span className="font-medium text-stone-900">Claimed hours:</span> {formatHoursValue(booking.worker_hours_claimed)}</p>
             ) : null}

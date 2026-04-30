@@ -435,6 +435,26 @@ export default function ShiftDetailPage() {
             <p><span className="font-medium text-stone-900">Location:</span> {listing.location}</p>
             <p><span className="font-medium text-stone-900">Spots left:</span> {getRemainingShiftPositions(listing)}</p>
           </div>
+          <div className="mt-5 rounded-3xl border border-white/10 bg-black/40 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+              Arrival & Shift Instructions
+            </p>
+            <div className="mt-3 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+              <p><span className="font-medium text-stone-100">Meeting point:</span> {listing.meeting_point || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Ask for:</span> {listing.site_contact_name || business?.contact || "Business contact"}</p>
+              <p><span className="font-medium text-stone-100">Contact phone:</span> {listing.site_contact_phone || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Dress code:</span> {listing.dress_code || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Equipment required:</span> {listing.equipment_required || "None listed"}</p>
+              <p><span className="font-medium text-stone-100">Experience level:</span> {listing.experience_level_required || "Not specified"}</p>
+              <p className="sm:col-span-2"><span className="font-medium text-stone-100">Expected duties:</span> {listing.expected_duties || "Not provided"}</p>
+              <p className="sm:col-span-2"><span className="font-medium text-stone-100">Arrival instructions:</span> {listing.arrival_instructions || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Parking info:</span> {listing.parking_info || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Staff entrance:</span> {listing.staff_entrance_info || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Break policy:</span> {listing.break_policy || "Not provided"}</p>
+              <p><span className="font-medium text-stone-100">Meal provided:</span> {listing.meal_provided ? "Yes" : "No"}</p>
+              <p className="sm:col-span-2"><span className="font-medium text-stone-100">Safety/PPE:</span> {listing.safety_or_ppe_requirements || "Not provided"}</p>
+            </div>
+          </div>
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/40 p-4 text-sm leading-7 text-stone-500">
             {listing.description || "No extra shift notes yet."}
           </div>

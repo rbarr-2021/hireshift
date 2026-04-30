@@ -237,6 +237,58 @@ export default function BusinessBookingPaymentPage() {
               <span className="font-medium text-stone-900">Location:</span> {booking.location}
             </p>
             <p>
+              <span className="font-medium text-stone-900">Meeting point:</span>{" "}
+              {booking.meeting_point || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Site contact:</span>{" "}
+              {booking.site_contact_name || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Contact phone:</span>{" "}
+              {booking.site_contact_phone || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Dress code:</span>{" "}
+              {booking.dress_code || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Equipment required:</span>{" "}
+              {booking.equipment_required || "None listed"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Experience level:</span>{" "}
+              {booking.experience_level_required || "Not specified"}
+            </p>
+            <p className="sm:col-span-2">
+              <span className="font-medium text-stone-900">Expected duties:</span>{" "}
+              {booking.expected_duties || "Not provided"}
+            </p>
+            <p className="sm:col-span-2">
+              <span className="font-medium text-stone-900">Arrival instructions:</span>{" "}
+              {booking.arrival_instructions || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Parking info:</span>{" "}
+              {booking.parking_info || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Staff entrance:</span>{" "}
+              {booking.staff_entrance_info || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Break policy:</span>{" "}
+              {booking.break_policy || "Not provided"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Meal provided:</span>{" "}
+              {booking.meal_provided ? "Yes" : "No"}
+            </p>
+            <p className="sm:col-span-2">
+              <span className="font-medium text-stone-900">Safety/PPE:</span>{" "}
+              {booking.safety_or_ppe_requirements || "Not provided"}
+            </p>
+            <p>
               <span className="font-medium text-stone-900">Hourly rate:</span>{" "}
               {formatCurrency(booking.hourly_rate_gbp)}/hr
             </p>

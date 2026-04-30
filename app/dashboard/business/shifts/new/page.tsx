@@ -120,6 +120,19 @@ export default function NewShiftListingPage() {
   const [roleLabel, setRoleLabel] = useState("");
   const [otherRoleLabel, setOtherRoleLabel] = useState("");
   const [description, setDescription] = useState("");
+  const [meetingPoint, setMeetingPoint] = useState("");
+  const [siteContactName, setSiteContactName] = useState("");
+  const [siteContactPhone, setSiteContactPhone] = useState("");
+  const [dressCode, setDressCode] = useState("");
+  const [expectedDuties, setExpectedDuties] = useState("");
+  const [equipmentRequired, setEquipmentRequired] = useState("");
+  const [arrivalInstructions, setArrivalInstructions] = useState("");
+  const [parkingInfo, setParkingInfo] = useState("");
+  const [staffEntranceInfo, setStaffEntranceInfo] = useState("");
+  const [breakPolicy, setBreakPolicy] = useState("");
+  const [mealProvided, setMealProvided] = useState(false);
+  const [safetyOrPpeRequirements, setSafetyOrPpeRequirements] = useState("");
+  const [experienceLevelRequired, setExperienceLevelRequired] = useState("");
   const [shiftDateInput, setShiftDateInput] = useState("");
   const [shiftDates, setShiftDates] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("17:00");
@@ -240,6 +253,31 @@ export default function NewShiftListingPage() {
       return;
     }
 
+    if (!meetingPoint.trim()) {
+      setMessage("Meeting point is required.");
+      return;
+    }
+
+    if (!siteContactName.trim()) {
+      setMessage("Site contact name is required.");
+      return;
+    }
+
+    if (!siteContactPhone.trim()) {
+      setMessage("Site contact phone is required.");
+      return;
+    }
+
+    if (!dressCode.trim()) {
+      setMessage("Dress code is required.");
+      return;
+    }
+
+    if (!expectedDuties.trim()) {
+      setMessage("Expected duties are required.");
+      return;
+    }
+
     const numericRate = Number(hourlyRate);
 
     if (Number.isNaN(numericRate) || numericRate <= 0) {
@@ -311,6 +349,19 @@ export default function NewShiftListingPage() {
       location_lat: locationCoordinates.latitude,
       location_lng: locationCoordinates.longitude,
       open_positions: numericOpenPositions,
+      meeting_point: meetingPoint.trim(),
+      site_contact_name: siteContactName.trim(),
+      site_contact_phone: siteContactPhone.trim(),
+      dress_code: dressCode.trim(),
+      equipment_required: equipmentRequired.trim() || null,
+      expected_duties: expectedDuties.trim(),
+      arrival_instructions: arrivalInstructions.trim() || null,
+      parking_info: parkingInfo.trim() || null,
+      staff_entrance_info: staffEntranceInfo.trim() || null,
+      break_policy: breakPolicy.trim() || null,
+      meal_provided: mealProvided,
+      safety_or_ppe_requirements: safetyOrPpeRequirements.trim() || null,
+      experience_level_required: experienceLevelRequired.trim() || null,
     }));
 
     const { error } = await supabase.from("shift_listings").insert(payloads);
@@ -539,18 +590,78 @@ export default function NewShiftListingPage() {
             </div>
 
             <label className="block space-y-2 text-sm text-stone-600">
-              <span className="font-medium text-stone-900">Shift description and arrival details</span>
+              <span className="font-medium text-stone-900">Shift description</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={5}
                 className="input min-h-36 resize-y"
-                placeholder="Add the meeting point, who to ask for on arrival, dress code, and anything useful before the shift starts."
+                placeholder="Any extra context about this shift."
               />
-              <p className="text-xs text-stone-500">
-                Include where to meet and the contact name workers should ask for when they arrive.
-              </p>
             </label>
+
+            <section className="rounded-3xl border border-white/10 bg-black/40 p-4">
+              <h3 className="text-base font-semibold text-stone-100">
+                Arrival & Shift Instructions
+              </h3>
+              <p className="mt-1 text-xs text-stone-500">
+                Help the worker arrive prepared and avoid delays.
+              </p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Meeting point *</span>
+                  <input value={meetingPoint} onChange={(event) => setMeetingPoint(event.target.value)} className="input" placeholder="Back entrance beside the delivery bay" required />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Site contact name *</span>
+                  <input value={siteContactName} onChange={(event) => setSiteContactName(event.target.value)} className="input" placeholder="John, Head Chef" required />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Site contact phone *</span>
+                  <input value={siteContactPhone} onChange={(event) => setSiteContactPhone(event.target.value)} className="input" placeholder="07700 900000" required />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Dress code / uniform *</span>
+                  <input value={dressCode} onChange={(event) => setDressCode(event.target.value)} className="input" placeholder="Chef whites, safety shoes, clean apron" required />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                  <span className="font-medium text-stone-900">Expected duties *</span>
+                  <textarea value={expectedDuties} onChange={(event) => setExpectedDuties(event.target.value)} className="input min-h-24 resize-y" placeholder="Prep, garnish section, service support, clean down" required />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Equipment required</span>
+                  <input value={equipmentRequired} onChange={(event) => setEquipmentRequired(event.target.value)} className="input" placeholder="Own knives preferred" />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Experience level required</span>
+                  <input value={experienceLevelRequired} onChange={(event) => setExperienceLevelRequired(event.target.value)} className="input" placeholder="2+ years line service" />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600 sm:col-span-2">
+                  <span className="font-medium text-stone-900">Arrival instructions</span>
+                  <textarea value={arrivalInstructions} onChange={(event) => setArrivalInstructions(event.target.value)} className="input min-h-24 resize-y" placeholder="Ask for John at the kitchen entrance. Do not enter through the main restaurant." />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Parking info</span>
+                  <input value={parkingInfo} onChange={(event) => setParkingInfo(event.target.value)} className="input" placeholder="Staff parking behind the venue" />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Staff entrance info</span>
+                  <input value={staffEntranceInfo} onChange={(event) => setStaffEntranceInfo(event.target.value)} className="input" placeholder="Use side gate and ring buzzer" />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Break policy</span>
+                  <input value={breakPolicy} onChange={(event) => setBreakPolicy(event.target.value)} className="input" placeholder="30 minute unpaid break for shifts over 6 hours" />
+                </label>
+                <label className="space-y-2 text-sm text-stone-600">
+                  <span className="font-medium text-stone-900">Safety/PPE requirements</span>
+                  <input value={safetyOrPpeRequirements} onChange={(event) => setSafetyOrPpeRequirements(event.target.value)} className="input" placeholder="Safety shoes required" />
+                </label>
+                <label className="flex items-center gap-3 text-sm text-stone-600 sm:col-span-2">
+                  <input type="checkbox" checked={mealProvided} onChange={(event) => setMealProvided(event.target.checked)} />
+                  <span className="font-medium text-stone-900">Meal provided</span>
+                </label>
+              </div>
+            </section>
 
             <div className="sticky bottom-24 z-20 rounded-[1.5rem] border border-white/10 bg-[rgba(4,12,22,0.94)] p-4 shadow-[0_16px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:bottom-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -582,6 +693,10 @@ export default function NewShiftListingPage() {
                   : "Add at least one date"}
               </p>
               <p>{description.trim() || "Meeting point and arrival details will show here."}</p>
+              <p><span className="font-medium text-stone-900">Meet:</span> {meetingPoint.trim() || "Add meeting point"}</p>
+              <p><span className="font-medium text-stone-900">Contact:</span> {siteContactName.trim() || "Add contact"}{siteContactPhone.trim() ? ` (${siteContactPhone.trim()})` : ""}</p>
+              <p><span className="font-medium text-stone-900">Dress code:</span> {dressCode.trim() || "Add dress code"}</p>
+              <p><span className="font-medium text-stone-900">Duties:</span> {expectedDuties.trim() || "Add duties"}</p>
             </div>
           </section>
 

@@ -26,6 +26,19 @@ type AdminBookingDetail = {
     platform_fee_gbp: number;
     notes: string | null;
     hourly_rate_gbp: number;
+    meeting_point: string | null;
+    site_contact_name: string | null;
+    site_contact_phone: string | null;
+    arrival_instructions: string | null;
+    dress_code: string | null;
+    equipment_required: string | null;
+    expected_duties: string | null;
+    parking_info: string | null;
+    staff_entrance_info: string | null;
+    break_policy: string | null;
+    meal_provided: boolean;
+    safety_or_ppe_requirements: string | null;
+    experience_level_required: string | null;
   };
   payment: {
     status: string;
@@ -209,6 +222,19 @@ export default function AdminBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Total:</span> {formatCurrency(item.booking.total_amount_gbp)}</p>
             <p><span className="font-medium text-stone-900">Fee:</span> {formatCurrency(item.booking.platform_fee_gbp)}</p>
             <p className="sm:col-span-2"><span className="font-medium text-stone-900">Location:</span> {item.booking.location}</p>
+            <p><span className="font-medium text-stone-900">Meeting point:</span> {item.booking.meeting_point || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Site contact:</span> {item.booking.site_contact_name || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Contact phone:</span> {item.booking.site_contact_phone || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Dress code:</span> {item.booking.dress_code || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Equipment required:</span> {item.booking.equipment_required || "None listed"}</p>
+            <p><span className="font-medium text-stone-900">Experience level:</span> {item.booking.experience_level_required || "Not specified"}</p>
+            <p className="sm:col-span-2"><span className="font-medium text-stone-900">Expected duties:</span> {item.booking.expected_duties || "Not provided"}</p>
+            <p className="sm:col-span-2"><span className="font-medium text-stone-900">Arrival instructions:</span> {item.booking.arrival_instructions || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Parking info:</span> {item.booking.parking_info || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Staff entrance:</span> {item.booking.staff_entrance_info || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Break policy:</span> {item.booking.break_policy || "Not provided"}</p>
+            <p><span className="font-medium text-stone-900">Meal provided:</span> {item.booking.meal_provided ? "Yes" : "No"}</p>
+            <p className="sm:col-span-2"><span className="font-medium text-stone-900">Safety/PPE:</span> {item.booking.safety_or_ppe_requirements || "Not provided"}</p>
             {item.booking.notes ? (
               <p className="sm:col-span-2"><span className="font-medium text-stone-900">Notes:</span> {item.booking.notes}</p>
             ) : null}
