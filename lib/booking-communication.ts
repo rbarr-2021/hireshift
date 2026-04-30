@@ -1,4 +1,5 @@
 import {
+  formatShiftStartLabel,
   getBookingEndDateTime,
   getBookingStartDateTime,
   isWithinCheckInWindow,
@@ -23,22 +24,7 @@ export function getShiftTimingGuidance(booking: BookingRecord, now = new Date())
     return "In progress";
   }
 
-  const msUntilStart = startMs - nowMs;
-  const hoursUntilStart = Math.floor(msUntilStart / (1000 * 60 * 60));
-
-  if (hoursUntilStart <= 0) {
-    return "Starts today";
-  }
-
-  if (hoursUntilStart < 24) {
-    return `Starts in ${hoursUntilStart} hour${hoursUntilStart === 1 ? "" : "s"}`;
-  }
-
-  if (hoursUntilStart < 48) {
-    return "Starts tomorrow";
-  }
-
-  return "Upcoming shift";
+  return formatShiftStartLabel(booking);
 }
 
 export function getWorkerTrustStatusLabel(
@@ -78,7 +64,7 @@ export function getWorkerTrustStatusLabel(
 
   if (paymentStatus === "paid") {
     const timing = getShiftTimingGuidance(booking, now);
-    if (timing === "Upcoming shift" || timing === "Starts tomorrow" || timing === "Starts today") {
+    if (timing.startsWith("Starts ")) {
       return "Payment secured";
     }
   }

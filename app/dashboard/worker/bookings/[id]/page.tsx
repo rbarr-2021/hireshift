@@ -10,10 +10,9 @@ import {
   canCancelBooking,
   formatArrivalConfirmationStatusLabel,
   formatAttendanceStatusLabel,
-  formatBookingDate,
   formatAttendanceTimestamp,
   formatHoursValue,
-  formatBookingTimeRange,
+  formatShiftDateTimeRange,
   getCheckInWindow,
   isWithinCheckInWindow,
 } from "@/lib/bookings";
@@ -318,8 +317,7 @@ export default function WorkerBookingDetailPage() {
 
           <div className="mt-5 grid gap-4 text-sm text-stone-600 sm:grid-cols-2">
             <p><span className="font-medium text-stone-900">Role:</span> {booking.requested_role_label || "Hospitality shift"}</p>
-            <p><span className="font-medium text-stone-900">Shift date:</span> {formatBookingDate(booking.shift_date)}</p>
-            <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(booking.start_time, booking.end_time, booking.shift_date, booking.shift_end_date)}</p>
+            <p><span className="font-medium text-stone-900">Shift:</span> {formatShiftDateTimeRange(booking)}</p>
             <p><span className="font-medium text-stone-900">Status:</span> {trustStatus}</p>
             <p><span className="font-medium text-stone-900">Next action:</span> {nextActionLabel}</p>
             <p><span className="font-medium text-stone-900">Timing:</span> {timingGuidance}</p>

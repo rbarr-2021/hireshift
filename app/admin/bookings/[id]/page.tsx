@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
-import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import { bookingStatusClass, formatShiftDateTimeRange } from "@/lib/bookings";
 import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 import { BookingMessageBox } from "@/components/messages/booking-message-box";
@@ -221,8 +221,7 @@ export default function AdminBookingDetailPage() {
 
           <div className="mt-5 grid gap-4 text-sm text-stone-600 sm:grid-cols-2">
             <p><span className="font-medium text-stone-900">Role:</span> {item.booking.requested_role_label || "Hospitality shift"}</p>
-            <p><span className="font-medium text-stone-900">Date:</span> {formatBookingDate(item.booking.shift_date)}</p>
-            <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(item.booking.start_time, item.booking.end_time, item.booking.shift_date, item.booking.shift_end_date)}</p>
+            <p><span className="font-medium text-stone-900">Shift:</span> {formatShiftDateTimeRange(item.booking)}</p>
             <p><span className="font-medium text-stone-900">Rate:</span> {formatCurrency(item.booking.hourly_rate_gbp)}/hr</p>
             <p><span className="font-medium text-stone-900">Total:</span> {formatCurrency(item.booking.total_amount_gbp)}</p>
             <p><span className="font-medium text-stone-900">Fee:</span> {formatCurrency(item.booking.platform_fee_gbp)}</p>

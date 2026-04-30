@@ -4,8 +4,7 @@ import Link from "next/link";
 import {
   formatArrivalConfirmationStatusLabel,
   formatAttendanceTimestamp,
-  formatBookingDate,
-  formatBookingTimeRange,
+  formatShiftDateTimeRange,
   formatTimeUntilBooking,
 } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord } from "@/lib/models";
@@ -92,16 +91,7 @@ export function WorkerBookingCard({
       <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
         <p>
           <span className="font-medium text-stone-900">Shift:</span>{" "}
-          {formatBookingDate(booking.shift_date)}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Time:</span>{" "}
-          {formatBookingTimeRange(
-            booking.start_time,
-            booking.end_time,
-            booking.shift_date,
-            booking.shift_end_date,
-          )}
+          {formatShiftDateTimeRange(booking)}
         </p>
         <p>
           <span className="inline-flex items-center rounded-full bg-[#1DB954] px-3 py-1 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(29,185,84,0.24)]">

@@ -10,6 +10,33 @@ function buildDateTime(date: string, time: string) {
   return new Date(`${date}T${time}`);
 }
 
+const SHIFT_START_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+const SHIFT_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+const SHIFT_START_LEGACY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+const SHIFT_DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
 export function formatBookingStatus(status: BookingStatus) {
   const labels: Record<BookingStatus, string> = {
     pending: "Pending",
@@ -54,6 +81,29 @@ export function formatBookingTimeRange(
   const suffix =
     shiftDate && shiftEndDate && shiftEndDate > shiftDate ? " (next day)" : "";
   return `${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}${suffix}`;
+}
+
+export function formatShiftStartLabel(
+  booking: Pick<BookingRecord, "shift_date" | "start_time">,
+) {
+  const start = getBookingStartDateTime(booking);
+  const dayLabel = SHIFT_START_FORMATTER.format(start);
+  const timeLabel = SHIFT_TIME_FORMATTER.format(start);
+
+  if (dayLabel && timeLabel) {
+    return `Starts ${dayLabel} at ${timeLabel}`;
+  }
+
+  return `Starts ${SHIFT_START_LEGACY_FORMATTER.format(start)}`;
+}
+
+export function formatShiftDateTimeRange(
+  booking: Pick<BookingRecord, "shift_date" | "start_time" | "end_time">,
+) {
+  const dayLabel = SHIFT_DAY_FORMATTER.format(
+    new Date(`${booking.shift_date}T12:00:00`),
+  );
+  return `${dayLabel}, ${booking.start_time.slice(0, 5)}–${booking.end_time.slice(0, 5)}`;
 }
 
 export function calculateBookingDurationHours(
@@ -202,37 +252,9 @@ export function formatArrivalConfirmationStatusLabel(
 
 export function formatTimeUntilBooking(
   booking: Pick<BookingRecord, "shift_date" | "start_time">,
-  now = new Date(),
+  _now = new Date(),
 ) {
-  const start = getBookingStartDateTime(booking);
-  const diffMs = start.getTime() - now.getTime();
-
-  if (!Number.isFinite(diffMs)) {
-    return "";
-  }
-
-  if (diffMs <= 0) {
-    return "Shift starting now";
-  }
-
-  const totalMinutes = Math.floor(diffMs / 60000);
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutes = totalMinutes % 60;
-
-  if (days >= 1) {
-    return days === 1 ? "1 day until shift" : `${days} days until shift`;
-  }
-
-  if (hours >= 1) {
-    return hours === 1 ? "1 hour until shift" : `${hours} hours until shift`;
-  }
-
-  if (minutes <= 1) {
-    return "1 minute until shift";
-  }
-
-  return `${minutes} minutes until shift`;
+  return formatShiftStartLabel(booking);
 }
 
 export function isBookingCancellationLocked(

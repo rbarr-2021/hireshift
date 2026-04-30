@@ -9,8 +9,7 @@ import { CancelBookingAction } from "@/components/bookings/cancel-booking-action
 import {
   calculateBookingDurationHours,
   canCancelBooking,
-  formatBookingDate,
-  formatBookingTimeRange,
+  formatShiftDateTimeRange,
 } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { formatPaymentStatus, formatPayoutStatus } from "@/lib/payments";
@@ -223,17 +222,8 @@ export default function BusinessBookingPaymentPage() {
               {workerProfile?.job_role || booking.requested_role_label || "Hospitality worker"}
             </p>
             <p>
-              <span className="font-medium text-stone-900">Date:</span>{" "}
-              {formatBookingDate(booking.shift_date)}
-            </p>
-            <p>
-              <span className="font-medium text-stone-900">Time:</span>{" "}
-              {formatBookingTimeRange(
-                booking.start_time,
-                booking.end_time,
-                booking.shift_date,
-                booking.shift_end_date,
-              )}
+              <span className="font-medium text-stone-900">Shift:</span>{" "}
+              {formatShiftDateTimeRange(booking)}
             </p>
             <p>
               <span className="font-medium text-stone-900">Location:</span> {booking.location}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
-import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
+import { bookingStatusClass, formatShiftDateTimeRange } from "@/lib/bookings";
 import type { ShiftListingRecord } from "@/lib/models";
 import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
@@ -98,13 +98,8 @@ function renderBookingList(items: AdminBookingItem[]) {
                 {item.businessName} {"->"} {item.workerName}
               </p>
               <p className="mt-2 text-sm text-stone-400">
-                {item.booking.requested_role_label || "Hospitality shift"} | {formatBookingDate(item.booking.shift_date)} |{" "}
-                {formatBookingTimeRange(
-                  item.booking.start_time,
-                  item.booking.end_time,
-                  item.booking.shift_date,
-                  item.booking.shift_end_date,
-                )}
+                {item.booking.requested_role_label || "Hospitality shift"} |{" "}
+                {formatShiftDateTimeRange(item.booking)}
               </p>
               <p className="mt-2 text-sm text-stone-400">{item.booking.location}</p>
             </div>
@@ -159,13 +154,7 @@ function renderUnfulfilledListingList(items: AdminUnfulfilledListingItem[]) {
                 {item.businessName} {"->"} {item.listing.role_label}
               </p>
               <p className="mt-2 text-sm text-stone-400">
-                {formatBookingDate(item.listing.shift_date)} |{" "}
-                {formatBookingTimeRange(
-                  item.listing.start_time,
-                  item.listing.end_time,
-                  item.listing.shift_date,
-                  item.listing.shift_end_date,
-                )}
+                {formatShiftDateTimeRange(item.listing)}
               </p>
               <p className="mt-2 text-sm text-stone-400">{item.listing.location}</p>
             </div>
