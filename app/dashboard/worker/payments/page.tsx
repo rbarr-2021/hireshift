@@ -292,17 +292,19 @@ function WorkerPaymentsPageContent() {
       );
 
       if (!response.ok || !payload.url) {
-        throw new Error(payload.error || "Unable to open Stripe payout setup.");
+        throw new Error(
+          payload.error ||
+            "Payout setup is temporarily unavailable. Please contact support.",
+        );
       }
 
       window.location.href = payload.url;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to open Stripe payout setup.";
+      const message = "Payout setup is temporarily unavailable. Please contact support.";
       showToast({
-        title: "Stripe setup unavailable",
+        title: "Payout setup unavailable",
         description: message,
-        tone: "error",
+        tone: "info",
       });
       setConnecting(false);
     }

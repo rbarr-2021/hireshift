@@ -29,6 +29,7 @@ import {
   shiftListingStatusClass,
 } from "@/lib/shift-listings";
 import { supabase } from "@/lib/supabase";
+import { buildSupportMailtoUrl, buildWhatsAppSupportUrl } from "@/lib/support";
 
 type BusinessSummary = {
   name: string;
@@ -74,6 +75,20 @@ function formatSupabaseError(error: unknown) {
   }
 
   return "Unable to take this shift right now.";
+}
+
+async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
+  const text = await response.text();
+
+  if (!text) {
+    return { error: fallbackError } as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { error: fallbackError } as T;
+  }
 }
 
 export default function ShiftDetailPage() {
@@ -308,28 +323,31 @@ export default function ShiftDetailPage() {
         body: JSON.stringify({ redirect: redirectPath }),
       });
 
-      const payloadText = await response.text();
-      const payload = payloadText
-        ? (JSON.parse(payloadText) as { error?: string; url?: string })
-        : ({ error: "Stripe payout setup is not configured correctly yet." } as {
-            error?: string;
-            url?: string;
-          });
+      const payload = await readJsonResponse<{ error?: string; url?: string }>(
+        response,
+        "Payout setup is temporarily unavailable. Please contact support.",
+      );
+
+      if (response.status === 401) {
+        const redirectParam = encodeURIComponent(`/shifts/${listing.id}?intent=take`);
+        router.push(`/login?redirect=${redirectParam}`);
+        return;
+      }
 
       if (!response.ok || !payload.url) {
-        throw new Error(payload.error || "Unable to open Stripe payout setup.");
+        throw new Error(
+          payload.error ||
+            "Payout setup is temporarily unavailable. Please contact support.",
+        );
       }
 
       window.location.href = payload.url;
     } catch (error) {
-      const description =
-        error instanceof Error
-          ? error.message
-          : "Unable to open Stripe payout setup.";
+      const description = "Payout setup is temporarily unavailable. Please contact support.";
       showToast({
-        title: "Stripe setup unavailable",
+        title: "Payout setup unavailable",
         description,
-        tone: "error",
+        tone: "info",
       });
       setConnectingPayoutSetup(false);
     }
@@ -421,7 +439,9 @@ export default function ShiftDetailPage() {
         </div>
       </div>
 
-      {message ? <div className="info-banner">{message}</div> : null}
+      {message && !message.includes("finish your payout setup with Stripe") ? (
+        <div className="info-banner">{message}</div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="panel-soft p-5 sm:p-6">
@@ -484,15 +504,20 @@ export default function ShiftDetailPage() {
                   ? `You are temporarily unable to take new shifts until ${formatBlockedUntil(reliability?.blocked_until) ?? "a later date"}.`
                   : isWorkerPayoutReady(workerProfile)
                     ? "You are shift-ready. Take this shift now and it will move straight into your accepted work."
-                    : "You need to finish your payout setup with Stripe before accepting paid shifts."
+                    : "You need to set up payouts before accepting paid shifts."
                 : "Complete your profile once before your first shift, then you can take future shifts without being blocked again."}
             </p>
             <div className="mt-5 flex flex-col gap-3">
               <button
                 type="button"
-                onClick={handleTakeShift}
+                onClick={
+                  appUser?.onboarding_complete && !isWorkerPayoutReady(workerProfile)
+                    ? () => void handleCompletePayoutSetup()
+                    : handleTakeShift
+                }
                 disabled={
                   taking ||
+                  connectingPayoutSetup ||
                   isWorkerBlocked(reliability) ||
                   workerAlreadyBooked ||
                   listingStarted ||
@@ -501,7 +526,9 @@ export default function ShiftDetailPage() {
                 }
                 className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {taking
+                {connectingPayoutSetup
+                  ? "Opening payout setup..."
+                  : taking
                   ? "Taking shift..."
                   : workerAlreadyBooked
                     ? "Already taken"
@@ -515,19 +542,30 @@ export default function ShiftDetailPage() {
                     ? "Take shift"
                     : "Complete profile to take shift"}
               </button>
-              {appUser?.onboarding_complete && !isWorkerPayoutReady(workerProfile) ? (
-                <button
-                  type="button"
-                  onClick={() => void handleCompletePayoutSetup()}
-                  disabled={connectingPayoutSetup}
-                  className="secondary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {connectingPayoutSetup ? "Opening Stripe..." : "Complete payout setup"}
-                </button>
-              ) : null}
               <Link href="/shifts" className="secondary-btn w-full">
                 Back to shifts
               </Link>
+              {appUser?.onboarding_complete && !isWorkerPayoutReady(workerProfile) ? (
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                  {buildWhatsAppSupportUrl({ accountType: "worker" }) ? (
+                    <a
+                      href={buildWhatsAppSupportUrl({ accountType: "worker" }) ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="secondary-btn w-full text-center sm:w-auto"
+                    >
+                      Contact Support
+                    </a>
+                  ) : (
+                    <a
+                      href={buildSupportMailtoUrl({ accountType: "worker" })}
+                      className="secondary-btn w-full text-center sm:w-auto"
+                    >
+                      Contact Support
+                    </a>
+                  )}
+                </div>
+              ) : null}
             </div>
           </section>
         </aside>
