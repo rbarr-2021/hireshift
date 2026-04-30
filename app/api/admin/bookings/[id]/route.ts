@@ -272,6 +272,16 @@ export async function PATCH(
         );
       }
 
+      if (payment.settlement_status === "top_up_required" || (payment.top_up_due_gbp ?? 0) > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "This booking still needs top-up payment before payout can be released.",
+          },
+          { status: 409 },
+        );
+      }
+
       if (!isWorkerPayoutReady(workerProfile ?? null)) {
         return NextResponse.json(
           { error: "Worker payout setup is incomplete." },

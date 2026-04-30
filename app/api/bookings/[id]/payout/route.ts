@@ -136,6 +136,16 @@ export async function POST(
       );
     }
 
+    if (payment.settlement_status === "top_up_required" || (payment.top_up_due_gbp ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Approved hours are higher than estimated. Extra payment is required before payout release.",
+        },
+        { status: 409 },
+      );
+    }
+
     if (payment.status === "refunded" || payment.status === "disputed" || payment.payout_status === "on_hold") {
       return NextResponse.json(
         { error: "Payout is blocked while this payment is under review." },

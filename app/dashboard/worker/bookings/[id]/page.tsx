@@ -24,6 +24,7 @@ import { getCurrentCoordinates } from "@/lib/geolocation";
 import {
   formatPaymentStatus,
   formatPayoutStatus,
+  getPaymentStatusValue,
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
@@ -235,6 +236,7 @@ export default function WorkerBookingDetailPage() {
   };
 
   const workerPayout = payment?.worker_payout_gbp ?? booking.total_amount_gbp - booking.platform_fee_gbp;
+  const paymentSecured = getPaymentStatusValue(payment) === "paid";
   const checkInWindow = getCheckInWindow(booking);
   const canCheckInNow = isWithinCheckInWindow(booking, now);
   const checkInWindowMessage =
@@ -359,6 +361,11 @@ export default function WorkerBookingDetailPage() {
               <span>Charge status</span>
               <span className="font-medium text-stone-900">{payment ? formatPaymentStatus(payment.status) : "Pending"}</span>
             </div>
+            {!paymentSecured ? (
+              <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                You’re confirmed once the business payment is secured.
+              </p>
+            ) : null}
             <div className="flex items-center justify-between gap-4">
               <span>Payout status</span>
               <span className="font-medium text-stone-900">{payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation"}</span>
@@ -392,7 +399,7 @@ export default function WorkerBookingDetailPage() {
                   <button
                     type="button"
                     onClick={() => void handleAttendance("check_in")}
-                    disabled={updatingAttendance || !canCheckInNow}
+                    disabled={updatingAttendance || !canCheckInNow || !paymentSecured}
                     className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {updatingAttendance ? "Updating..." : "Start shift"}

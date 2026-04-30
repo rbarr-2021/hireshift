@@ -24,6 +24,7 @@ import type {
   WorkerProfileRecord,
 } from "@/lib/models";
 import { isLateCancellationWindow } from "@/lib/reliability";
+import { getPaymentStatusValue } from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
 
 export default function WorkerAcceptedJobsPage() {
@@ -232,18 +233,26 @@ export default function WorkerAcceptedJobsPage() {
 
       <div className="space-y-4">
         {bookings.length > 0 ? (
-          bookings.map((booking) => (
+          bookings.map((booking) => {
+            const payment = paymentsByBookingId[booking.id];
+            const paymentSecured = getPaymentStatusValue(payment) === "paid";
+            return (
             <WorkerBookingCard
               key={booking.id}
               booking={booking}
               business={businessesById[booking.business_id]}
-              payment={paymentsByBookingId[booking.id]}
+              payment={payment}
               workerPayoutReady={workerPayoutReady}
               showDetailLink
               countdownNow={countdownNow}
               actions={
                 !isPastBooking(booking) ? (
                   <>
+                    {!paymentSecured ? (
+                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                        You’re confirmed once the business payment is secured.
+                      </p>
+                    ) : null}
                     {!booking.worker_checked_in_at && !isWithinCheckInWindow(booking, countdownNow) ? (
                       <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                         {countdownNow > getCheckInWindow(booking).closesAt
@@ -262,6 +271,7 @@ export default function WorkerAcceptedJobsPage() {
                         onClick={() => void handleAttendance(booking, "check_in")}
                         disabled={
                           actioningId === booking.id ||
+                          !paymentSecured ||
                           !isWithinCheckInWindow(booking, countdownNow)
                         }
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -304,7 +314,8 @@ export default function WorkerAcceptedJobsPage() {
                 ) : undefined
               }
             />
-          ))
+            );
+          })
         ) : (
           <WorkerBookingEmptyState
             title="No upcoming shifts yet"

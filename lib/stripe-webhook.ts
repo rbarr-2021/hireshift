@@ -159,14 +159,48 @@ async function updatePaymentSucceededByBooking(
   bookingId: string,
   sessionId?: string | null,
   paymentIntent?: string | null,
+  input?: { paymentMode?: string | null; amountTotalGbp?: number | null },
 ) {
   const supabaseAdmin = getSupabaseAdminClient();
+  const { data: existingPayment } = await supabaseAdmin
+    .from("payments")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .maybeSingle<PaymentRecord>();
+  const isTopUp = input?.paymentMode === "top_up";
+  const grossAmount = isTopUp
+    ? Number(
+        (
+          (existingPayment?.gross_amount_gbp ?? 0) +
+          (input?.amountTotalGbp ?? 0)
+        ).toFixed(2),
+      )
+    : existingPayment?.gross_amount_gbp;
+  const topUpDueValue = isTopUp
+    ? Math.max(
+        0,
+        Number(
+          (
+            (existingPayment?.top_up_due_gbp ?? 0) -
+            (input?.amountTotalGbp ?? 0)
+          ).toFixed(2),
+        ),
+      )
+    : (existingPayment?.top_up_due_gbp ?? null);
+  const settlementStatus =
+    typeof topUpDueValue === "number" && topUpDueValue > 0
+      ? "top_up_required"
+      : existingPayment?.settlement_status ?? "settled";
 
   const { data } = await supabaseAdmin
     .from("payments")
     .update({
       payment_status: "paid",
-      payout_status: "pending",
+      payout_status: settlementStatus === "top_up_required" ? "on_hold" : "pending",
+      gross_amount_gbp: grossAmount,
+      top_up_due_gbp: topUpDueValue,
+      settlement_status: settlementStatus,
+      settlement_calculated_at: new Date().toISOString(),
       stripe_checkout_session_id: sessionId ?? undefined,
       stripe_checkout_url: null,
       stripe_payment_intent_id: paymentIntent ?? undefined,
@@ -197,6 +231,11 @@ async function updatePaymentSucceeded(event: Stripe.CheckoutSessionCompletedEven
     bookingId,
     session.id,
     typeof session.payment_intent === "string" ? session.payment_intent : null,
+    {
+      paymentMode: session.metadata?.payment_mode ?? null,
+      amountTotalGbp:
+        typeof session.amount_total === "number" ? session.amount_total / 100 : null,
+    },
   );
 
   return {
@@ -227,7 +266,15 @@ async function updatePaymentIntentSucceeded(
       };
     }
 
-    await updatePaymentSucceededByBooking(payment.booking_id, null, paymentIntent.id);
+    await updatePaymentSucceededByBooking(payment.booking_id, null, paymentIntent.id, {
+      paymentMode: paymentIntent.metadata?.payment_mode ?? null,
+      amountTotalGbp:
+        typeof paymentIntent.amount_received === "number"
+          ? paymentIntent.amount_received / 100
+          : typeof paymentIntent.amount === "number"
+            ? paymentIntent.amount / 100
+            : null,
+    });
 
     return {
       bookingId: payment.booking_id,
@@ -237,7 +284,15 @@ async function updatePaymentIntentSucceeded(
     };
   }
 
-  const payment = await updatePaymentSucceededByBooking(bookingId, null, paymentIntent.id);
+  const payment = await updatePaymentSucceededByBooking(bookingId, null, paymentIntent.id, {
+    paymentMode: paymentIntent.metadata?.payment_mode ?? null,
+    amountTotalGbp:
+      typeof paymentIntent.amount_received === "number"
+        ? paymentIntent.amount_received / 100
+        : typeof paymentIntent.amount === "number"
+          ? paymentIntent.amount / 100
+          : null,
+  });
   return {
     bookingId,
     paymentId: payment?.id ?? null,

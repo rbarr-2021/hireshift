@@ -176,6 +176,9 @@ export default function BusinessBookingPaymentPage() {
   }
 
   const bookingReadyForPayment = booking.status === "accepted";
+  const topUpDue = Number(payment?.top_up_due_gbp ?? 0);
+  const refundDue = Number(payment?.refund_due_gbp ?? 0);
+  const isTopUpFlow = topUpDue > 0;
   const paymentLabel = payment ? formatPaymentStatus(payment.status) : "Unpaid";
   const payoutLabel = payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation";
 
@@ -185,10 +188,12 @@ export default function BusinessBookingPaymentPage() {
         <div>
           <p className="section-label">Booking payment</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Review and pay shift
+            {isTopUpFlow ? "Review and pay extra balance" : "Review and pay shift"}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Fund this shift through secure Stripe checkout so the booking is locked in before the worker arrives.
+            {isTopUpFlow
+              ? "Approved hours were higher than estimated. Pay the extra balance to settle this shift."
+              : "Pay the estimated shift amount through secure Stripe checkout to lock in this booking."}
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -261,15 +266,31 @@ export default function BusinessBookingPaymentPage() {
             <div className="flex items-center justify-between gap-4 border-t border-white/10 pt-3">
               <span className="font-medium text-stone-900">Total due</span>
               <span className="text-lg font-semibold text-stone-900">
-                {formatCurrency(pricing.businessTotalGbp)}
+                {formatCurrency(isTopUpFlow ? topUpDue : pricing.businessTotalGbp)}
               </span>
             </div>
+            {payment?.final_gross_amount_gbp ? (
+              <div className="flex items-center justify-between gap-4">
+                <span>Final approved total</span>
+                <span className="font-medium text-stone-900">
+                  {formatCurrency(payment.final_gross_amount_gbp)}
+                </span>
+              </div>
+            ) : null}
+            {refundDue > 0 ? (
+              <div className="flex items-center justify-between gap-4">
+                <span>Refund due</span>
+                <span className="font-medium text-stone-900">
+                  {formatCurrency(refundDue)}
+                </span>
+              </div>
+            ) : null}
           </div>
           <div className="info-banner mt-5">
-            Your charge secures the booking now, but worker payout is only released after the shift is confirmed. If anything goes wrong, you can still flag an issue before payout is sent.
+            Worker payout is based on approved hours after the shift. Extra approved time needs top-up payment before full payout release.
           </div>
 
-          {!bookingReadyForPayment ? (
+          {!bookingReadyForPayment && !isTopUpFlow ? (
             <div className="info-banner mt-5">
               Payment becomes available after the worker accepts the booking request or once the shift has been marked completed.
             </div>
@@ -283,7 +304,11 @@ export default function BusinessBookingPaymentPage() {
                 disabled={startingCheckout}
                 className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {startingCheckout ? "Redirecting..." : "Continue to secure checkout"}
+                {startingCheckout
+                  ? "Redirecting..."
+                  : isTopUpFlow
+                    ? "Pay extra balance"
+                    : "Pay estimated amount"}
               </button>
               <p className="text-xs leading-5 text-stone-500">
                 Checkout is hosted by Stripe. Payment confirmation updates the linked booking automatically.

@@ -3,6 +3,7 @@ import { calculateBookingDurationHours } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import { getRouteActor } from "@/lib/route-access";
+import { calculateSettlement, getEstimatedHours } from "@/lib/settlement";
 import { getSiteUrl, getStripeClient } from "@/lib/stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
@@ -45,9 +46,9 @@ export async function POST(
       return NextResponse.json({ error: "Booking not found." }, { status: 404 });
     }
 
-    if (booking.status !== "accepted") {
+    if (booking.status !== "accepted" && booking.status !== "completed") {
       return NextResponse.json(
-        { error: "This booking can only be paid once the worker has accepted the shift." },
+        { error: "This booking is not ready for payment." },
         { status: 409 },
       );
     }
@@ -59,11 +60,18 @@ export async function POST(
       .maybeSingle<PaymentRecord>();
 
     const existingPaymentStatus = getPaymentStatus(existingPayment);
+    const needsTopUpPayment =
+      existingPaymentStatus === "paid" &&
+      Number(existingPayment?.top_up_due_gbp ?? 0) > 0;
     if (existingPaymentStatus === "paid") {
+      if (needsTopUpPayment) {
+        // Continue to create a top-up checkout session.
+      } else {
       return NextResponse.json(
         { error: "This booking has already been paid." },
         { status: 409 },
       );
+      }
     }
 
     const { data: workerProfile } = await supabaseAdmin
@@ -127,6 +135,10 @@ export async function POST(
     }
 
     const siteUrl = getSiteUrl();
+    const checkoutAmountGbp = needsTopUpPayment
+      ? Number(existingPayment?.top_up_due_gbp ?? 0)
+      : pricing.businessTotalGbp;
+    const paymentMode = needsTopUpPayment ? "top_up" : "estimated";
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
       client_reference_id: booking.id,
@@ -137,12 +149,14 @@ export async function POST(
         booking_id: booking.id,
         business_id: booking.business_id,
         worker_id: booking.worker_id,
+        payment_mode: paymentMode,
       },
       payment_intent_data: {
         metadata: {
           booking_id: booking.id,
           business_id: booking.business_id,
           worker_id: booking.worker_id,
+          payment_mode: paymentMode,
         },
         receipt_email: actor.authUser.email ?? undefined,
       },
@@ -151,14 +165,24 @@ export async function POST(
           quantity: 1,
           price_data: {
             currency: "gbp",
-            unit_amount: Math.round(pricing.businessTotalGbp * 100),
+            unit_amount: Math.round(checkoutAmountGbp * 100),
             product_data: {
-              name: `${requestedRole} shift`,
-              description: `${booking.shift_date} ${booking.start_time.slice(0, 5)}-${booking.end_time.slice(0, 5)}`,
+              name: needsTopUpPayment ? `${requestedRole} shift top-up` : `${requestedRole} shift`,
+              description: needsTopUpPayment
+                ? `Top-up for approved hours on ${booking.shift_date}`
+                : `${booking.shift_date} ${booking.start_time.slice(0, 5)}-${booking.end_time.slice(0, 5)}`,
             },
           },
         },
       ],
+    });
+
+    const estimatedHours = getEstimatedHours(booking);
+    const approvedHoursForSettlement = booking.business_hours_approved ?? estimatedHours;
+    const settlement = calculateSettlement({
+      booking,
+      payment: existingPayment ?? null,
+      approvedHours: approvedHoursForSettlement,
     });
 
     await supabaseAdmin.from("payments").upsert(
@@ -167,11 +191,15 @@ export async function POST(
         business_id: booking.business_id,
         worker_id: booking.worker_id,
         currency: "GBP",
-        gross_amount_gbp: pricing.businessTotalGbp,
+        gross_amount_gbp: needsTopUpPayment
+          ? Number((existingPayment?.gross_amount_gbp ?? 0).toFixed(2))
+          : pricing.businessTotalGbp,
         platform_fee_gbp: pricing.platformFeeGbp,
         worker_payout_gbp: pricing.workerPayGbp,
-        payment_status: "pending",
-        payout_status: "not_started",
+        payment_status: needsTopUpPayment ? "paid" : "pending",
+        payout_status: needsTopUpPayment
+          ? existingPayment?.payout_status ?? "not_started"
+          : "not_started",
         shift_completed_at: null,
         shift_completion_confirmed_by: null,
         payout_approved_at: null,
@@ -180,6 +208,15 @@ export async function POST(
         dispute_reason: null,
         disputed_at: null,
         failure_reason: null,
+        settlement_status: settlement.settlementStatus,
+        settlement_difference_gbp: settlement.settlementDifferenceGbp,
+        refund_due_gbp: settlement.refundDueGbp,
+        top_up_due_gbp: settlement.topUpDueGbp,
+        final_gross_amount_gbp: settlement.finalGrossAmountGbp,
+        final_platform_fee_gbp: settlement.finalPlatformFeeGbp,
+        final_worker_payout_gbp: settlement.finalWorkerPayoutGbp,
+        settlement_calculated_at: new Date().toISOString(),
+        settlement_issue: settlement.reason,
         stripe_checkout_session_id: checkoutSession.id,
         stripe_checkout_url: checkoutSession.url,
         stripe_checkout_expires_at: checkoutSession.expires_at

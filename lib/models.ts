@@ -637,6 +637,15 @@ export type PaymentRecord = {
   reconciliation_status?: string | null;
   reconciliation_issue?: string | null;
   reconciliation_checked_at?: string | null;
+  settlement_status?: "settled" | "refund_due" | "top_up_required" | "manual_review" | null;
+  settlement_difference_gbp?: number | null;
+  refund_due_gbp?: number | null;
+  top_up_due_gbp?: number | null;
+  final_gross_amount_gbp?: number | null;
+  final_platform_fee_gbp?: number | null;
+  final_worker_payout_gbp?: number | null;
+  settlement_calculated_at?: string | null;
+  settlement_issue?: string | null;
   created_at: string;
   updated_at: string;
 };

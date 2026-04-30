@@ -7,7 +7,7 @@ import type {
   WorkerProfileRecord,
 } from "@/lib/models";
 
-function getPaymentStatusValue(payment?: PaymentRecord | null) {
+export function getPaymentStatusValue(payment?: PaymentRecord | null) {
   if (!payment) {
     return null;
   }
@@ -298,6 +298,12 @@ export function getAdminNextActionLabel(input: {
   }
 
   if (payoutStatus === "on_hold") {
+    if ((input.payment?.top_up_due_gbp ?? 0) > 0) {
+      return "Extra payment required";
+    }
+    if ((input.payment?.refund_due_gbp ?? 0) > 0) {
+      return "Refund due";
+    }
     return "On hold";
   }
 

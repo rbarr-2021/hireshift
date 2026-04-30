@@ -591,7 +591,16 @@ export default function BusinessDashboardPage() {
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
                           className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
                         >
-                          Pay now
+                          Pay estimated amount
+                        </Link>
+                      ) : (paymentsByBookingId[booking.id] &&
+                          ((paymentsByBookingId[booking.id].top_up_due_gbp ?? 0) > 0 ||
+                            paymentsByBookingId[booking.id].settlement_status === "top_up_required")) ? (
+                        <Link
+                          href={`/dashboard/business/bookings/${booking.id}/pay`}
+                          className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
+                        >
+                          Pay extra balance
                         </Link>
                       ) : null}
                       <button
