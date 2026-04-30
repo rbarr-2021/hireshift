@@ -19,6 +19,7 @@ import {
 } from "@/lib/auth-client";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
+import { LEGAL_ACCEPTANCE_PATH, requiresLegalAcceptance } from "@/lib/legal";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -58,6 +59,15 @@ export default function Login() {
     if (!hasSelectedRole(appUser)) {
         router.replace(redirectTarget ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}` : "/role-select");
         return;
+    }
+
+    if (requiresLegalAcceptance(appUser)) {
+      router.replace(
+        redirectTarget
+          ? `${LEGAL_ACCEPTANCE_PATH}?redirect=${encodeURIComponent(redirectTarget)}`
+          : LEGAL_ACCEPTANCE_PATH,
+      );
+      return;
     }
 
     clearPostAuthIntent();
@@ -177,6 +187,22 @@ export default function Login() {
           redirectTarget
             ? `/role-select?redirect=${encodeURIComponent(redirectTarget)}`
             : "/role-select",
+        );
+        return;
+      }
+
+      if (requiresLegalAcceptance(resolved.appUser)) {
+        const redirectTarget = getPendingRedirect();
+        setMessage("Please accept Terms and Privacy before continuing.");
+        showToast({
+          title: "Legal acceptance required",
+          description: "Please accept Terms and Privacy to continue using NexHyr.",
+          tone: "info",
+        });
+        router.push(
+          redirectTarget
+            ? `${LEGAL_ACCEPTANCE_PATH}?redirect=${encodeURIComponent(redirectTarget)}`
+            : LEGAL_ACCEPTANCE_PATH,
         );
         return;
       }

@@ -11,6 +11,10 @@ export type AdminUserListItem = {
     email: string | null;
     role: string | null;
     display_name: string | null;
+    terms_accepted_at: string | null;
+    terms_version: string | null;
+    privacy_accepted_at: string | null;
+    privacy_version: string | null;
     onboarding_complete: boolean;
     suspended_at: string | null;
     suspended_reason: string | null;
@@ -53,6 +57,20 @@ function formatJoinedDate(value: string) {
     day: "numeric",
     month: "short",
     year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatOptionalDate(value: string | null) {
+  if (!value) {
+    return "Not accepted";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
@@ -567,6 +585,18 @@ export function AdminUsersManager({
                         {item.user.role === "worker"
                           ? item.workerDocumentCount
                           : item.businessDocumentCount}
+                      </p>
+                      <p>
+                        Terms accepted {formatOptionalDate(item.user.terms_accepted_at)}
+                      </p>
+                      <p>
+                        Privacy accepted {formatOptionalDate(item.user.privacy_accepted_at)}
+                      </p>
+                      <p>
+                        Legal version{" "}
+                        {item.user.terms_version && item.user.privacy_version
+                          ? `${item.user.terms_version} / ${item.user.privacy_version}`
+                          : "Not set"}
                       </p>
                     </div>
                     {item.pendingVerificationReview ? (

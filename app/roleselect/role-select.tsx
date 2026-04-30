@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth-client";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import type { UserRecord, UserRole } from "@/lib/models";
+import { LEGAL_ACCEPTANCE_PATH, requiresLegalAcceptance } from "@/lib/legal";
 
 type SupabaseLikeError = {
   message?: string;
@@ -168,6 +169,11 @@ export default function RoleSelect() {
         }
 
         if (hasSelectedRole(data) && data.role) {
+          if (requiresLegalAcceptance(data)) {
+            router.replace(LEGAL_ACCEPTANCE_PATH);
+            return;
+          }
+
           const target = getRoleEntryPath(
             data.role,
             data.onboarding_complete,

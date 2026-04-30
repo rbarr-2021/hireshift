@@ -20,6 +20,10 @@ import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast-provider";
 import {
+  CURRENT_PRIVACY_VERSION,
+  CURRENT_TERMS_VERSION,
+} from "@/lib/legal";
+import {
   APPROVAL_STATUSES,
   DOCUMENT_LABELS,
   DOCUMENT_TYPES,
@@ -394,6 +398,7 @@ export function WorkerProfileForm({
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("pending");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
@@ -496,6 +501,14 @@ export function WorkerProfileForm({
       if (typeof appUser?.whatsapp_opt_in === "boolean") {
         setWhatsAppOptIn(appUser.whatsapp_opt_in);
       }
+      setLegalAccepted(
+        Boolean(
+          appUser?.terms_accepted_at &&
+            appUser?.privacy_accepted_at &&
+            appUser?.terms_version === CURRENT_TERMS_VERSION &&
+            appUser?.privacy_version === CURRENT_PRIVACY_VERSION,
+        ),
+      );
 
       if (profile) {
         const primaryWorkerRole =
@@ -917,6 +930,11 @@ export function WorkerProfileForm({
       if (validationError) {
         return;
       }
+
+      if (!legalAccepted) {
+        setMessage("You need to accept Terms and Privacy before completing onboarding.");
+        return;
+      }
     } else {
       setMessage(null);
     }
@@ -1042,6 +1060,7 @@ export function WorkerProfileForm({
         work_history: historyPayload,
       };
       const normalisedPhone = normaliseInternationalPhoneNumber(phone);
+      const acceptedAt = new Date().toISOString();
 
       console.info("[worker-profile-save] payload", {
         authUserId: user.id,
@@ -1081,6 +1100,14 @@ export function WorkerProfileForm({
             role: "worker",
             role_selected: true,
             onboarding_complete: completeOnboarding,
+            ...(completeOnboarding
+              ? {
+                  terms_accepted_at: legalAccepted ? acceptedAt : null,
+                  terms_version: legalAccepted ? CURRENT_TERMS_VERSION : null,
+                  privacy_accepted_at: legalAccepted ? acceptedAt : null,
+                  privacy_version: legalAccepted ? CURRENT_PRIVACY_VERSION : null,
+                }
+              : {}),
           })
           .eq("id", user.id),
         existingWorkerProfile
@@ -1746,6 +1773,28 @@ export function WorkerProfileForm({
               </section>
             ) : null}
             </>
+            ) : null}
+
+            {mode === "onboarding" ? (
+              <label className="mt-4 flex items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4">
+                <input
+                  type="checkbox"
+                  checked={legalAccepted}
+                  onChange={(event) => setLegalAccepted(event.target.checked)}
+                  className="mt-1 h-4 w-4"
+                />
+                <span className="text-sm leading-6 text-stone-700">
+                  I agree to the NexHyr{" "}
+                  <a href="/terms" target="_blank" rel="noreferrer" className="underline">
+                    Terms & Conditions
+                  </a>{" "}
+                  and{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer" className="underline">
+                    Privacy Policy
+                  </a>
+                  .
+                </span>
+              </label>
             ) : null}
               </div>
             </div>

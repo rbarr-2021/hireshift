@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth-client";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import { clearSessionHintCookie, setSessionHintCookie } from "@/lib/session-hint";
+import { LEGAL_ACCEPTANCE_PATH, requiresLegalAcceptance } from "@/lib/legal";
 import type { UserRecord } from "@/lib/models";
 
 type SupabaseLikeError = {
@@ -131,6 +132,15 @@ export default function Signup() {
             : "/role-select",
         );
         return;
+    }
+
+    if (requiresLegalAcceptance(appUser)) {
+      router.replace(
+        redirectTarget
+          ? `${LEGAL_ACCEPTANCE_PATH}?redirect=${encodeURIComponent(redirectTarget)}`
+          : LEGAL_ACCEPTANCE_PATH,
+      );
+      return;
     }
 
     clearPostAuthIntent();

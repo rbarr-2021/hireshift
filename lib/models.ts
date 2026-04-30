@@ -405,6 +405,10 @@ export type UserRecord = {
   display_name: string | null;
   phone: string | null;
   whatsapp_opt_in: boolean;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
+  privacy_accepted_at: string | null;
+  privacy_version: string | null;
   onboarding_complete: boolean;
   suspended_at: string | null;
   suspended_reason: string | null;

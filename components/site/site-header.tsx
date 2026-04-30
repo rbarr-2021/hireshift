@@ -9,6 +9,7 @@ import { getRoleEntryPath, hasSelectedRole, resolveAuthState } from "@/lib/auth-
 import { clearSessionHintCookie } from "@/lib/session-hint";
 import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import type { UserRecord } from "@/lib/models";
+import { LEGAL_ACCEPTANCE_PATH, requiresLegalAcceptance } from "@/lib/legal";
 
 type SiteHeaderProps = {
   compact?: boolean;
@@ -73,6 +74,8 @@ export function SiteHeader({ compact = false }: SiteHeaderProps) {
   const dashboardHref =
     isAdmin
       ? "/admin"
+      : user && requiresLegalAcceptance(user)
+      ? LEGAL_ACCEPTANCE_PATH
       : user && hasSelectedRole(user)
       ? getRoleEntryPath(user.role, user.onboarding_complete)
       : "/role-select";

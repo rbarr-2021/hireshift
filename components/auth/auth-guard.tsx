@@ -9,6 +9,7 @@ import {
   getRoleSetupPath,
   hasSelectedRole,
 } from "@/lib/auth-client";
+import { LEGAL_ACCEPTANCE_PATH, requiresLegalAcceptance } from "@/lib/legal";
 import type { UserRole } from "@/lib/models";
 
 type AuthGuardProps = {
@@ -49,6 +50,12 @@ export function AuthGuard({
       }
 
       router.replace("/role-select");
+      return;
+    }
+
+    if (requiresLegalAcceptance(appUser) && pathname !== LEGAL_ACCEPTANCE_PATH) {
+      const redirect = encodeURIComponent(pathname);
+      router.replace(`${LEGAL_ACCEPTANCE_PATH}?redirect=${redirect}`);
       return;
     }
 

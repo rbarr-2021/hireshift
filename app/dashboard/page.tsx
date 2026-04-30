@@ -8,6 +8,7 @@ import {
   getRoleHome,
   hasSelectedRole,
 } from "@/lib/auth-client";
+import { LEGAL_ACCEPTANCE_PATH, requiresLegalAcceptance } from "@/lib/legal";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -30,6 +31,11 @@ export default function DashboardPage() {
 
     if (!hasSelectedRole(appUser)) {
       router.replace("/role-select");
+      return;
+    }
+
+    if (requiresLegalAcceptance(appUser)) {
+      router.replace(LEGAL_ACCEPTANCE_PATH);
       return;
     }
 

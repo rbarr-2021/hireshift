@@ -18,10 +18,15 @@ export function SiteFooter() {
           <Link href="/signup?role=business" className="hover:text-stone-100">
             Book Staff
           </Link>
+          <Link href="/terms" className="hover:text-stone-100">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-stone-100">
+            Privacy
+          </Link>
           <span className="text-stone-500">© {new Date().getFullYear()} NexHyr</span>
         </div>
       </div>
     </footer>
   );
 }
-

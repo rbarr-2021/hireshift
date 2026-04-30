@@ -10,6 +10,10 @@ import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
 import { useToast } from "@/components/ui/toast-provider";
 import {
+  CURRENT_PRIVACY_VERSION,
+  CURRENT_TERMS_VERSION,
+} from "@/lib/legal";
+import {
   BUSINESS_DOCUMENT_LABELS,
   BUSINESS_SECTORS,
   type BusinessDocumentRecord,
@@ -99,6 +103,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [viewingDocumentType, setViewingDocumentType] =
     useState<BusinessDocumentType | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -131,6 +136,14 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       if (!active) return;
 
       setUser(appUser ?? null);
+      setLegalAccepted(
+        Boolean(
+          appUser?.terms_accepted_at &&
+            appUser?.privacy_accepted_at &&
+            appUser?.terms_version === CURRENT_TERMS_VERSION &&
+            appUser?.privacy_version === CURRENT_PRIVACY_VERSION,
+        ),
+      );
 
       if (profile) {
         setBusinessName(profile.business_name);
@@ -219,6 +232,9 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
     if (!addressLine1.trim()) return "Address is required.";
     if (!city.trim()) return "City is required.";
     if (!description.trim()) return "Business description is required.";
+    if (mode === "onboarding" && !legalAccepted) {
+      return "You need to accept Terms and Privacy before completing onboarding.";
+    }
     return null;
   };
 
@@ -291,6 +307,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       const verificationDocument = documents.verification_document;
       const nextApprovalStatus =
         verificationDocument && approvalStatus !== "verified" ? "pending" : approvalStatus;
+      const acceptedAt = new Date().toISOString();
 
       const businessProfilePayload = {
         user_id: authUser.id,
@@ -314,6 +331,14 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
             role: "business",
             role_selected: true,
             onboarding_complete: true,
+            ...(mode === "onboarding"
+              ? {
+                  terms_accepted_at: legalAccepted ? acceptedAt : null,
+                  terms_version: legalAccepted ? CURRENT_TERMS_VERSION : null,
+                  privacy_accepted_at: legalAccepted ? acceptedAt : null,
+                  privacy_version: legalAccepted ? CURRENT_PRIVACY_VERSION : null,
+                }
+              : {}),
           })
           .eq("id", authUser.id),
         existingProfile
@@ -692,6 +717,28 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               </button>
             ) : null}
           </div>
+
+          {mode === "onboarding" ? (
+            <label className="md:col-span-2 flex items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <input
+                type="checkbox"
+                checked={legalAccepted}
+                onChange={(event) => setLegalAccepted(event.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <span className="text-sm leading-6 text-stone-700">
+                I agree to the NexHyr{" "}
+                <a href="/terms" target="_blank" rel="noreferrer" className="underline">
+                  Terms & Conditions
+                </a>{" "}
+                and{" "}
+                <a href="/privacy" target="_blank" rel="noreferrer" className="underline">
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
+          ) : null}
         </form>
       </div>
       <div className={`sticky z-20 mt-6 rounded-[1.5rem] border border-white/10 bg-[rgba(4,12,22,0.94)] p-4 shadow-[0_16px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:hidden ${mode === "manage" ? "bottom-24" : "bottom-4"}`}>
