@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     title: "NexHyr",
   },
   icons: {
-    apple: [{ url: "/icons/icon-192.png" }],
+    apple: [{ url: "/icons/icon-512.png" }],
   },
 };
 
