@@ -4,19 +4,11 @@ import Link from "next/link";
 import {
   formatArrivalConfirmationStatusLabel,
   formatAttendanceTimestamp,
-  bookingStatusClass,
   formatBookingDate,
-  formatBookingStatus,
   formatBookingTimeRange,
   formatTimeUntilBooking,
 } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord } from "@/lib/models";
-import {
-  formatPaymentStatus,
-  formatPayoutStatus,
-  paymentStatusClass,
-  payoutStatusClass,
-} from "@/lib/payments";
 import {
   getBookingNextAction,
   getShiftTimingGuidance,
@@ -94,19 +86,7 @@ export function WorkerBookingCard({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}>
-            {formatBookingStatus(booking.status)}
-          </span>
-          {payment ? (
-            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentStatusClass(payment.status)}`}>
-              {formatPaymentStatus(payment.status)}
-            </span>
-          ) : null}
-          {payment ? (
-            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutStatusClass(payment.payout_status)}`}>
-              {formatPayoutStatus(payment.payout_status)}
-            </span>
-          ) : null}
+          <span className="status-badge status-badge--ready">{trustStatus}</span>
         </div>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">
@@ -127,10 +107,6 @@ export function WorkerBookingCard({
           <span className="inline-flex items-center rounded-full bg-[#1DB954] px-3 py-1 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(29,185,84,0.24)]">
             Pay {formatCurrency(booking.hourly_rate_gbp)}/hr
           </span>
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Status:</span>{" "}
-          {trustStatus}
         </p>
         <p>
           <span className="font-medium text-stone-900">Arrival:</span>{" "}
@@ -204,7 +180,7 @@ export function WorkerBookingCard({
               href={`/dashboard/worker/bookings/${booking.id}`}
               className="secondary-btn w-full px-5 sm:w-auto"
             >
-              View details
+              View shift
             </Link>
           ) : null}
         </div>

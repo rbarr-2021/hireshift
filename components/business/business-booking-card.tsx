@@ -7,14 +7,9 @@ import {
   formatAttendanceStatusLabel,
   formatAttendanceTimestamp,
   formatHoursValue,
-  bookingStatusClass,
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
-import {
-  paymentStatusClass,
-  payoutStatusClass,
-} from "@/lib/payments";
 import type { BookingRecord, PaymentRecord } from "@/lib/models";
 import {
   getBookingNextAction,
@@ -42,19 +37,11 @@ export function BusinessBookingCard({
   worker,
   actions,
   payment,
-  paymentLabel,
-  paymentTone,
-  payoutLabel,
-  payoutTone,
 }: {
   booking: BookingRecord;
   worker?: WorkerSnapshot;
   actions?: React.ReactNode;
   payment?: PaymentRecord | null;
-  paymentLabel?: string;
-  paymentTone?: string;
-  payoutLabel?: string;
-  payoutTone?: string;
 }) {
   const trustStatus = getBusinessTrustStatusLabel(booking, payment ?? null);
   const nextActionLabel = getBookingNextAction({
@@ -78,25 +65,7 @@ export function BusinessBookingCard({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <span
-            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}
-          >
-            {trustStatus}
-          </span>
-          {paymentLabel ? (
-            <span
-              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${paymentTone ?? paymentStatusClass("pending")}`}
-            >
-              {paymentLabel}
-            </span>
-          ) : null}
-          {payoutLabel ? (
-            <span
-              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${payoutTone ?? payoutStatusClass("pending_confirmation")}`}
-            >
-              {payoutLabel}
-            </span>
-          ) : null}
+          <span className="status-badge status-badge--ready">{trustStatus}</span>
         </div>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-2">

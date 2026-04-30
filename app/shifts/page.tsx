@@ -507,16 +507,10 @@ export default function WorkerShiftBrowsePage() {
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <Link
-                    href={`/shifts/${listing.id}`}
-                    className="secondary-btn w-full px-4 sm:w-auto"
-                  >
-                    View shift
-                  </Link>
-                  <Link
                     href={`/shifts/${listing.id}?intent=take`}
                     className="primary-btn w-full px-4 sm:w-auto"
                   >
-                    {appUser?.onboarding_complete ? "Take shift" : "Complete profile to take shift"}
+                    {appUser?.onboarding_complete ? "Book shift" : "Complete profile to book shift"}
                   </Link>
                 </div>
               </article>

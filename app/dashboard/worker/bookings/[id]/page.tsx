@@ -375,22 +375,14 @@ export default function WorkerBookingDetailPage() {
           </div>
           <div className="mt-5 space-y-3 text-sm text-stone-600">
             <div className="flex items-center justify-between gap-4">
-              <span>Booking status</span>
-              <span className="font-medium text-stone-900">{booking.status.replace(/_/g, " ")}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span>Charge status</span>
-              <span className="font-medium text-stone-900">{payment ? formatPaymentStatus(payment.status) : "Pending"}</span>
+              <span>Status</span>
+              <span className="font-medium text-stone-900">{trustStatus}</span>
             </div>
             {!paymentSecured ? (
               <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                 Payment is not secured yet. Contact support before attending.
               </p>
             ) : null}
-            <div className="flex items-center justify-between gap-4">
-              <span>Payout status</span>
-              <span className="font-medium text-stone-900">{payment ? formatPayoutStatus(payment.payout_status) : "Pending confirmation"}</span>
-            </div>
             {payment?.payout_sent_at ? (
               <div className="flex items-center justify-between gap-4">
                 <span>Paid out</span>
@@ -423,7 +415,7 @@ export default function WorkerBookingDetailPage() {
                     disabled={updatingAttendance || !canCheckInNow || !paymentSecured}
                     className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {updatingAttendance ? "Updating..." : "Start shift"}
+                    {updatingAttendance ? "Updating..." : "Check in"}
                   </button>
                 </>
               ) : null}

@@ -344,7 +344,7 @@ export default function AdminBookingsPage() {
             <Link href="/admin/messages" className="secondary-btn w-full px-6 sm:w-auto">
               Messages
             </Link>
-            <Link href="/dashboard/business" className="secondary-btn w-full px-6 sm:w-auto">
+            <Link href="/dashboard" className="secondary-btn w-full px-6 sm:w-auto">
               Back to dashboard
             </Link>
             <button

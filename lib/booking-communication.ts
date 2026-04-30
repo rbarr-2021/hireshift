@@ -1,7 +1,6 @@
 import {
   getBookingEndDateTime,
   getBookingStartDateTime,
-  isWithinCheckInWindow,
 } from "@/lib/bookings";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { getPaymentStatusValue } from "@/lib/payments";
@@ -48,51 +47,38 @@ export function getWorkerTrustStatusLabel(
 ) {
   const paymentStatus = getPaymentStatusValue(payment);
 
-  if (paymentStatus === "disputed" || booking.attendance_status === "disputed") {
-    return "Issue raised";
-  }
-
-  if (payment?.payout_status === "on_hold") {
-    return "On hold";
-  }
-
   if (payment?.payout_status === "completed" || payment?.payout_status === "paid") {
     return "Paid";
   }
 
-  if (booking.status === "accepted" && paymentStatus !== "paid") {
-    return "Awaiting business payment";
+  if (
+    booking.attendance_status === "approved" ||
+    booking.attendance_status === "adjusted" ||
+    payment?.payout_status === "in_progress" ||
+    payment?.payout_status === "pending"
+  ) {
+    return "Payment processing";
   }
 
-  if (booking.attendance_status === "approved" || booking.attendance_status === "adjusted") {
-    return "Payment being processed";
+  if (
+    booking.attendance_status === "pending_approval" ||
+    booking.worker_checked_out_at
+  ) {
+    return "Waiting for approval";
   }
 
-  if (booking.attendance_status === "pending_approval") {
-    return "Waiting for business approval";
+  if (booking.attendance_status === "checked_in" || booking.worker_checked_in_at) {
+    return "Checked in";
   }
 
-  if (booking.attendance_status === "checked_in") {
-    if (booking.arrival_confirmation_status === "business_confirmed") {
-      return "Arrival confirmed";
+  if (paymentStatus === "paid") {
+    const timing = getShiftTimingGuidance(booking, now);
+    if (timing === "Upcoming shift" || timing === "Starts tomorrow" || timing === "Starts today") {
+      return "Upcoming shift";
     }
-    if (booking.arrival_confirmation_status === "issue_reported") {
-      return "Arrival issue reported";
-    }
-    return "Shift in progress";
   }
 
-  if (booking.worker_checked_out_at) {
-    return "Shift completed";
-  }
-
-  if (!booking.worker_checked_in_at && isWithinCheckInWindow(booking, now)) {
-    return "Check in available";
-  }
-
-  return getShiftTimingGuidance(booking, now) === "Upcoming shift"
-    ? "Upcoming shift"
-    : "Shift booked";
+  return "Shift booked";
 }
 
 export function getBusinessTrustStatusLabel(
@@ -101,40 +87,20 @@ export function getBusinessTrustStatusLabel(
   now = new Date(),
 ) {
   const paymentStatus = getPaymentStatusValue(payment);
-  if (paymentStatus === "disputed" || booking.attendance_status === "disputed") {
-    return "Issue raised";
-  }
-
-  if (payment?.payout_status === "on_hold") {
-    return "On hold";
-  }
-
-  if (payment?.payout_status === "completed" || payment?.payout_status === "paid") {
-    return "Payment complete";
-  }
-
-  if (booking.attendance_status === "approved" || booking.attendance_status === "adjusted") {
-    return "Hours approved";
-  }
-
-  if (booking.attendance_status === "pending_approval") {
-    return "Awaiting hours approval";
-  }
-
-  if (booking.attendance_status === "checked_in") {
-    if (booking.arrival_confirmation_status === "business_confirmed") {
-      return "Arrival confirmed";
-    }
-    if (booking.arrival_confirmation_status === "issue_reported") {
-      return "Arrival issue reported";
-    }
-    return "Worker checked in";
-  }
 
   if (paymentStatus === "paid") {
     const timing = getShiftTimingGuidance(booking, now);
+    if (
+      booking.attendance_status === "pending_approval" ||
+      booking.worker_checked_out_at
+    ) {
+      return "Awaiting approval";
+    }
+    if (booking.attendance_status === "approved" || booking.attendance_status === "adjusted") {
+      return "Completed";
+    }
     return timing === "Upcoming shift" || timing === "Starts tomorrow" || timing === "Starts today"
-      ? "Shift upcoming"
+      ? "Worker booked"
       : "Payment secured";
   }
 

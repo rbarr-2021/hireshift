@@ -28,12 +28,8 @@ import {
   buildWorkerSnapshots,
 } from "@/lib/business-bookings";
 import {
-  formatPaymentStatus,
-  formatPayoutStatus,
   getPayoutSupportCopy,
   isBookingPaid,
-  paymentStatusClass,
-  payoutStatusClass,
 } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 import {
@@ -566,18 +562,6 @@ export default function BusinessDashboardPage() {
                   booking={booking}
                   worker={workersById[booking.worker_id]}
                   payment={paymentsByBookingId[booking.id]}
-                  paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
-                  paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
-                  payoutLabel={
-                    paymentsByBookingId[booking.id]
-                      ? formatPayoutStatus(paymentsByBookingId[booking.id].payout_status)
-                      : undefined
-                  }
-                  payoutTone={
-                    paymentsByBookingId[booking.id]
-                      ? payoutStatusClass(paymentsByBookingId[booking.id].payout_status)
-                      : undefined
-                  }
                 />
               ))
             ) : (
@@ -604,48 +588,14 @@ export default function BusinessDashboardPage() {
                   booking={booking}
                   worker={workersById[booking.worker_id]}
                   payment={paymentsByBookingId[booking.id]}
-                  paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
-                  paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
-                  payoutLabel={
-                    paymentsByBookingId[booking.id]
-                      ? formatPayoutStatus(paymentsByBookingId[booking.id].payout_status)
-                      : undefined
-                  }
-                  payoutTone={
-                    paymentsByBookingId[booking.id]
-                      ? payoutStatusClass(paymentsByBookingId[booking.id].payout_status)
-                      : undefined
-                  }
                   actions={
                     <>
-                      {booking.worker_checked_in_at &&
-                      booking.arrival_confirmation_status !== "business_confirmed" ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleRecordOutcome(booking.id, "confirm_arrival")}
-                          disabled={actioningId === booking.id}
-                          className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
-                        >
-                          Confirm arrival
-                        </button>
-                      ) : null}
-                      {booking.worker_checked_in_at &&
-                      booking.arrival_confirmation_status !== "issue_reported" ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleRecordOutcome(booking.id, "report_arrival_issue")}
-                          disabled={actioningId === booking.id}
-                          className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
-                        >
-                          Worker not here / issue
-                        </button>
-                      ) : null}
                       {!isBookingPaid(paymentsByBookingId[booking.id]) ? (
                         <Link
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
                           className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
                         >
-                          Pay estimated amount
+                          Pay now
                         </Link>
                       ) : (paymentsByBookingId[booking.id] &&
                           ((paymentsByBookingId[booking.id].top_up_due_gbp ?? 0) > 0 ||
@@ -654,61 +604,42 @@ export default function BusinessDashboardPage() {
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
                           className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
                         >
-                          Pay extra balance
+                          Pay now
                         </Link>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
-                        disabled={
-                          actioningId === booking.id ||
-                          !isBookingPaid(paymentsByBookingId[booking.id]) ||
-                          !(booking.worker_checked_out_at || isPastBooking(booking))
-                        }
-                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
-                      >
-                        <span className="inline-flex items-center justify-center gap-2">
-                          {actioningId === booking.id ? "Updating..." : "Approve hours"}
-                          {completedBookingIds.has(booking.id) ? (
-                            <span
-                              aria-label="Completed"
-                              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-black"
-                            >
-                              &#10003;
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleRecordOutcome(booking.id, "adjust_hours")}
-                        disabled={
-                          actioningId === booking.id ||
-                          !isBookingPaid(paymentsByBookingId[booking.id]) ||
-                          !(booking.worker_checked_out_at || isPastBooking(booking))
-                        }
-                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
-                      >
-                        Adjust hours
-                      </button>
-                      {booking.status !== "no_show" ? (
+                      ) : booking.worker_checked_in_at &&
+                        booking.arrival_confirmation_status !== "business_confirmed" ? (
                         <button
                           type="button"
-                          onClick={() => void handleRecordOutcome(booking.id, "dispute_hours")}
+                          onClick={() => void handleRecordOutcome(booking.id, "confirm_arrival")}
                           disabled={actioningId === booking.id}
-                          className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                          className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
                         >
-                          Dispute hours
+                          Confirm arrival
                         </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => void handleRecordOutcome(booking.id, "no_show")}
-                        disabled={actioningId === booking.id || !isPastBooking(booking)}
-                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
-                      >
-                        Mark no-show
-                      </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
+                          disabled={
+                            actioningId === booking.id ||
+                            !isBookingPaid(paymentsByBookingId[booking.id]) ||
+                            !(booking.worker_checked_out_at || isPastBooking(booking))
+                          }
+                          className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                        >
+                          <span className="inline-flex items-center justify-center gap-2">
+                            {actioningId === booking.id ? "Updating..." : "Approve hours"}
+                            {completedBookingIds.has(booking.id) ? (
+                              <span
+                                aria-label="Completed"
+                                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-black"
+                              >
+                                &#10003;
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      )}
                     </>
                   }
                 />
@@ -742,14 +673,17 @@ export default function BusinessDashboardPage() {
                     booking={booking}
                     worker={workersById[booking.worker_id]}
                     payment={payment}
-                    paymentLabel={formatPaymentStatus(payment?.status ?? "pending")}
-                    paymentTone={paymentStatusClass(payment?.status ?? "pending")}
-                    payoutLabel={payment ? formatPayoutStatus(payment.payout_status) : undefined}
-                    payoutTone={payment ? payoutStatusClass(payment.payout_status) : undefined}
                     actions={
                       <>
-                        {booking.worker_checked_in_at &&
-                        booking.arrival_confirmation_status !== "business_confirmed" ? (
+                        {!isBookingPaid(payment) ? (
+                          <Link
+                            href={`/dashboard/business/bookings/${booking.id}/pay`}
+                            className="primary-btn w-full px-5 sm:w-auto"
+                          >
+                            Pay now
+                          </Link>
+                        ) : booking.worker_checked_in_at &&
+                          booking.arrival_confirmation_status !== "business_confirmed" ? (
                           <button
                             type="button"
                             onClick={() => void handleRecordOutcome(booking.id, "confirm_arrival")}
@@ -758,8 +692,7 @@ export default function BusinessDashboardPage() {
                           >
                             Confirm arrival
                           </button>
-                        ) : null}
-                        {booking.status !== "completed" ? (
+                        ) : (
                           <button
                             type="button"
                             onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
@@ -772,31 +705,7 @@ export default function BusinessDashboardPage() {
                           >
                             {actioningId === booking.id ? "Updating..." : "Approve hours"}
                           </button>
-                        ) : null}
-                        {payment?.payout_status !== "disputed" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleRecordOutcome(booking.id, "adjust_hours")}
-                            disabled={
-                              actioningId === booking.id ||
-                              !isBookingPaid(payment) ||
-                              !(booking.worker_checked_out_at || isPastBooking(booking))
-                            }
-                            className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                          >
-                            Adjust hours
-                          </button>
-                        ) : null}
-                        {payment?.payout_status !== "disputed" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleRecordOutcome(booking.id, "dispute_hours")}
-                            disabled={actioningId === booking.id}
-                            className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                          >
-                            Dispute hours
-                          </button>
-                        ) : null}
+                        )}
                       </>
                     }
                   />

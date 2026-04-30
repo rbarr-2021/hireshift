@@ -20,10 +20,8 @@ import { fetchWithSession } from "@/lib/route-client";
 import type {
   BookingRecord,
   PaymentRecord,
-  WorkerReliabilityRecord,
   WorkerProfileRecord,
 } from "@/lib/models";
-import { isLateCancellationWindow } from "@/lib/reliability";
 import { getPaymentStatusValue } from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
 
@@ -86,16 +84,6 @@ export default function WorkerAcceptedJobsPage() {
       active = false;
     };
   }, []);
-
-  const reloadBooking = async (bookingId: string) => {
-    const { data } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("id", bookingId)
-      .maybeSingle<BookingRecord>();
-
-    return data ?? null;
-  };
 
   const handleAttendance = async (
     booking: BookingRecord,
@@ -161,57 +149,6 @@ export default function WorkerAcceptedJobsPage() {
     }
   };
 
-  const handleCancelBooking = async (booking: BookingRecord) => {
-    const warningMessage = isLateCancellationWindow(booking)
-      ? "Cancelling this shift now may affect your reliability standing. Continue?"
-      : "Cancel this accepted shift?";
-
-    if (typeof window !== "undefined" && !window.confirm(warningMessage)) {
-      return;
-    }
-
-    setActioningId(booking.id);
-
-    const { error } = await supabase.rpc("worker_cancel_booking", {
-      target_booking_id: booking.id,
-    });
-
-    setActioningId(null);
-
-    if (error) {
-      showToast({
-        title: "Cancellation failed",
-        description: error.message,
-        tone: "error",
-      });
-      return;
-    }
-
-    const refreshedBooking = await reloadBooking(booking.id);
-
-    await supabase
-      .from("worker_reliability")
-      .select("*")
-      .eq("worker_id", booking.worker_id)
-      .maybeSingle<WorkerReliabilityRecord>();
-
-    setBookings((current) =>
-      refreshedBooking?.status === "accepted"
-        ? current.map((item) => (item.id === booking.id ? refreshedBooking : item))
-        : current.filter((item) => item.id !== booking.id),
-    );
-
-    showToast({
-      title: isLateCancellationWindow(booking)
-        ? "Late cancellation recorded"
-        : "Shift cancelled",
-      description: isLateCancellationWindow(booking)
-        ? "This cancellation may affect your reliability standing."
-        : "This shift has been released.",
-      tone: isLateCancellationWindow(booking) ? "info" : "success",
-    });
-  };
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -236,6 +173,11 @@ export default function WorkerAcceptedJobsPage() {
           bookings.map((booking) => {
             const payment = paymentsByBookingId[booking.id];
             const paymentSecured = getPaymentStatusValue(payment) === "paid";
+            const canCheckIn = !booking.worker_checked_in_at && paymentSecured && isWithinCheckInWindow(booking, countdownNow);
+            const canCheckOut = Boolean(booking.worker_checked_in_at && !booking.worker_checked_out_at);
+            const waitingApproval = booking.attendance_status === "pending_approval";
+            const showViewShift = !canCheckIn && !canCheckOut && !waitingApproval;
+
             return (
             <WorkerBookingCard
               key={booking.id}
@@ -243,7 +185,7 @@ export default function WorkerAcceptedJobsPage() {
               business={businessesById[booking.business_id]}
               payment={payment}
               workerPayoutReady={workerPayoutReady}
-              showDetailLink
+              showDetailLink={false}
               countdownNow={countdownNow}
               actions={
                 !isPastBooking(booking) ? (
@@ -265,21 +207,17 @@ export default function WorkerAcceptedJobsPage() {
                             }).format(getCheckInWindow(booking).opensAt)}.`}
                       </p>
                     ) : null}
-                    {!booking.worker_checked_in_at ? (
+                    {canCheckIn ? (
                       <button
                         type="button"
                         onClick={() => void handleAttendance(booking, "check_in")}
-                        disabled={
-                          actioningId === booking.id ||
-                          !paymentSecured ||
-                          !isWithinCheckInWindow(booking, countdownNow)
-                        }
+                        disabled={actioningId === booking.id}
                         className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                       >
-                        {actioningId === booking.id ? "Updating..." : "Start shift"}
+                        {actioningId === booking.id ? "Updating..." : "Check in"}
                       </button>
                     ) : null}
-                    {booking.worker_checked_in_at && !booking.worker_checked_out_at ? (
+                    {canCheckOut ? (
                       <button
                         type="button"
                         onClick={() => void handleAttendance(booking, "check_out")}
@@ -289,15 +227,13 @@ export default function WorkerAcceptedJobsPage() {
                         {actioningId === booking.id ? "Updating..." : "End shift"}
                       </button>
                     ) : null}
-                    {!booking.worker_checked_in_at ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleCancelBooking(booking)}
-                        disabled={actioningId === booking.id}
-                        className="secondary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    {showViewShift ? (
+                      <a
+                        href={`/dashboard/worker/bookings/${booking.id}`}
+                        className="primary-btn w-full px-5 text-center sm:w-auto"
                       >
-                        {actioningId === booking.id ? "Updating..." : "Cancel shift"}
-                      </button>
+                        View shift
+                      </a>
                     ) : null}
                     {booking.attendance_status === "pending_approval" ? (
                       <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
