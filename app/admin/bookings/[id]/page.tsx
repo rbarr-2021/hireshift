@@ -8,10 +8,13 @@ import { useToast } from "@/components/ui/toast-provider";
 import { bookingStatusClass, formatBookingDate, formatBookingTimeRange } from "@/lib/bookings";
 import { paymentStatusClass, payoutStatusClass } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
+import { BookingMessageBox } from "@/components/messages/booking-message-box";
 
 type AdminBookingDetail = {
   booking: {
     id: string;
+    worker_id: string;
+    business_id: string;
     shift_date: string;
     shift_end_date: string | null;
     start_time: string;
@@ -263,6 +266,15 @@ export default function AdminBookingDetailPage() {
             </div>
           ) : null}
         </section>
+
+        <BookingMessageBox
+          bookingId={item.booking.id}
+          recipients={[
+            { label: "Message worker", recipient_id: item.booking.worker_id, recipient_role: "worker" },
+            { label: "Message business", recipient_id: item.booking.business_id, recipient_role: "business" },
+          ]}
+          compact
+        />
       </div>
     </div>
   );

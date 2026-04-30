@@ -538,6 +538,28 @@ export type EmailNotificationRecord = {
   sent_at: string;
 };
 
+export type MessageStatus = "sent" | "read";
+export type MessageEmailNotificationStatus = "pending" | "sent" | "failed" | "skipped";
+export type MessageWhatsAppNotificationStatus = "not_configured" | "pending_future";
+
+export type MessageRecord = {
+  id: string;
+  booking_id: string | null;
+  sender_id: string;
+  recipient_id: string | null;
+  recipient_role: UserRole | null;
+  sender_role: UserRole;
+  subject: string | null;
+  body: string;
+  status: MessageStatus;
+  read_at: string | null;
+  email_notification_status: MessageEmailNotificationStatus;
+  whatsapp_notification_status: MessageWhatsAppNotificationStatus;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown>;
+};
+
 export type ReviewRecord = {
   id: string;
   booking_id: string;

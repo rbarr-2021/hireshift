@@ -32,6 +32,7 @@ import {
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { AdminContactCard } from "@/components/support/admin-contact-card";
+import { BookingMessageBox } from "@/components/messages/booking-message-box";
 import {
   getBookingNextAction,
   getShiftTimingGuidance,
@@ -448,6 +449,13 @@ export default function WorkerBookingDetailPage() {
         shiftDate={booking.shift_date}
         title="Contact Support"
         description="Having an issue? Contact support and we’ll help."
+      />
+      <BookingMessageBox
+        bookingId={booking.id}
+        recipients={[
+          { label: "Message business", recipient_id: booking.business_id, recipient_role: "business" },
+          { label: "Message admin/support", recipient_role: "admin" },
+        ]}
       />
     </div>
   );

@@ -16,6 +16,7 @@ import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { AdminContactCard } from "@/components/support/admin-contact-card";
+import { BookingMessageBox } from "@/components/messages/booking-message-box";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -325,6 +326,13 @@ export default function BusinessBookingPaymentPage() {
         shiftDate={booking.shift_date}
         title="Contact Support"
         description="Having an issue? Contact support and we’ll help."
+      />
+      <BookingMessageBox
+        bookingId={booking.id}
+        recipients={[
+          { label: "Message worker", recipient_id: booking.worker_id, recipient_role: "worker" },
+          { label: "Message admin/support", recipient_role: "admin" },
+        ]}
       />
     </div>
   );

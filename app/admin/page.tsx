@@ -341,6 +341,9 @@ export default function AdminBookingsPage() {
             </h1>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Link href="/admin/messages" className="secondary-btn w-full px-6 sm:w-auto">
+              Messages
+            </Link>
             <Link href="/dashboard/business" className="secondary-btn w-full px-6 sm:w-auto">
               Back to dashboard
             </Link>
