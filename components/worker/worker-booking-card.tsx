@@ -13,11 +13,15 @@ import type { BookingRecord, PaymentRecord } from "@/lib/models";
 import {
   formatPaymentStatus,
   formatPayoutStatus,
-  getPayoutSupportCopy,
-  getWorkerShiftStage,
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
+import {
+  getBookingNextAction,
+  getShiftTimingGuidance,
+  getWorkerPaymentConfidenceMessage,
+  getWorkerTrustStatusLabel,
+} from "@/lib/booking-communication";
 
 export type WorkerBookingBusinessSnapshot = {
   name: string;
@@ -41,6 +45,7 @@ export function WorkerBookingCard({
   payment,
   showDetailLink = false,
   countdownNow,
+  workerPayoutReady,
 }: {
   booking: BookingRecord;
   business?: WorkerBookingBusinessSnapshot;
@@ -48,11 +53,24 @@ export function WorkerBookingCard({
   payment?: PaymentRecord | null;
   showDetailLink?: boolean;
   countdownNow?: Date;
+  workerPayoutReady?: boolean;
 }) {
-  const shiftStage = getWorkerShiftStage(booking, payment ?? null);
+  const trustStatus = getWorkerTrustStatusLabel(booking, payment ?? null, countdownNow ?? new Date());
   const countdownLabel = countdownNow
     ? formatTimeUntilBooking(booking, countdownNow)
     : "";
+  const payoutReadinessMessage = getWorkerPaymentConfidenceMessage({
+    payment,
+    workerPayoutReady,
+  });
+  const nextAction = getBookingNextAction({
+    role: "worker",
+    booking,
+    payment,
+    workerPayoutReady,
+    now: countdownNow ?? new Date(),
+  });
+  const timingGuidance = getShiftTimingGuidance(booking, countdownNow ?? new Date());
 
   return (
     <article className="panel-soft p-4 sm:p-5">
@@ -111,7 +129,11 @@ export function WorkerBookingCard({
         </p>
         <p>
           <span className="font-medium text-stone-900">Status:</span>{" "}
-          {shiftStage}
+          {trustStatus}
+        </p>
+        <p>
+          <span className="font-medium text-stone-900">Timing:</span>{" "}
+          {timingGuidance}
         </p>
         {booking.worker_checked_in_at ? (
           <p>
@@ -131,9 +153,12 @@ export function WorkerBookingCard({
           <span className="status-badge status-badge--rating">{countdownLabel}</span>
         </div>
       ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="status-badge status-badge--ready">{nextAction}</span>
+      </div>
       {payment ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-          {getPayoutSupportCopy(payment.payout_status)}
+          {payoutReadinessMessage}
         </p>
       ) : null}
       {booking.notes ? (

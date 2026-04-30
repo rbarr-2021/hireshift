@@ -515,7 +515,9 @@ export type EmailNotificationType =
   | "booking_confirmed_business"
   | "shift_reminder_24h_worker"
   | "shift_reminder_24h_business"
-  | "payment_received_worker";
+  | "payment_received_worker"
+  | "hours_approved_worker"
+  | "payout_processing_worker";
 
 export type EmailNotificationRecord = {
   id: string;

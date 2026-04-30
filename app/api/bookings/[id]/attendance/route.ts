@@ -9,6 +9,7 @@ import {
 import { getRouteActor } from "@/lib/route-access";
 import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sendHoursApprovedWorkerEmail } from "@/lib/notifications/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -471,6 +472,36 @@ export async function POST(
         }
       }
     }
+  }
+
+  const [workerUserResult, businessProfileResult] = await Promise.all([
+    supabaseAdmin
+      .from("users")
+      .select("email,display_name")
+      .eq("id", booking.worker_id)
+      .maybeSingle<{ email: string | null; display_name: string | null }>(),
+    supabaseAdmin
+      .from("business_profiles")
+      .select("business_name")
+      .eq("user_id", booking.business_id)
+      .maybeSingle<{ business_name: string | null }>(),
+  ]);
+
+  if (workerUserResult.data?.email) {
+    await sendHoursApprovedWorkerEmail({
+      bookingId: booking.id,
+      workerUserId: booking.worker_id,
+      workerEmail: workerUserResult.data.email,
+      workerName: workerUserResult.data.display_name,
+      businessName: businessProfileResult.data?.business_name ?? "NexHyr business",
+      shiftDate: booking.shift_date,
+      approvedHours,
+    }).catch((error) => {
+      console.warn("[attendance] hours-approved email skipped", {
+        bookingId: booking.id,
+        message: error instanceof Error ? error.message : "Unknown email error.",
+      });
+    });
   }
 
   const refreshed = await refreshBookingSnapshot(booking.id);

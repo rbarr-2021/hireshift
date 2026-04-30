@@ -11,11 +11,16 @@ import {
   formatBookingTimeRange,
 } from "@/lib/bookings";
 import {
-  formatBookingLifecycleLabel,
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
 import type { BookingRecord, PaymentRecord } from "@/lib/models";
+import {
+  getBookingNextAction,
+  getBusinessPaymentConfidenceMessage,
+  getBusinessTrustStatusLabel,
+  getShiftTimingGuidance,
+} from "@/lib/booking-communication";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -50,6 +55,15 @@ export function BusinessBookingCard({
   payoutLabel?: string;
   payoutTone?: string;
 }) {
+  const trustStatus = getBusinessTrustStatusLabel(booking, payment ?? null);
+  const nextActionLabel = getBookingNextAction({
+    role: "business",
+    booking,
+    payment,
+  });
+  const paymentConfidence = getBusinessPaymentConfidenceMessage({ booking, payment });
+  const timingGuidance = getShiftTimingGuidance(booking);
+
   return (
     <article className="panel-soft p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -66,7 +80,7 @@ export function BusinessBookingCard({
           <span
             className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${bookingStatusClass(booking.status)}`}
           >
-            {formatBookingLifecycleLabel(booking, payment)}
+            {trustStatus}
           </span>
           {paymentLabel ? (
             <span
@@ -123,6 +137,9 @@ export function BusinessBookingCard({
           <span className="font-medium text-stone-900">Attendance:</span>{" "}
           {formatAttendanceStatusLabel(booking.attendance_status)}
         </p>
+        <p>
+          <span className="font-medium text-stone-900">Timing:</span> {timingGuidance}
+        </p>
         {booking.worker_hours_claimed ? (
           <p>
             <span className="font-medium text-stone-900">Claimed hours:</span>{" "}
@@ -153,6 +170,12 @@ export function BusinessBookingCard({
           {booking.business_adjustment_reason}
         </p>
       ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="status-badge status-badge--ready">{nextActionLabel}</span>
+      </div>
+      <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+        {paymentConfidence}
+      </p>
       {booking.notes ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.notes}

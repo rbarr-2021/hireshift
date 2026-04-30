@@ -146,7 +146,7 @@ export default function BusinessPastBookingsPage() {
             Payment history
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Review completed bookings, charge states, and payout progress in one place.
+            Review completed bookings and payout progress in one place.
           </p>
         </div>
         <span className="status-badge status-badge--rating">
@@ -225,7 +225,9 @@ export default function BusinessPastBookingsPage() {
       ) : unfulfilledListings.length === 0 ? (
         <BusinessEmptyState
           title="No payments yet"
-          description="Completed, cancelled, declined, and older bookings will collect here with their payment state."
+          description="No completed bookings yet. Post shifts to start building payment history."
+          actionHref="/dashboard/business/shifts/new"
+          actionLabel="Post a shift"
         />
       ) : null}
     </div>

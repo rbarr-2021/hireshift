@@ -40,6 +40,16 @@ type PaymentReceivedEmailContext = {
   payoutAmountGbp: number;
 };
 
+type HoursApprovedEmailContext = {
+  bookingId: string;
+  workerUserId: string;
+  workerEmail: string | null;
+  workerName: string | null;
+  businessName: string;
+  shiftDate: string;
+  approvedHours: number;
+};
+
 function shouldSkipEmail(email: string | null) {
   if (!email?.trim()) {
     return "Recipient email is missing.";
@@ -245,6 +255,32 @@ function buildPaymentReceivedHtml(context: PaymentReceivedEmailContext) {
   `;
 }
 
+function buildHoursApprovedSubject() {
+  return "Hours approved for your NexHyr shift";
+}
+
+function buildHoursApprovedText(context: HoursApprovedEmailContext) {
+  return [
+    buildGreeting(context.workerName),
+    "",
+    `Your hours have been approved for your shift at ${context.businessName}.`,
+    `Shift date: ${formatBookingDate(context.shiftDate)}`,
+    `Approved hours: ${context.approvedHours.toFixed(2)}`,
+    "",
+    "Your payout is now being processed.",
+  ].join("\n");
+}
+
+function buildHoursApprovedHtml(context: HoursApprovedEmailContext) {
+  return `
+    <p style="margin:0 0 12px;">${buildGreeting(context.workerName)}</p>
+    <p style="margin:0 0 12px;">Your hours have been approved for your shift at <strong>${context.businessName}</strong>.</p>
+    <p style="margin:0 0 8px;"><strong>Shift date:</strong> ${formatBookingDate(context.shiftDate)}</p>
+    <p style="margin:0 0 16px;"><strong>Approved hours:</strong> ${context.approvedHours.toFixed(2)}</p>
+    <p style="margin:0;">Your payout is now being processed.</p>
+  `;
+}
+
 export async function sendBookingConfirmationEmail(
   context: BookingEmailContext,
 ): Promise<EmailSendResult> {
@@ -355,6 +391,29 @@ export async function sendPaymentReceivedWorkerEmail(
     text: buildPaymentReceivedText(context),
     html: buildPaymentReceivedHtml(context),
     type: "payment_received_worker",
+    bookingId: context.bookingId,
+    userId: context.workerUserId,
+  });
+}
+
+export async function sendHoursApprovedWorkerEmail(
+  context: HoursApprovedEmailContext,
+): Promise<EmailSendResult> {
+  const skipReason = shouldSkipEmail(context.workerEmail);
+
+  if (skipReason) {
+    return {
+      status: "skipped",
+      reason: skipReason,
+    };
+  }
+
+  return sendEmail({
+    to: context.workerEmail!,
+    subject: buildHoursApprovedSubject(),
+    text: buildHoursApprovedText(context),
+    html: buildHoursApprovedHtml(context),
+    type: "hours_approved_worker",
     bookingId: context.bookingId,
     userId: context.workerUserId,
   });

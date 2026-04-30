@@ -191,6 +191,9 @@ export default function WorkerDashboardPage() {
       ),
     [bookings, paymentsByBookingId],
   );
+  const workerPayoutReady = Boolean(
+    profile?.stripe_connect_charges_enabled && profile?.stripe_connect_payouts_enabled,
+  );
 
   const upcomingShifts = useMemo(
     () =>
@@ -337,6 +340,7 @@ export default function WorkerDashboardPage() {
                   booking={booking}
                   business={businessesById[booking.business_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  workerPayoutReady={workerPayoutReady}
                   showDetailLink
                   countdownNow={countdownNow}
                 />
@@ -344,7 +348,9 @@ export default function WorkerDashboardPage() {
             ) : (
               <WorkerBookingEmptyState
                 title="No upcoming shifts"
-                description="Your next accepted shifts will show up here so you can see what is coming up first."
+                description="No upcoming shifts yet. Browse available shifts to get started."
+                actionHref="/shifts"
+                actionLabel="Browse shifts"
               />
             )}
           </div>
@@ -383,8 +389,15 @@ export default function WorkerDashboardPage() {
         <section className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Payments</h2>
           <div className="info-banner mt-4">
-            Complete shifts, build trust, and get paid fast. Your completed shifts move through confirmation and payout automatically.
+            {workerPayoutReady
+              ? "Your payout setup is complete."
+              : "Complete payout setup before your first shift so we can pay you."}
           </div>
+          {!paidBookings.length ? (
+            <p className="mt-4 text-sm text-stone-600">
+              No completed shifts yet.
+            </p>
+          ) : null}
         </section>
       </div>
 

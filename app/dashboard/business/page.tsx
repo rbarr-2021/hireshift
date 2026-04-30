@@ -460,7 +460,7 @@ export default function BusinessDashboardPage() {
         <div>
           <p className="section-label">Business Dashboard</p>
           <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Manage worker requests and confirmed shifts
+            Bookings and shift progress
           </h1>
         </div>
       </div>
@@ -500,8 +500,8 @@ export default function BusinessDashboardPage() {
               <p className="text-sm font-medium text-stone-500">Post-shift actions</p>
               <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutApprovals.length}</p>
             </div>
-            <p className="max-w-xl text-sm leading-6 text-stone-600">
-              Review attendance after each shift, approve or adjust hours, then payout can move automatically.
+              <p className="max-w-xl text-sm leading-6 text-stone-600">
+              Review attendance after each shift and approve hours so payout can move.
             </p>
           </div>
         </section>
@@ -551,7 +551,7 @@ export default function BusinessDashboardPage() {
             ) : (
               <BusinessEmptyState
                 title="No pending requests"
-                description="When you send booking requests, they will appear here until the worker responds."
+                description="No worker requests are waiting right now."
                 actionHref="/dashboard/business/discover"
                 actionLabel="Book a worker"
               />
@@ -652,8 +652,10 @@ export default function BusinessDashboardPage() {
               ))
             ) : (
               <BusinessEmptyState
-                title="No confirmed shifts yet"
-                description="Accepted booking requests will show up here with the confirmed date, time, and rate."
+                title="No bookings yet"
+                description="Post a shift or book a worker to get started."
+                actionHref="/dashboard/business/shifts/new"
+                actionLabel="Post a shift"
               />
             )}
           </div>
@@ -729,7 +731,7 @@ export default function BusinessDashboardPage() {
             ) : (
               <BusinessEmptyState
                 title="No post-shift actions waiting"
-                description="Once a shift ends, approve attendance hours here so worker payout can move automatically."
+                description="No hours are waiting for approval."
               />
             )}
           </div>

@@ -24,13 +24,17 @@ import { getCurrentCoordinates } from "@/lib/geolocation";
 import {
   formatPaymentStatus,
   formatPayoutStatus,
-  getPayoutSupportCopy,
-  getWorkerShiftStage,
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
+import {
+  getBookingNextAction,
+  getShiftTimingGuidance,
+  getWorkerPaymentConfidenceMessage,
+  getWorkerTrustStatusLabel,
+} from "@/lib/booking-communication";
 
 type BusinessSnapshot = {
   name: string;
@@ -253,6 +257,25 @@ export default function WorkerBookingDetailPage() {
         : booking.attendance_status === "checked_in"
           ? "Shift in progress"
           : null;
+  const workerPayoutReady = payment
+    ? payment.payout_status === "completed" ||
+      payment.payout_status === "paid" ||
+      payment.payout_status === "in_progress" ||
+      payment.payout_status === "pending"
+    : false;
+  const trustStatus = getWorkerTrustStatusLabel(booking, payment);
+  const nextActionLabel = getBookingNextAction({
+    role: "worker",
+    booking,
+    payment,
+    workerPayoutReady,
+    now,
+  });
+  const timingGuidance = getShiftTimingGuidance(booking, now);
+  const payoutMessage = getWorkerPaymentConfidenceMessage({
+    payment,
+    workerPayoutReady,
+  });
 
   return (
     <div className="space-y-6">
@@ -263,7 +286,7 @@ export default function WorkerBookingDetailPage() {
             {business?.name || "Business"} shift
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Funded shifts move to payout after the business confirms completion.
+            Keep this shift on track with clear check-in, approval, and payout updates.
           </p>
         </div>
         <Link href="/dashboard/worker" className="secondary-btn w-full px-6 sm:w-auto">
@@ -290,7 +313,9 @@ export default function WorkerBookingDetailPage() {
             <p><span className="font-medium text-stone-900">Role:</span> {booking.requested_role_label || "Hospitality shift"}</p>
             <p><span className="font-medium text-stone-900">Shift date:</span> {formatBookingDate(booking.shift_date)}</p>
             <p><span className="font-medium text-stone-900">Time:</span> {formatBookingTimeRange(booking.start_time, booking.end_time, booking.shift_date, booking.shift_end_date)}</p>
-            <p><span className="font-medium text-stone-900">Stage:</span> {getWorkerShiftStage(booking, payment)}</p>
+            <p><span className="font-medium text-stone-900">Status:</span> {trustStatus}</p>
+            <p><span className="font-medium text-stone-900">Next action:</span> {nextActionLabel}</p>
+            <p><span className="font-medium text-stone-900">Timing:</span> {timingGuidance}</p>
             <p><span className="font-medium text-stone-900">Business:</span> {business?.contact || "Business contact"}</p>
             {business?.verificationStatus === "verified" ? (
               <p><span className="font-medium text-stone-900">Trust:</span> Trusted business ✓</p>
@@ -323,7 +348,7 @@ export default function WorkerBookingDetailPage() {
         <aside className="panel-soft p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-stone-900">Payment status</h2>
           <div className="info-banner mt-4">
-            {payment ? getPayoutSupportCopy(payment.payout_status) : "Once this shift is paid for, your payout status will update here automatically."}
+            {payoutMessage}
           </div>
           <div className="mt-5 space-y-3 text-sm text-stone-600">
             <div className="flex items-center justify-between gap-4">

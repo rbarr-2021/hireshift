@@ -21,6 +21,7 @@ import type {
   BookingRecord,
   PaymentRecord,
   WorkerReliabilityRecord,
+  WorkerProfileRecord,
 } from "@/lib/models";
 import { isLateCancellationWindow } from "@/lib/reliability";
 import { supabase } from "@/lib/supabase";
@@ -33,6 +34,7 @@ export default function WorkerAcceptedJobsPage() {
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [countdownNow, setCountdownNow] = useState(() => new Date());
+  const [workerPayoutReady, setWorkerPayoutReady] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -55,6 +57,11 @@ export default function WorkerAcceptedJobsPage() {
       }
 
       const snapshot = await loadWorkerBookingsSnapshot(user.id);
+      const workerProfileResult = await supabase
+        .from("worker_profiles")
+        .select("stripe_connect_charges_enabled,stripe_connect_payouts_enabled")
+        .eq("user_id", user.id)
+        .maybeSingle<Pick<WorkerProfileRecord, "stripe_connect_charges_enabled" | "stripe_connect_payouts_enabled">>();
 
       if (!active) {
         return;
@@ -63,6 +70,12 @@ export default function WorkerAcceptedJobsPage() {
       setBookings(snapshot.bookings.filter((booking) => booking.status === "accepted"));
       setPaymentsByBookingId(snapshot.paymentsByBookingId);
       setBusinessesById(snapshot.businessesById);
+      setWorkerPayoutReady(
+        Boolean(
+          workerProfileResult.data?.stripe_connect_charges_enabled &&
+            workerProfileResult.data?.stripe_connect_payouts_enabled,
+        ),
+      );
       setLoading(false);
     };
 
@@ -213,7 +226,7 @@ export default function WorkerAcceptedJobsPage() {
       <div>
         <p className="section-label">Worker jobs</p>
         <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-          Accepted jobs
+          Your booked shifts
         </h1>
       </div>
 
@@ -225,6 +238,7 @@ export default function WorkerAcceptedJobsPage() {
               booking={booking}
               business={businessesById[booking.business_id]}
               payment={paymentsByBookingId[booking.id]}
+              workerPayoutReady={workerPayoutReady}
               showDetailLink
               countdownNow={countdownNow}
               actions={
@@ -293,8 +307,8 @@ export default function WorkerAcceptedJobsPage() {
           ))
         ) : (
           <WorkerBookingEmptyState
-            title="No accepted jobs yet"
-            description="Accepted shifts will appear here so you can keep this area focused."
+            title="No upcoming shifts yet"
+            description="Browse available shifts to get started."
             actionHref="/shifts"
             actionLabel="Browse shifts"
           />
