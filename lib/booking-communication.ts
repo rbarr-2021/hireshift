@@ -48,6 +48,10 @@ export function getWorkerTrustStatusLabel(
 ) {
   const paymentStatus = getPaymentStatusValue(payment);
 
+  if (booking.status === "accepted" && paymentStatus !== "paid") {
+    return "Awaiting business payment";
+  }
+
   if (payment?.payout_status === "completed" || payment?.payout_status === "paid") {
     return "Paid";
   }
@@ -75,7 +79,7 @@ export function getWorkerTrustStatusLabel(
   if (paymentStatus === "paid") {
     const timing = getShiftTimingGuidance(booking, now);
     if (timing === "Upcoming shift" || timing === "Starts tomorrow" || timing === "Starts today") {
-      return "Upcoming shift";
+      return "Payment secured";
     }
   }
 
@@ -85,12 +89,10 @@ export function getWorkerTrustStatusLabel(
 export function getBusinessTrustStatusLabel(
   booking: BookingRecord,
   payment: PaymentRecord | null | undefined,
-  now = new Date(),
 ) {
   const paymentStatus = getPaymentStatusValue(payment);
 
   if (paymentStatus === "paid") {
-    const timing = getShiftTimingGuidance(booking, now);
     if (
       booking.attendance_status === "pending_approval" ||
       booking.worker_checked_out_at
@@ -100,12 +102,10 @@ export function getBusinessTrustStatusLabel(
     if (booking.attendance_status === "approved" || booking.attendance_status === "adjusted") {
       return "Completed";
     }
-    return timing === "Upcoming shift" || timing === "Starts tomorrow" || timing === "Starts today"
-      ? "Worker booked"
-      : "Payment secured";
+    return "Payment secured";
   }
 
-  return "Worker booked";
+  return "Worker selected - awaiting payment";
 }
 
 export function getBookingNextAction(input: {
@@ -131,7 +131,7 @@ export function getBookingNextAction(input: {
     }
 
     if (input.booking.status === "accepted" && paymentStatus !== "paid") {
-      return "Waiting for business payment";
+      return "Awaiting business payment";
     }
 
     if (input.payment?.payout_status === "completed" || input.payment?.payout_status === "paid") {
@@ -163,7 +163,7 @@ export function getBookingNextAction(input: {
   const paymentStatus = getPaymentStatusValue(input.payment);
 
   if (paymentStatus !== "paid") {
-    return "Pay estimated amount";
+    return "Payment required to confirm this shift";
   }
 
   if (
@@ -220,7 +220,7 @@ export function getWorkerPaymentConfidenceMessage(input: {
   }
 
   if (paymentStatus !== "paid") {
-    return "You’re confirmed once the business payment is secured.";
+    return "You are selected for this shift, but it is only confirmed once the business payment is secured.";
   }
 
   if (input.payment?.settlement_status === "top_up_required") {
@@ -241,7 +241,7 @@ export function getWorkerPaymentConfidenceMessage(input: {
     return "Payment is being processed.";
   }
 
-  return "You’ll be paid after the shift is completed and hours are approved.";
+  return "Payment secured. You are confirmed for this shift.";
 }
 
 export function getBusinessPaymentConfidenceMessage(input: {
@@ -259,7 +259,7 @@ export function getBusinessPaymentConfidenceMessage(input: {
   }
 
   if (paymentStatus === "paid") {
-    return "Payment secured.";
+    return "Payment secured. This worker is confirmed for the shift.";
   }
 
   if (input.booking.attendance_status === "pending_approval") {
@@ -273,5 +273,5 @@ export function getBusinessPaymentConfidenceMessage(input: {
     return "Issue raised — admin review needed.";
   }
 
-  return "Payment required to confirm this worker.";
+  return "This shift must be paid before it begins or the booking will not go ahead.";
 }

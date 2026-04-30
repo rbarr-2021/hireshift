@@ -341,7 +341,7 @@ export default function BusinessBookingPaymentPage() {
             ) : null}
           </div>
           <div className="info-banner mt-5">
-            Worker payout is based on approved hours after the shift. Extra approved time needs top-up payment before full payout release.
+            Payment secures the worker for this shift. Final pay is based on approved hours.
           </div>
 
           {!bookingReadyForPayment && !isTopUpFlow ? (
@@ -362,10 +362,10 @@ export default function BusinessBookingPaymentPage() {
                   ? "Redirecting..."
                   : isTopUpFlow
                     ? "Pay extra balance"
-                    : "Pay estimated amount"}
+                    : "Secure shift payment"}
               </button>
               <p className="text-xs leading-5 text-stone-500">
-                Checkout is hosted by Stripe. Payment confirmation updates the linked booking automatically.
+                This shift must be paid before it begins or the booking will not go ahead.
               </p>
             </div>
           )}

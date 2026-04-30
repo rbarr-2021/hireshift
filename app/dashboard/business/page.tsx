@@ -595,7 +595,7 @@ export default function BusinessDashboardPage() {
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
                           className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
                         >
-                          Pay now
+                          Secure shift payment
                         </Link>
                       ) : (paymentsByBookingId[booking.id] &&
                           ((paymentsByBookingId[booking.id].top_up_due_gbp ?? 0) > 0 ||
@@ -604,7 +604,7 @@ export default function BusinessDashboardPage() {
                           href={`/dashboard/business/bookings/${booking.id}/pay`}
                           className="primary-btn w-full px-5 sm:w-auto sm:flex-1"
                         >
-                          Pay now
+                          Secure shift payment
                         </Link>
                       ) : booking.worker_checked_in_at &&
                         booking.arrival_confirmation_status !== "business_confirmed" ? (
@@ -680,7 +680,7 @@ export default function BusinessDashboardPage() {
                             href={`/dashboard/business/bookings/${booking.id}/pay`}
                             className="primary-btn w-full px-5 sm:w-auto"
                           >
-                            Pay now
+                            Secure shift payment
                           </Link>
                         ) : booking.worker_checked_in_at &&
                           booking.arrival_confirmation_status !== "business_confirmed" ? (
