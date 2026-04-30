@@ -52,3 +52,26 @@ export function getStripeModeDiagnostics() {
   };
 }
 
+export function isStripeTestModeActive() {
+  const diagnostics = getStripeModeDiagnostics();
+  return (
+    diagnostics.stripeSecretMode === "test" ||
+    diagnostics.stripePublishableMode === "test"
+  );
+}
+
+export function shouldBlockLivePayoutActions() {
+  const diagnostics = getStripeModeDiagnostics();
+  const liveModeDetected =
+    diagnostics.stripeSecretMode === "live" ||
+    diagnostics.stripePublishableMode === "live";
+
+  if (!liveModeDetected) {
+    return false;
+  }
+
+  const allowLivePayouts =
+    process.env.STRIPE_ALLOW_LIVE_PAYOUTS?.trim().toLowerCase() === "true";
+
+  return !allowLivePayouts;
+}
