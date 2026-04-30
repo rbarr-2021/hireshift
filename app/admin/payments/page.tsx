@@ -404,9 +404,15 @@ export default function AdminPaymentsPage() {
       ) : null}
       {controls?.test_mode_banner_enabled && stripeTestModeActive ? (
         <section className="rounded-2xl border border-blue-300/40 bg-blue-100/10 px-4 py-3 text-sm text-blue-100">
-          Stripe test mode appears to be active.
+          Test Mode – No real payments
         </section>
       ) : null}
+      <section className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-stone-300">
+        Environment:{" "}
+        <span className="font-semibold text-stone-100">
+          {stripeTestModeActive ? "TEST" : "LIVE"}
+        </span>
+      </section>
 
       {controls ? (
         <section className="panel-soft p-5 sm:p-6">

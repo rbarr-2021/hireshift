@@ -13,6 +13,7 @@ import type {
 } from "@/lib/models";
 import { getRouteActor, isAdminUser } from "@/lib/route-access";
 import { getStripeClient } from "@/lib/stripe";
+import { shouldBlockLivePayoutActions } from "@/lib/stripe-config";
 import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
 import {
   getPlatformPaymentControls,
@@ -238,6 +239,19 @@ export async function PATCH(
   }
 
   if (payoutAction) {
+    if (
+      ["approve_payout", "retry_payout", "refund"].includes(payoutAction) &&
+      shouldBlockLivePayoutActions()
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Live Stripe mode detected. Payout/refund actions are blocked until STRIPE_ALLOW_LIVE_PAYOUTS=true is set server-side.",
+        },
+        { status: 409 },
+      );
+    }
+
     if (!payment) {
       return NextResponse.json({ error: "No payment record found for this booking." }, { status: 404 });
     }

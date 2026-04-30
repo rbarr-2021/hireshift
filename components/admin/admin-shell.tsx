@@ -23,28 +23,42 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     all: 0,
     businesses: 0,
   });
+  const [stripeEnvironment, setStripeEnvironment] = useState<"TEST" | "LIVE">("TEST");
 
   useEffect(() => {
     let active = true;
 
     const loadPendingReviews = async () => {
       try {
-        const response = await fetchWithSession("/api/admin/users");
-        const payload = (await response.json()) as {
+        const [usersResponse, controlsResponse] = await Promise.all([
+          fetchWithSession("/api/admin/users"),
+          fetchWithSession("/api/admin/payment-controls"),
+        ]);
+        const usersPayload = (await usersResponse.json()) as {
           counts?: {
             pendingVerificationReviews?: number;
             pendingBusinessVerificationReviews?: number;
           };
         };
+        const controlsPayload = (await controlsResponse.json()) as {
+          stripe_mode?: { test_mode_active?: boolean };
+        };
 
-        if (!response.ok || !active) {
+        if (!active) {
           return;
         }
 
-        setPendingReviews({
-          all: payload.counts?.pendingVerificationReviews ?? 0,
-          businesses: payload.counts?.pendingBusinessVerificationReviews ?? 0,
-        });
+        if (usersResponse.ok) {
+          setPendingReviews({
+            all: usersPayload.counts?.pendingVerificationReviews ?? 0,
+            businesses: usersPayload.counts?.pendingBusinessVerificationReviews ?? 0,
+          });
+        }
+        if (controlsResponse.ok) {
+          setStripeEnvironment(
+            controlsPayload.stripe_mode?.test_mode_active ? "TEST" : "LIVE",
+          );
+        }
       } catch {
         if (active) {
           setPendingReviews({ all: 0, businesses: 0 });
@@ -100,6 +114,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <p className="mt-1 text-sm text-stone-600">
               Bookings, users, and trust controls.
             </p>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-stone-500">
+              Environment:{" "}
+              <span className="font-semibold text-stone-100">{stripeEnvironment}</span>
+            </p>
+            {stripeEnvironment === "TEST" ? (
+              <p className="mt-2 rounded-xl border border-blue-300/40 bg-blue-100/10 px-3 py-2 text-xs font-semibold text-blue-100">
+                Test Mode – No real payments
+              </p>
+            ) : null}
           </div>
 
           <nav className="mt-6 hidden space-y-2 lg:block">

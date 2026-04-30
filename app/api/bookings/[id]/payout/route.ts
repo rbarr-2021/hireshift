@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { isWorkerPayoutReady } from "@/lib/payout-readiness";
 import { getRouteActor } from "@/lib/route-access";
+import { shouldBlockLivePayoutActions } from "@/lib/stripe-config";
 import { tryAutomaticWorkerPayoutTransfer } from "@/lib/stripe-connect";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
@@ -97,6 +98,16 @@ export async function POST(
   }
 
   if (action === "approve_payout") {
+    if (shouldBlockLivePayoutActions()) {
+      return NextResponse.json(
+        {
+          error:
+            "Live Stripe mode detected. Payout actions are blocked until STRIPE_ALLOW_LIVE_PAYOUTS=true is set server-side.",
+        },
+        { status: 409 },
+      );
+    }
+
     if (!payment) {
       return NextResponse.json({ error: "No payment record found for this booking." }, { status: 404 });
     }
