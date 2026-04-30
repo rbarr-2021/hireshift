@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CancelBookingAction } from "@/components/bookings/cancel-booking-action";
+import { AdminContactCard } from "@/components/support/admin-contact-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
 import {
@@ -10,6 +12,7 @@ import {
 } from "@/components/worker/worker-booking-card";
 import { loadWorkerBookingsSnapshot } from "@/components/worker/worker-bookings-loader";
 import {
+  canCancelBooking,
   formatHoursValue,
   getCheckInWindow,
   isPastBooking,
@@ -235,6 +238,23 @@ export default function WorkerAcceptedJobsPage() {
                         View shift
                       </a>
                     ) : null}
+                    {canCancelBooking(booking, payment) ? (
+                      <CancelBookingAction
+                        bookingId={booking.id}
+                        actorRole="worker"
+                        className="secondary-btn w-full px-5 sm:w-auto"
+                        onCancelled={() => {
+                          setBookings((current) =>
+                            current.filter((item) => item.id !== booking.id),
+                          );
+                          setPaymentsByBookingId((current) => {
+                            const next = { ...current };
+                            delete next[booking.id];
+                            return next;
+                          });
+                        }}
+                      />
+                    ) : null}
                     {booking.attendance_status === "pending_approval" ? (
                       <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                         Awaiting business approval.
@@ -276,6 +296,11 @@ export default function WorkerAcceptedJobsPage() {
           />
         )}
       </div>
+      <AdminContactCard
+        accountType="worker"
+        title="Contact Support"
+        description="Having an issue? Contact support and we’ll help."
+      />
     </div>
   );
 }

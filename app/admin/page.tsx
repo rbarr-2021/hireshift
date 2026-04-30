@@ -23,6 +23,11 @@ type AdminBookingItem = {
     requested_role_label: string | null;
     location: string;
     status: string;
+    cancelled_at: string | null;
+    cancelled_by_user_id: string | null;
+    cancelled_by_role: string | null;
+    cancellation_reason: string | null;
+    cancellation_note: string | null;
     total_amount_gbp: number;
     platform_fee_gbp: number;
   };
@@ -128,6 +133,15 @@ function renderBookingList(items: AdminBookingItem[]) {
               View booking
             </Link>
           </div>
+          {item.booking.cancelled_at ? (
+            <p className="mt-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-xs leading-6 text-stone-400">
+              Cancelled by {item.booking.cancelled_by_role || "user"} on{" "}
+              {new Date(item.booking.cancelled_at).toLocaleString("en-GB")}
+              {item.booking.cancelled_by_user_id ? ` (${item.booking.cancelled_by_user_id})` : ""}
+              {item.booking.cancellation_reason ? ` | ${item.booking.cancellation_reason}` : ""}
+              {item.booking.cancellation_note ? ` | ${item.booking.cancellation_note}` : ""}
+            </p>
+          ) : null}
         </article>
       ))}
     </div>

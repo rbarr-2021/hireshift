@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
+import { CancelBookingAction } from "@/components/bookings/cancel-booking-action";
 import {
+  canCancelBooking,
   formatArrivalConfirmationStatusLabel,
   formatAttendanceStatusLabel,
   formatBookingDate,
@@ -438,6 +440,21 @@ export default function WorkerBookingDetailPage() {
                 <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                   Hours approved.
                 </p>
+              ) : null}
+              {canCancelBooking(booking, payment) ? (
+                <CancelBookingAction
+                  bookingId={booking.id}
+                  actorRole="worker"
+                  className="secondary-btn w-full px-5"
+                  onCancelled={(nextBooking, nextPayment) => {
+                    if (nextBooking) {
+                      setBooking(nextBooking);
+                    }
+                    if (nextPayment) {
+                      setPayment(nextPayment);
+                    }
+                  }}
+                />
               ) : null}
             </div>
           ) : null}

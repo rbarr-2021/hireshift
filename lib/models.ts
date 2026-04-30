@@ -612,6 +612,11 @@ export type BookingRecord = {
   location: string;
   notes: string | null;
   status: BookingStatus;
+  cancelled_at: string | null;
+  cancelled_by_user_id: string | null;
+  cancelled_by_role: "worker" | "business" | "admin" | null;
+  cancellation_reason: string | null;
+  cancellation_note: string | null;
   total_amount_gbp: number;
   platform_fee_gbp: number;
   worker_checked_in_at: string | null;

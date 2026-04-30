@@ -39,6 +39,11 @@ type AdminBookingDetail = {
     meal_provided: boolean;
     safety_or_ppe_requirements: string | null;
     experience_level_required: string | null;
+    cancelled_at: string | null;
+    cancelled_by_user_id: string | null;
+    cancelled_by_role: string | null;
+    cancellation_reason: string | null;
+    cancellation_note: string | null;
   };
   payment: {
     status: string;
@@ -237,6 +242,21 @@ export default function AdminBookingDetailPage() {
             <p className="sm:col-span-2"><span className="font-medium text-stone-900">Safety/PPE:</span> {item.booking.safety_or_ppe_requirements || "Not provided"}</p>
             {item.booking.notes ? (
               <p className="sm:col-span-2"><span className="font-medium text-stone-900">Notes:</span> {item.booking.notes}</p>
+            ) : null}
+            {item.booking.cancelled_at ? (
+              <p><span className="font-medium text-stone-900">Cancelled at:</span> {new Date(item.booking.cancelled_at).toLocaleString("en-GB")}</p>
+            ) : null}
+            {item.booking.cancelled_by_role ? (
+              <p><span className="font-medium text-stone-900">Cancelled by:</span> {item.booking.cancelled_by_role}</p>
+            ) : null}
+            {item.booking.cancelled_by_user_id ? (
+              <p><span className="font-medium text-stone-900">Cancelled by user:</span> {item.booking.cancelled_by_user_id}</p>
+            ) : null}
+            {item.booking.cancellation_reason ? (
+              <p><span className="font-medium text-stone-900">Cancellation reason:</span> {item.booking.cancellation_reason}</p>
+            ) : null}
+            {item.booking.cancellation_note ? (
+              <p className="sm:col-span-2"><span className="font-medium text-stone-900">Cancellation note:</span> {item.booking.cancellation_note}</p>
             ) : null}
             {item.payment?.stripe_payment_intent_id ? (
               <p className="sm:col-span-2"><span className="font-medium text-stone-900">Payment intent:</span> {item.payment.stripe_payment_intent_id}</p>

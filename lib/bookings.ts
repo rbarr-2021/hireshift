@@ -3,6 +3,7 @@ import type {
   AttendanceStatus,
   BookingRecord,
   BookingStatus,
+  PaymentRecord,
 } from "@/lib/models";
 
 function buildDateTime(date: string, time: string) {
@@ -232,4 +233,53 @@ export function formatTimeUntilBooking(
   }
 
   return `${minutes} minutes until shift`;
+}
+
+export function isBookingCancellationLocked(
+  booking: BookingRecord,
+  payment?: PaymentRecord | null,
+) {
+  if (
+    booking.status === "completed" ||
+    booking.status === "cancelled" ||
+    booking.status === "declined" ||
+    booking.status === "no_show"
+  ) {
+    return true;
+  }
+
+  if (
+    booking.attendance_status === "approved" ||
+    booking.attendance_status === "adjusted" ||
+    booking.attendance_status === "disputed"
+  ) {
+    return true;
+  }
+
+  if (!payment) {
+    return false;
+  }
+
+  if (
+    payment.payout_status === "completed" ||
+    payment.payout_status === "paid" ||
+    payment.payout_status === "in_progress" ||
+    payment.payout_status === "on_hold" ||
+    payment.payout_status === "disputed"
+  ) {
+    return true;
+  }
+
+  if (payment.settlement_status === "settled") {
+    return true;
+  }
+
+  return payment.status === "refunded" || payment.status === "disputed";
+}
+
+export function canCancelBooking(
+  booking: BookingRecord,
+  payment?: PaymentRecord | null,
+) {
+  return booking.status === "accepted" && !isBookingCancellationLocked(booking, payment);
 }

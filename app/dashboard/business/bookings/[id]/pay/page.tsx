@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast-provider";
+import { CancelBookingAction } from "@/components/bookings/cancel-booking-action";
 import {
   calculateBookingDurationHours,
+  canCancelBooking,
   formatBookingDate,
   formatBookingTimeRange,
 } from "@/lib/bookings";
@@ -369,6 +371,23 @@ export default function BusinessBookingPaymentPage() {
               </p>
             </div>
           )}
+          {canCancelBooking(booking, payment) ? (
+            <div className="mt-4">
+              <CancelBookingAction
+                bookingId={booking.id}
+                actorRole="business"
+                className="secondary-btn w-full px-5"
+                onCancelled={(nextBooking, nextPayment) => {
+                  if (nextBooking) {
+                    setBooking(nextBooking);
+                  }
+                  if (nextPayment) {
+                    setPayment(nextPayment);
+                  }
+                }}
+              />
+            </div>
+          ) : null}
         </aside>
       </div>
       <AdminContactCard

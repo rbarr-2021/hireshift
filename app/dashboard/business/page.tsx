@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { CancelBookingAction } from "@/components/bookings/cancel-booking-action";
 import {
+  canCancelBooking,
   formatBookingDate,
   formatBookingTimeRange,
   isPastBooking,
@@ -616,6 +618,27 @@ export default function BusinessDashboardPage() {
                         >
                           Confirm arrival
                         </button>
+                      ) : canCancelBooking(booking, paymentsByBookingId[booking.id]) ? (
+                        <CancelBookingAction
+                          bookingId={booking.id}
+                          actorRole="business"
+                          className="secondary-btn w-full px-5 sm:w-auto sm:flex-1"
+                          onCancelled={(nextBooking, nextPayment) => {
+                            if (nextBooking) {
+                              setBookings((current) =>
+                                current.map((currentBooking) =>
+                                  currentBooking.id === booking.id ? nextBooking : currentBooking,
+                                ),
+                              );
+                            }
+                            if (nextPayment) {
+                              setPaymentsByBookingId((current) => ({
+                                ...current,
+                                [booking.id]: nextPayment,
+                              }));
+                            }
+                          }}
+                        />
                       ) : (
                         <button
                           type="button"
@@ -692,6 +715,27 @@ export default function BusinessDashboardPage() {
                           >
                             Confirm arrival
                           </button>
+                        ) : canCancelBooking(booking, payment) ? (
+                          <CancelBookingAction
+                            bookingId={booking.id}
+                            actorRole="business"
+                            className="secondary-btn w-full px-5 sm:w-auto"
+                            onCancelled={(nextBooking, nextPayment) => {
+                              if (nextBooking) {
+                                setBookings((current) =>
+                                  current.map((currentBooking) =>
+                                    currentBooking.id === booking.id ? nextBooking : currentBooking,
+                                  ),
+                                );
+                              }
+                              if (nextPayment) {
+                                setPaymentsByBookingId((current) => ({
+                                  ...current,
+                                  [booking.id]: nextPayment,
+                                }));
+                              }
+                            }}
+                          />
                         ) : (
                           <button
                             type="button"
