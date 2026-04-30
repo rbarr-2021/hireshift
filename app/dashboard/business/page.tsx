@@ -30,7 +30,6 @@ import {
   buildWorkerSnapshots,
 } from "@/lib/business-bookings";
 import {
-  getPayoutSupportCopy,
   isBookingPaid,
 } from "@/lib/payments";
 import { fetchWithSession } from "@/lib/route-client";
@@ -43,12 +42,6 @@ import {
 } from "@/lib/shift-listings";
 import { AdminContactCard } from "@/components/support/admin-contact-card";
 
-function statusStyles(status: string) {
-  if (status === "verified") return "bg-emerald-100 text-emerald-900";
-  if (status === "rejected") return "bg-red-100 text-red-900";
-  return "bg-amber-100 text-amber-900";
-}
-
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -60,7 +53,6 @@ function formatCurrency(value: number) {
 export default function BusinessDashboardPage() {
   const { showToast } = useToast();
   const [profile, setProfile] = useState<BusinessProfileRecord | null>(null);
-  const [workerCount, setWorkerCount] = useState(0);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [shiftListings, setShiftListings] = useState<ShiftListingRecord[]>([]);
@@ -83,13 +75,12 @@ export default function BusinessDashboardPage() {
         return;
       }
 
-      const [profileResult, workersResult, bookingsResult, shiftListingsResult] = await Promise.all([
+      const [profileResult, bookingsResult, shiftListingsResult] = await Promise.all([
         supabase
           .from("business_profiles")
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle<BusinessProfileRecord>(),
-        supabase.from("worker_profiles").select("user_id"),
         supabase
           .from("bookings")
           .select("*")
@@ -140,7 +131,6 @@ export default function BusinessDashboardPage() {
       }
 
       setProfile(profileResult.data ?? null);
-      setWorkerCount(((workersResult.data as Pick<WorkerProfileRecord, "user_id">[] | null) ?? []).length);
       setBookings(nextBookings);
       setCompletedBookingIds(
         new Set(
@@ -175,21 +165,6 @@ export default function BusinessDashboardPage() {
   const upcomingBookings = useMemo(
     () => bookings.filter((booking) => booking.status === "accepted" && !isPastBooking(booking)),
     [bookings],
-  );
-
-  const payoutApprovals = useMemo(
-    () =>
-      bookings.filter((booking) => {
-        const payment = paymentsByBookingId[booking.id];
-        return (
-          Boolean(payment) &&
-          (booking.status === "accepted" || booking.status === "completed") &&
-          ["awaiting_shift_completion", "awaiting_business_approval", "approved_for_payout", "disputed", "on_hold"].includes(
-            payment?.payout_status ?? "",
-          )
-        );
-      }),
-    [bookings, paymentsByBookingId],
   );
 
   const openShiftListings = useMemo(
@@ -464,8 +439,8 @@ export default function BusinessDashboardPage() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="panel-soft p-5">
               <Skeleton className="h-4 w-28" />
               <Skeleton className="mt-4 h-10 w-24" />
@@ -486,72 +461,121 @@ export default function BusinessDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <div>
-          <p className="section-label">Business Dashboard</p>
-          <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Bookings and shift progress
+      <div className="flex flex-col gap-2">
+        <p className="section-label">Business Dashboard</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold text-stone-900 sm:text-3xl">
+            {profile?.business_name || "Bookings and shift progress"}
           </h1>
+          {profile?.verification_status === "verified" ? (
+            <span className="verified-badge-inline status-badge status-badge--ready">
+              <span className="verified-tick">&#10003;</span>
+              verified
+            </span>
+          ) : null}
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {completion < 100 ? (
         <section className="panel-soft p-5">
           <p className="text-sm font-medium text-stone-500">Profile completion</p>
           <p className="mt-2 text-3xl font-semibold text-stone-900">{completion}%</p>
+          <Link href="/dashboard/business/profile" className="secondary-btn mt-4 inline-flex px-4 py-2">
+            Complete profile
+          </Link>
         </section>
-        <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Approval status</p>
-          <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusStyles(profile?.verification_status ?? "pending")} ${profile?.verification_status === "verified" ? "verified-badge-inline" : ""}`}>
-            {profile?.verification_status === "verified" ? (
-              <>
-                <span className="verified-tick">&#10003;</span>
-                verified
-              </>
-            ) : (
-              profile?.verification_status ?? "pending"
-            )}
-          </span>
-        </section>
-        <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Pending requests</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">{pendingRequests.length}</p>
-        </section>
-        <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Upcoming bookings</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">{upcomingBookings.length}</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.16em] text-stone-500">
-            {workerCount} workers available to discover
-          </p>
-        </section>
-        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-stone-500">Post-shift actions</p>
-              <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutApprovals.length}</p>
-            </div>
-              <p className="max-w-xl text-sm leading-6 text-stone-600">
-              Review attendance after each shift and approve hours so payout can move.
-            </p>
+      ) : null}
+
+      <section className="panel-soft p-5 sm:p-6">
+        <h2 className="text-xl font-semibold text-stone-900">Main actions</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Link
+            href="#pending-bookings"
+            className="rounded-2xl border border-white/10 bg-black/40 px-4 py-4 transition hover:border-[#00A7FF]/60"
+          >
+            <p className="text-sm text-stone-500">Pending Bookings</p>
+            <p className="mt-2 text-2xl font-semibold text-stone-900">{pendingRequests.length}</p>
+          </Link>
+          <Link
+            href="#upcoming-shifts"
+            className="rounded-2xl border border-white/10 bg-black/40 px-4 py-4 transition hover:border-[#00A7FF]/60"
+          >
+            <p className="text-sm text-stone-500">Upcoming Shifts</p>
+            <p className="mt-2 text-2xl font-semibold text-stone-900">{upcomingBookings.length}</p>
+          </Link>
+          <Link
+            href="/dashboard/business/shifts/new"
+            className="rounded-2xl border border-white/10 bg-black/40 px-4 py-4 transition hover:border-[#00A7FF]/60"
+          >
+            <p className="text-sm text-stone-500">Post Shift</p>
+            <p className="mt-2 text-base font-semibold text-stone-900">Create a new listing</p>
+          </Link>
+        </div>
+      </section>
+
+      <section className="panel-soft p-5 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-semibold text-stone-900">Live shift listings</h2>
+          <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-stone-500">
+            <span>{openShiftListings.length} live</span>
+            <span>{claimedShiftListings.length} claimed</span>
+            <span>{unfulfilledShiftListings.length} unfilled</span>
           </div>
-        </section>
-        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-stone-500">Live shift listings</p>
-              <p className="mt-2 text-3xl font-semibold text-stone-900">{openShiftListings.length}</p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-stone-500">
-              <span>{claimedShiftListings.length} claimed</span>
-              <span>{unfulfilledShiftListings.length} unfilled</span>
-              <span>{shiftListings.length} total listings</span>
-            </div>
-          </div>
-        </section>
-      </div>
+        </div>
+        <div className="mt-4 space-y-4">
+          {visibleShiftListings.length > 0 ? (
+            visibleShiftListings.slice(0, 4).map((listing) => {
+              const isUnfulfilled = isUnfulfilledShiftListing(listing);
+
+              return (
+                <article key={listing.id} className="rounded-3xl border border-white/10 bg-black/40 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-stone-100">
+                        {listing.title || listing.role_label}
+                      </p>
+                      <p className="mt-1 text-sm text-stone-400">
+                        {formatBookingDate(listing.shift_date)} | {formatBookingTimeRange(listing.start_time, listing.end_time, listing.shift_date, listing.shift_end_date)}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                        isUnfulfilled ? "status-badge" : shiftListingStatusClass(listing.status)
+                      }`}
+                    >
+                      {isUnfulfilled ? "Unfilled" : formatShiftListingStatus(listing.status)}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm text-stone-400 sm:grid-cols-2">
+                    <p>
+                      <span className="font-medium text-stone-100">Rate:</span>{" "}
+                      {formatCurrency(listing.hourly_rate_gbp)}/hr
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-100">Location:</span>{" "}
+                      {listing.city || listing.location}
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-100">Spots left:</span>{" "}
+                      {getRemainingShiftPositions(listing)} / {listing.open_positions}
+                    </p>
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <BusinessEmptyState
+              title="No shift listings yet"
+              description="Create your first open shift so workers can discover it before you send direct booking requests."
+              actionHref="/dashboard/business/shifts/new"
+              actionLabel="Post a shift"
+            />
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <section className="panel-soft p-5 sm:p-6">
+        <section id="pending-bookings" className="panel-soft p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-stone-900">Pending requests</h2>
             <span className="status-badge">{pendingRequests.length}</span>
@@ -577,7 +601,7 @@ export default function BusinessDashboardPage() {
           </div>
         </section>
 
-        <section className="panel-soft p-5 sm:p-6">
+        <section id="upcoming-shifts" className="panel-soft p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-stone-900">Upcoming bookings</h2>
             <span className="status-badge status-badge--ready">{upcomingBookings.length}</span>
@@ -675,190 +699,6 @@ export default function BusinessDashboardPage() {
                 actionLabel="Post a shift"
               />
             )}
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="panel-soft p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-stone-900">Post-shift actions</h2>
-            <span className="status-badge status-badge--ready">{payoutApprovals.length}</span>
-          </div>
-          <div className="mt-4 space-y-4">
-            {payoutApprovals.length > 0 ? (
-              payoutApprovals.slice(0, 4).map((booking) => {
-                const payment = paymentsByBookingId[booking.id];
-
-                return (
-                  <BusinessBookingCard
-                    key={booking.id}
-                    booking={booking}
-                    worker={workersById[booking.worker_id]}
-                    payment={payment}
-                    actions={
-                      <>
-                        {!isBookingPaid(payment) ? (
-                          <Link
-                            href={`/dashboard/business/bookings/${booking.id}/pay`}
-                            className="primary-btn w-full px-5 sm:w-auto"
-                          >
-                            Secure shift payment
-                          </Link>
-                        ) : booking.worker_checked_in_at &&
-                          booking.arrival_confirmation_status !== "business_confirmed" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleRecordOutcome(booking.id, "confirm_arrival")}
-                            disabled={actioningId === booking.id}
-                            className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                          >
-                            Confirm arrival
-                          </button>
-                        ) : canCancelBooking(booking, payment) ? (
-                          <CancelBookingAction
-                            bookingId={booking.id}
-                            actorRole="business"
-                            className="secondary-btn w-full px-5 sm:w-auto"
-                            onCancelled={(nextBooking, nextPayment) => {
-                              if (nextBooking) {
-                                setBookings((current) =>
-                                  current.map((currentBooking) =>
-                                    currentBooking.id === booking.id ? nextBooking : currentBooking,
-                                  ),
-                                );
-                              }
-                              if (nextPayment) {
-                                setPaymentsByBookingId((current) => ({
-                                  ...current,
-                                  [booking.id]: nextPayment,
-                                }));
-                              }
-                            }}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
-                            disabled={
-                              actioningId === booking.id ||
-                              !isBookingPaid(payment) ||
-                              !(booking.worker_checked_out_at || isPastBooking(booking))
-                            }
-                            className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                          >
-                            {actioningId === booking.id ? "Updating..." : "Approve hours"}
-                          </button>
-                        )}
-                      </>
-                    }
-                  />
-                );
-              })
-            ) : (
-              <BusinessEmptyState
-                title="No post-shift actions waiting"
-                description="No hours are waiting for approval."
-              />
-            )}
-          </div>
-        </section>
-
-        <section className="panel-soft p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-stone-900">Shift listings</h2>
-            <Link href="/dashboard/business/shifts/new" className="secondary-btn px-4 py-2">
-              Create listing
-            </Link>
-          </div>
-          <div className="mt-4 space-y-4">
-            {visibleShiftListings.length > 0 ? (
-              visibleShiftListings.slice(0, 4).map((listing) => {
-                const isUnfulfilled = isUnfulfilledShiftListing(listing);
-
-                return (
-                <article key={listing.id} className="rounded-3xl border border-white/10 bg-black/40 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-base font-semibold text-stone-100">
-                        {listing.title || listing.role_label}
-                      </p>
-                      <p className="mt-1 text-sm text-stone-400">
-                        {formatBookingDate(listing.shift_date)} | {formatBookingTimeRange(listing.start_time, listing.end_time, listing.shift_date, listing.shift_end_date)}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
-                        isUnfulfilled ? "status-badge" : shiftListingStatusClass(listing.status)
-                      }`}
-                    >
-                      {isUnfulfilled ? "Unfilled" : formatShiftListingStatus(listing.status)}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm text-stone-400 sm:grid-cols-2">
-                    <p>
-                      <span className="font-medium text-stone-100">Rate:</span>{" "}
-                      {formatCurrency(listing.hourly_rate_gbp)}/hr
-                    </p>
-                    <p>
-                      <span className="font-medium text-stone-100">Location:</span>{" "}
-                      {listing.city || listing.location}
-                    </p>
-                    <p>
-                      <span className="font-medium text-stone-100">Spots left:</span>{" "}
-                      {getRemainingShiftPositions(listing)} / {listing.open_positions}
-                    </p>
-                  </div>
-                </article>
-              );
-              })
-            ) : (
-              <BusinessEmptyState
-                title="No shift listings yet"
-                description="Create your first open shift so workers can discover it before you send direct booking requests."
-                actionHref="/dashboard/business/shifts/new"
-                actionLabel="Post a shift"
-              />
-            )}
-          </div>
-        </section>
-
-        <section className="panel-soft p-5 sm:p-6">
-          <h2 className="text-xl font-semibold text-stone-900">Business profile snapshot</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm text-stone-500">Business name</p>
-              <p className="mt-1 font-medium text-stone-900">
-                {profile?.business_name ?? "Not set"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-stone-500">Primary contact</p>
-              <p className="mt-1 font-medium text-stone-900">
-                {profile?.contact_name ?? "Not set"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-stone-500">Location</p>
-              <p className="mt-1 font-medium text-stone-900">
-                {[profile?.address_line_1, profile?.city, profile?.postcode]
-                  .filter(Boolean)
-                  .join(", ") || "Not set"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-stone-500">Business sector</p>
-              <p className="mt-1 font-medium text-stone-900">
-                {profile?.sector ?? "Not set"}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel-soft p-5 sm:p-6">
-          <h2 className="text-xl font-semibold text-stone-900">Next actions</h2>
-          <div className="info-banner mt-4">
-            {getPayoutSupportCopy("awaiting_business_approval")}
           </div>
         </section>
       </div>
