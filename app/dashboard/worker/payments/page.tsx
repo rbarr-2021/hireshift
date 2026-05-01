@@ -144,6 +144,13 @@ function WorkerPaymentsPageContent() {
 
           if (ready && redirectTo?.startsWith("/")) {
             router.replace(redirectTo);
+          } else if (ready) {
+            showToast({
+              title: "Payouts set up",
+              description: "Payouts set up. Choose a shift to accept.",
+              tone: "success",
+            });
+            router.replace("/shifts");
           }
         }
       } catch (error) {

@@ -14,7 +14,11 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    await request.json().catch(() => ({}));
+    const body = (await request.json().catch(() => ({}))) as {
+      redirect?: string;
+      shiftId?: string;
+      returnTo?: string;
+    };
     const actor = await getRouteActor(request);
 
     if (!actor) {
@@ -65,7 +69,16 @@ export async function POST(request: NextRequest) {
     });
 
     const siteUrl = getSiteUrl();
-    const workerPaymentsUrl = `${siteUrl}/dashboard/worker/payments`;
+    const candidateReturnTo =
+      typeof body.returnTo === "string"
+        ? body.returnTo
+        : typeof body.redirect === "string"
+          ? body.redirect
+          : typeof body.shiftId === "string" && body.shiftId.trim().length > 0
+            ? `/shifts/${body.shiftId.trim()}?intent=take`
+            : "/shifts";
+    const safeReturnTo = candidateReturnTo.startsWith("/") ? candidateReturnTo : "/shifts";
+    const workerPaymentsUrl = `${siteUrl}/dashboard/worker/payments?stripe=connected&redirect=${encodeURIComponent(safeReturnTo)}`;
     const onboardingLink = await createWorkerStripeOnboardingLink({
       accountId: account.id,
       returnUrl: workerPaymentsUrl,

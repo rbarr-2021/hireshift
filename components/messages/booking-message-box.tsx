@@ -10,6 +10,30 @@ type RecipientOption = {
   recipient_role?: "worker" | "business" | "admin";
 };
 
+const ISSUE_OPTIONS = [
+  { value: "booking_issue", label: "Booking issue" },
+  { value: "payment_question", label: "Payment question" },
+  { value: "shift_cancellation", label: "Shift cancellation" },
+  { value: "worker_did_not_arrive", label: "Worker did not arrive" },
+  { value: "business_issue", label: "Business issue" },
+  { value: "account_issue", label: "Account issue" },
+  { value: "other", label: "Other" },
+];
+
+async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
+  const text = await response.text();
+
+  if (!text) {
+    return { error: fallbackError } as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { error: fallbackError } as T;
+  }
+}
+
 export function BookingMessageBox({
   bookingId,
   recipients,
@@ -26,6 +50,8 @@ export function BookingMessageBox({
   const [sending, setSending] = useState(false);
 
   const selectedRecipient = recipients.find((recipient) => recipient.label === recipientValue) ?? recipients[0];
+  const [issueType, setIssueType] = useState("booking_issue");
+  const isSupportTarget = (selectedRecipient?.recipient_role ?? "admin") === "admin";
 
   const submit = async () => {
     const trimmedBody = body.trim();
@@ -47,27 +73,31 @@ export function BookingMessageBox({
           booking_id: bookingId,
           recipient_id: selectedRecipient?.recipient_id ?? null,
           recipient_role: selectedRecipient?.recipient_role ?? "admin",
+          issue_type: issueType,
           subject: subject.trim() || null,
           body: trimmedBody,
         }),
       });
-      const payload = (await response.json()) as { success?: boolean; error?: string };
+      const payload = await readJsonResponse<{ success?: boolean; error?: string }>(
+        response,
+        "We couldn’t send your message. Please try again or contact support.",
+      );
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Unable to send message.");
+        throw new Error(payload.error || "We couldn’t send your message. Please try again or contact support.");
       }
 
       setBody("");
       setSubject("");
       showToast({
         title: "Message sent",
-        description: "Your booking message has been sent.",
+        description: "Message sent. Admin will review it.",
         tone: "success",
       });
     } catch (error) {
       showToast({
-        title: "Send failed",
-        description: error instanceof Error ? error.message : "Unable to send message.",
+        title: "Message not sent",
+        description: "We couldn’t send your message. Please try again or contact support.",
         tone: "error",
       });
     } finally {
@@ -103,6 +133,22 @@ export function BookingMessageBox({
           />
         </label>
       </div>
+      {isSupportTarget ? (
+        <label className="mt-3 block text-sm text-stone-600">
+          Issue type
+          <select
+            value={issueType}
+            onChange={(event) => setIssueType(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-sm text-stone-100 outline-none transition focus:border-[#00A7FF]"
+          >
+            {ISSUE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="mt-3 block text-sm text-stone-600">
         Message
         <textarea

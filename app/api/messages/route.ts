@@ -20,6 +20,16 @@ function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+const SUPPORT_ISSUE_TYPES = new Set([
+  "booking_issue",
+  "payment_question",
+  "shift_cancellation",
+  "worker_did_not_arrive",
+  "business_issue",
+  "account_issue",
+  "other",
+]);
+
 async function validateBookingAccess({
   actorId,
   isActorAdmin,
@@ -36,7 +46,7 @@ async function validateBookingAccess({
 
 export async function GET(request: NextRequest) {
   const actor = await getRouteActor(request);
-  if (!actor) return invalid("Unauthorized", 401);
+  if (!actor) return invalid("Please log in again.", 401);
 
   const isActorAdmin = await isAdmin(actor.authUser.id);
   const boxParam = request.nextUrl.searchParams.get("box") ?? "inbox";
@@ -72,19 +82,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const actor = await getRouteActor(request);
-  if (!actor) return invalid("Unauthorized", 401);
+  if (!actor) return invalid("Please log in again.", 401);
 
   const isActorAdmin = await isAdmin(actor.authUser.id);
   const payload = (await request.json().catch(() => ({}))) as {
     booking_id?: string;
     recipient_id?: string;
     recipient_role?: "worker" | "business" | "admin" | null;
+    issue_type?: string | null;
     subject?: string;
     body?: string;
   };
 
   const bookingId = payload.booking_id?.trim() || null;
   const recipientRole = payload.recipient_role ?? null;
+  const issueTypeRaw = payload.issue_type?.trim().toLowerCase() || null;
+  const issueType = issueTypeRaw && SUPPORT_ISSUE_TYPES.has(issueTypeRaw) ? issueTypeRaw : null;
   let recipientId = payload.recipient_id?.trim() || null;
   const subject = normaliseMessageSubject(payload.subject);
   const body = normaliseMessageBody(payload.body);
@@ -114,6 +127,14 @@ export async function POST(request: NextRequest) {
 
   if (!recipientId) {
     return invalid("Recipient could not be resolved.");
+  }
+
+  const isSupportMessage =
+    recipientRole === "admin" ||
+    recipientId === (await resolveAdminRecipientId());
+
+  if (isSupportMessage && !issueType) {
+    return invalid("Choose an issue type before sending.");
   }
 
   if (!isActorAdmin && recipientId === actor.authUser.id) {
@@ -154,6 +175,10 @@ export async function POST(request: NextRequest) {
     sender_role: senderRole,
     subject,
     body,
+    issue_type: issueType,
+    support_status: "open",
+    support_reviewed_at: null,
+    support_reviewed_by: null,
     status: "sent",
     email_notification_status: "pending",
     whatsapp_notification_status: "not_configured",

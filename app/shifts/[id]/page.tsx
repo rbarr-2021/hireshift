@@ -205,7 +205,9 @@ export default function ShiftDetailPage() {
             ? `Your account is temporarily unable to take new shifts until ${formatBlockedUntil(reliabilityResult.data?.blocked_until) ?? "a later date"}.`
             : hasExistingBooking
             ? "You've already taken this shift."
-            : "Profile complete - you're ready to take this shift.",
+            : isWorkerPayoutReady(workerProfileResult.data ?? null)
+              ? "Payouts set up. You can now accept this shift."
+              : "Profile complete - you're ready to take this shift.",
         );
       }
 

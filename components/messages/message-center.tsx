@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast-provider";
 import { fetchWithSession } from "@/lib/route-client";
 
@@ -14,6 +15,8 @@ type MessageListItem = {
   subject: string | null;
   body: string;
   status: "sent" | "read";
+  issue_type: string | null;
+  support_status: "open" | "reviewed" | "closed";
   created_at: string;
   read_at: string | null;
   sender_name: string;
@@ -24,14 +27,49 @@ type MessageListItem = {
   booking_shift_date: string | null;
 };
 
+const ISSUE_OPTIONS = [
+  { value: "booking_issue", label: "Booking issue" },
+  { value: "payment_question", label: "Payment question" },
+  { value: "shift_cancellation", label: "Shift cancellation" },
+  { value: "worker_did_not_arrive", label: "Worker did not arrive" },
+  { value: "business_issue", label: "Business issue" },
+  { value: "account_issue", label: "Account issue" },
+  { value: "other", label: "Other" },
+];
+
+const SUPPORT_STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  reviewed: "Reviewed",
+  closed: "Closed",
+};
+
+async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
+  const text = await response.text();
+
+  if (!text) {
+    return { error: fallbackError } as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { error: fallbackError } as T;
+  }
+}
+
 export function MessageCenter({ accountType }: { accountType: AccountType }) {
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
   const [mailbox, setMailbox] = useState<Mailbox>(accountType === "admin" ? "all" : "inbox");
   const [items, setItems] = useState<MessageListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [subject, setSubject] = useState("");
+  const [issueType, setIssueType] = useState("booking_issue");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  const bookingIdFromQuery = searchParams.get("bookingId")?.trim() || null;
 
   const accountPath =
     accountType === "worker"
@@ -43,14 +81,21 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
   const refreshMessages = async () => {
     setLoading(true);
     try {
-      const response = await fetchWithSession(`/api/messages?box=${mailbox}`);
-      const payload = (await response.json()) as { items?: MessageListItem[]; error?: string };
+      const params = new URLSearchParams({ box: mailbox });
+      if (bookingIdFromQuery && mailbox !== "all") {
+        params.set("bookingId", bookingIdFromQuery);
+      }
+      const response = await fetchWithSession(`/api/messages?${params.toString()}`);
+      const payload = await readJsonResponse<{ items?: MessageListItem[]; error?: string }>(
+        response,
+        "We couldn’t load messages right now.",
+      );
       if (!response.ok) throw new Error(payload.error || "Unable to load messages.");
       setItems(payload.items ?? []);
     } catch (error) {
       showToast({
         title: "Messages unavailable",
-        description: error instanceof Error ? error.message : "Unable to load messages.",
+        description: "We couldn’t load messages right now.",
         tone: "error",
       });
     } finally {
@@ -61,7 +106,7 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
   useEffect(() => {
     void refreshMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mailbox]);
+  }, [mailbox, bookingIdFromQuery]);
 
   const inboxItems = useMemo(() => items, [items]);
 
@@ -84,27 +129,32 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          booking_id: bookingIdFromQuery,
           recipient_role: "admin",
+          issue_type: issueType,
           subject: trimmedSubject || null,
           body: trimmedBody,
         }),
       });
-      const payload = (await response.json()) as { success?: boolean; error?: string };
+      const payload = await readJsonResponse<{ success?: boolean; error?: string }>(
+        response,
+        "We couldn’t send your message. Please try again or contact support.",
+      );
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Unable to send message.");
+        throw new Error(payload.error || "We couldn’t send your message. Please try again or contact support.");
       }
       setSubject("");
       setBody("");
       showToast({
         title: "Message sent",
-        description: "Your message has been sent to support.",
+        description: "Message sent. Admin will review it.",
         tone: "success",
       });
       await refreshMessages();
     } catch (error) {
       showToast({
-        title: "Send failed",
-        description: error instanceof Error ? error.message : "Unable to send message.",
+        title: "Message not sent",
+        description: "We couldn’t send your message. Please try again or contact support.",
         tone: "error",
       });
     } finally {
@@ -117,7 +167,10 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
       const response = await fetchWithSession(`/api/messages/${id}/read`, {
         method: "POST",
       });
-      const payload = (await response.json()) as { success?: boolean; error?: string };
+      const payload = await readJsonResponse<{ success?: boolean; error?: string }>(
+        response,
+        "We couldn’t update this message right now.",
+      );
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "Unable to mark as read.");
       }
@@ -132,6 +185,46 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
         description: error instanceof Error ? error.message : "Unable to update message.",
         tone: "error",
       });
+    }
+  };
+
+  const updateSupportStatus = async (
+    id: string,
+    supportStatus: "open" | "reviewed" | "closed",
+  ) => {
+    setUpdatingStatusId(id);
+    try {
+      const response = await fetchWithSession(`/api/messages/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ support_status: supportStatus }),
+      });
+      const payload = await readJsonResponse<{
+        success?: boolean;
+        error?: string;
+        item?: MessageListItem;
+      }>(response, "We couldn’t update this message right now.");
+
+      if (!response.ok || !payload.success || !payload.item) {
+        throw new Error(payload.error || "We couldn’t update this message right now.");
+      }
+
+      setItems((current) =>
+        current.map((item) => (item.id === id ? { ...item, ...payload.item } : item)),
+      );
+      showToast({
+        title: "Status updated",
+        description: "Support message status has been updated.",
+        tone: "success",
+      });
+    } catch {
+      showToast({
+        title: "Status update failed",
+        description: "We couldn’t update this message right now.",
+        tone: "error",
+      });
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
@@ -166,9 +259,20 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
       <section className="panel-soft p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-stone-900">Contact Support</h2>
         <p className="mt-2 text-sm text-stone-600">
-          Send a message to support. For booking-specific messages, use the booking detail page.
+          Send a message to support and admin will review it.
         </p>
         <div className="mt-4 grid gap-3">
+          <select
+            value={issueType}
+            onChange={(event) => setIssueType(event.target.value)}
+            className="input-modern w-full"
+          >
+            {ISSUE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <input
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
@@ -221,7 +325,40 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
                   {item.recipient_name ? ` -> ${item.recipient_name}` : ""}
                   {item.booking_id ? ` | Booking ${item.booking_id}` : ""}
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {item.issue_type ? (
+                    <span className="status-badge status-badge--rating">
+                      {ISSUE_OPTIONS.find((option) => option.value === item.issue_type)?.label || "Other"}
+                    </span>
+                  ) : null}
+                  <span className="status-badge">
+                    {SUPPORT_STATUS_LABELS[item.support_status] || "Open"}
+                  </span>
+                </div>
                 <p className="mt-3 text-sm leading-6 text-stone-300 whitespace-pre-wrap">{item.body}</p>
+                {accountType === "admin" ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["open", "reviewed", "closed"] as const).map((statusOption) => (
+                      <button
+                        key={statusOption}
+                        type="button"
+                        onClick={() => void updateSupportStatus(item.id, statusOption)}
+                        disabled={updatingStatusId === item.id || item.support_status === statusOption}
+                        className={
+                          item.support_status === statusOption
+                            ? "primary-btn px-3 py-2 text-xs"
+                            : "secondary-btn px-3 py-2 text-xs"
+                        }
+                      >
+                        {statusOption === "open"
+                          ? "Open"
+                          : statusOption === "reviewed"
+                            ? "Reviewed"
+                            : "Closed"}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 {mailbox !== "sent" && item.status !== "read" ? (
                   <button
                     type="button"

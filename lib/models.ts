@@ -545,6 +545,15 @@ export type EmailNotificationRecord = {
 export type MessageStatus = "sent" | "read";
 export type MessageEmailNotificationStatus = "pending" | "sent" | "failed" | "skipped";
 export type MessageWhatsAppNotificationStatus = "not_configured" | "pending_future";
+export type MessageIssueType =
+  | "booking_issue"
+  | "payment_question"
+  | "shift_cancellation"
+  | "worker_did_not_arrive"
+  | "business_issue"
+  | "account_issue"
+  | "other";
+export type MessageSupportStatus = "open" | "reviewed" | "closed";
 
 export type MessageRecord = {
   id: string;
@@ -556,6 +565,10 @@ export type MessageRecord = {
   subject: string | null;
   body: string;
   status: MessageStatus;
+  issue_type: MessageIssueType | null;
+  support_status: MessageSupportStatus;
+  support_reviewed_at: string | null;
+  support_reviewed_by: string | null;
   read_at: string | null;
   email_notification_status: MessageEmailNotificationStatus;
   whatsapp_notification_status: MessageWhatsAppNotificationStatus;

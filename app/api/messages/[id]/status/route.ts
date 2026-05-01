@@ -7,7 +7,9 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(
+const VALID_SUPPORT_STATUSES = new Set(["open", "reviewed", "closed"]);
+
+export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
@@ -16,10 +18,21 @@ export async function POST(
     return NextResponse.json({ error: "Please log in again." }, { status: 401 });
   }
 
-  const isActorAdmin = await isAdmin(actor.authUser.id);
+  if (!(await isAdmin(actor.authUser.id))) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as {
+    support_status?: string | null;
+  };
+  const nextStatus = body.support_status?.trim().toLowerCase() || "";
+
+  if (!VALID_SUPPORT_STATUSES.has(nextStatus)) {
+    return NextResponse.json({ error: "Choose a valid status." }, { status: 400 });
+  }
+
   const { id } = await context.params;
   const supabaseAdmin = getSupabaseAdminClient();
-
   const { data: message } = await supabaseAdmin
     .from("messages")
     .select("*")
@@ -30,19 +43,21 @@ export async function POST(
     return NextResponse.json({ error: "Message not found." }, { status: 404 });
   }
 
-  if (!isActorAdmin && message.recipient_id !== actor.authUser.id) {
-    return NextResponse.json({ error: "Only recipients can mark messages as read." }, { status: 403 });
-  }
-
-  const { data: updated } = await supabaseAdmin
+  const nowIso = new Date().toISOString();
+  const { data: updated, error } = await supabaseAdmin
     .from("messages")
     .update({
-      status: "read",
-      read_at: new Date().toISOString(),
+      support_status: nextStatus,
+      support_reviewed_at: nextStatus === "open" ? null : nowIso,
+      support_reviewed_by: nextStatus === "open" ? null : actor.authUser.id,
     })
     .eq("id", id)
     .select("*")
     .single<MessageRecord>();
+
+  if (error || !updated) {
+    return NextResponse.json({ error: "Unable to update status right now." }, { status: 500 });
+  }
 
   return NextResponse.json({ success: true, item: updated });
 }
