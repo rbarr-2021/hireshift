@@ -64,7 +64,7 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
   const [items, setItems] = useState<MessageListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [subject, setSubject] = useState("");
-  const [issueType, setIssueType] = useState("booking_issue");
+  const [issueType, setIssueType] = useState("other");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
@@ -262,17 +262,20 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
           Send a message to support and admin will review it.
         </p>
         <div className="mt-4 grid gap-3">
-          <select
+          <label className="text-sm text-stone-600">
+            What do you need help with?
+            <select
             value={issueType}
             onChange={(event) => setIssueType(event.target.value)}
-            className="input-modern w-full"
-          >
-            {ISSUE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            className="input-modern mt-2 w-full"
+            >
+              {ISSUE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <input
             value={subject}
             onChange={(event) => setSubject(event.target.value)}

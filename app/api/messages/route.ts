@@ -90,13 +90,17 @@ export async function POST(request: NextRequest) {
     recipient_id?: string;
     recipient_role?: "worker" | "business" | "admin" | null;
     issue_type?: string | null;
+    issueType?: string | null;
     subject?: string;
     body?: string;
   };
 
   const bookingId = payload.booking_id?.trim() || null;
   const recipientRole = payload.recipient_role ?? null;
-  const issueTypeRaw = payload.issue_type?.trim().toLowerCase() || null;
+  const issueTypeRaw =
+    payload.issue_type?.trim().toLowerCase() ||
+    payload.issueType?.trim().toLowerCase() ||
+    null;
   const issueType = issueTypeRaw && SUPPORT_ISSUE_TYPES.has(issueTypeRaw) ? issueTypeRaw : null;
   let recipientId = payload.recipient_id?.trim() || null;
   const subject = normaliseMessageSubject(payload.subject);
@@ -133,8 +137,10 @@ export async function POST(request: NextRequest) {
     recipientRole === "admin" ||
     recipientId === (await resolveAdminRecipientId());
 
-  if (isSupportMessage && !issueType) {
-    return invalid("Choose an issue type before sending.");
+  const resolvedIssueType = isSupportMessage ? issueType || "other" : issueType;
+
+  if (isSupportMessage && !resolvedIssueType) {
+    return invalid("Please choose what you need help with.");
   }
 
   if (!isActorAdmin && recipientId === actor.authUser.id) {
@@ -175,7 +181,7 @@ export async function POST(request: NextRequest) {
     sender_role: senderRole,
     subject,
     body,
-    issue_type: issueType,
+    issue_type: resolvedIssueType,
     support_status: "open",
     support_reviewed_at: null,
     support_reviewed_by: null,

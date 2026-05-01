@@ -50,7 +50,7 @@ export function BookingMessageBox({
   const [sending, setSending] = useState(false);
 
   const selectedRecipient = recipients.find((recipient) => recipient.label === recipientValue) ?? recipients[0];
-  const [issueType, setIssueType] = useState("booking_issue");
+  const [issueType, setIssueType] = useState("other");
   const isSupportTarget = (selectedRecipient?.recipient_role ?? "admin") === "admin";
 
   const submit = async () => {
@@ -135,7 +135,7 @@ export function BookingMessageBox({
       </div>
       {isSupportTarget ? (
         <label className="mt-3 block text-sm text-stone-600">
-          Issue type
+          What do you need help with?
           <select
             value={issueType}
             onChange={(event) => setIssueType(event.target.value)}
