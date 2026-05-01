@@ -15,6 +15,7 @@ import { formatBlockedUntil, isWorkerBlocked } from "@/lib/reliability";
 import { rememberPostAuthIntent } from "@/lib/post-auth-intent";
 import { isWorkerPayoutReady } from "@/lib/payout-readiness";
 import { processOwnNotificationJobs } from "@/lib/notifications/client";
+import { fetchWithSession } from "@/lib/route-client";
 import type {
   BusinessProfileRecord,
   ShiftListingRecord,
@@ -315,7 +316,7 @@ export default function ShiftDetailPage() {
 
     try {
       const redirectPath = `/shifts/${listing.id}?intent=take`;
-      const response = await fetch("/api/worker/payout-account/onboard", {
+      const response = await fetchWithSession("/api/worker/payout-account/onboard", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -329,21 +330,38 @@ export default function ShiftDetailPage() {
       );
 
       if (response.status === 401) {
-        const redirectParam = encodeURIComponent(`/shifts/${listing.id}?intent=take`);
+        showToast({
+          title: "Please log in again.",
+          description: "Please log in again.",
+          tone: "info",
+        });
+        const redirectParam = encodeURIComponent(redirectPath);
         router.push(`/login?redirect=${redirectParam}`);
+        setConnectingPayoutSetup(false);
+        return;
+      }
+
+      if (response.status === 403) {
+        showToast({
+          title: "Only workers can set up payouts.",
+          description: "Only workers can set up payouts.",
+          tone: "info",
+        });
+        setConnectingPayoutSetup(false);
         return;
       }
 
       if (!response.ok || !payload.url) {
-        throw new Error(
-          payload.error ||
-            "Payout setup is temporarily unavailable. Please contact support.",
-        );
+        throw new Error(payload.error || "Payout setup is temporarily unavailable. Please contact support.");
       }
 
       window.location.href = payload.url;
     } catch (error) {
-      const description = "Payout setup is temporarily unavailable. Please contact support.";
+      const description =
+        error instanceof Error &&
+        (error.message === "Please log in again." || error.message === "Only workers can set up payouts.")
+          ? error.message
+          : "Payout setup is temporarily unavailable. Please contact support.";
       showToast({
         title: "Payout setup unavailable",
         description,

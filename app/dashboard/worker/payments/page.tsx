@@ -291,6 +291,27 @@ function WorkerPaymentsPageContent() {
         "Stripe payout setup is not configured correctly yet.",
       );
 
+      if (response.status === 401) {
+        showToast({
+          title: "Please log in again.",
+          description: "Please log in again.",
+          tone: "info",
+        });
+        setConnecting(false);
+        router.push("/login?redirect=%2Fdashboard%2Fworker%2Fpayments");
+        return;
+      }
+
+      if (response.status === 403) {
+        showToast({
+          title: "Only workers can set up payouts.",
+          description: "Only workers can set up payouts.",
+          tone: "info",
+        });
+        setConnecting(false);
+        return;
+      }
+
       if (!response.ok || !payload.url) {
         throw new Error(
           payload.error ||

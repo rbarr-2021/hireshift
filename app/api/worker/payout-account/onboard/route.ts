@@ -19,14 +19,14 @@ export async function POST(request: NextRequest) {
 
     if (!actor) {
       return NextResponse.json(
-        { error: "Please sign in to continue payout setup." },
+        { error: "Please log in again." },
         { status: 401 },
       );
     }
 
     if (actor.appUser.role !== "worker") {
       return NextResponse.json(
-        { error: "Only workers can connect payout details." },
+        { error: "Only workers can set up payouts." },
         { status: 403 },
       );
     }
@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
 
     if (!workerProfile) {
       return NextResponse.json(
-        { error: "Complete your worker profile before connecting payouts." },
-        { status: 409 },
+        { error: "Please complete your worker profile before setting up payouts." },
+        { status: 400 },
       );
     }
 
