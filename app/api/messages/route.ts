@@ -130,6 +130,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (!recipientId) {
+    console.error("[messages:create] recipient unresolved", {
+      actorId: actor.authUser.id,
+      actorRole: actor.appUser.role,
+      bookingId,
+      recipientRole,
+      payloadRecipientId: payload.recipient_id ?? null,
+    });
     return invalid("Recipient could not be resolved.");
   }
 
@@ -200,6 +207,14 @@ export async function POST(request: NextRequest) {
     .single<MessageRecord>();
 
   if (error || !createdMessage) {
+    console.error("[messages:create] insert failed", {
+      actorId: actor.authUser.id,
+      recipientId,
+      bookingId: booking?.id ?? null,
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+    });
     return invalid("Unable to create message right now.", 500);
   }
 

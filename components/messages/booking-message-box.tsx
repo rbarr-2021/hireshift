@@ -95,9 +95,13 @@ export function BookingMessageBox({
         tone: "success",
       });
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "We couldn’t send your message. Please try again or contact support.";
       showToast({
         title: "Message not sent",
-        description: "We couldn’t send your message. Please try again or contact support.",
+        description: message,
         tone: "error",
       });
     } finally {

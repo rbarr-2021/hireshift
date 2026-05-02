@@ -56,22 +56,42 @@ export async function getBookingForMessageValidation(bookingId: string) {
 
 export async function resolveAdminRecipientId() {
   const supabaseAdmin = getSupabaseAdminClient();
-  const { data: adminRow } = await supabaseAdmin
+  const configuredAdminUserId = process.env.SUPPORT_ADMIN_USER_ID?.trim() || null;
+
+  if (configuredAdminUserId) {
+    return configuredAdminUserId;
+  }
+
+  const { data: adminRow, error: adminRowError } = await supabaseAdmin
     .from("admin_users")
     .select("user_id")
-    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle<{ user_id: string }>();
 
+  if (adminRowError) {
+    console.error("[resolveAdminRecipientId] admin_users lookup failed", {
+      code: adminRowError.code,
+      message: adminRowError.message,
+      details: adminRowError.details,
+    });
+  }
+
   if (adminRow?.user_id) return adminRow.user_id;
 
-  const { data: roleAdmin } = await supabaseAdmin
+  const { data: roleAdmin, error: roleAdminError } = await supabaseAdmin
     .from("users")
     .select("id")
     .eq("role", "admin")
-    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle<{ id: string }>();
+
+  if (roleAdminError) {
+    console.error("[resolveAdminRecipientId] role-based admin lookup failed", {
+      code: roleAdminError.code,
+      message: roleAdminError.message,
+      details: roleAdminError.details,
+    });
+  }
 
   return roleAdmin?.id ?? null;
 }
