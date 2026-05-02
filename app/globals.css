@@ -466,9 +466,9 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    padding: 0.75rem;
-    border-radius: 1rem;
-    background: rgba(8, 15, 28, 0.42);
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0;
     overflow: visible;
   }
 
@@ -476,14 +476,27 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     @apply w-full p-0;
   }
 
+  .worker-payout-host {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow: visible;
+    transform: none;
+  }
+
   @media (max-width: 640px) {
     .worker-payout-embed-stage {
-      padding: 0.75rem;
-      padding-bottom: 1rem;
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: 1.25rem;
     }
 
     .worker-payout-embedded {
-      min-height: 700px;
+      min-height: 760px;
     }
   }
 }

@@ -527,9 +527,9 @@ function WorkerPaymentsPageContent() {
 
   if (profileLoaded && !payoutAccountReady) {
     return (
-      <div className="space-y-6 pb-32 sm:pb-10">
-        <section className="mx-auto w-full max-w-[800px] px-4 py-4 sm:px-6 sm:py-6 lg:px-6 lg:py-6">
-          <div className="space-y-4">
+      <div className="space-y-8 pb-32 sm:pb-10">
+        <section className="mx-auto w-full max-w-full px-4 py-5 sm:max-w-[800px] sm:px-6 sm:py-7 lg:px-6 lg:py-7">
+          <div className="space-y-5">
             <p className="text-sm font-medium text-stone-500">Set up payouts</p>
             <h1 className="text-2xl font-semibold text-stone-900 sm:text-3xl">Set up payouts</h1>
             <p className="max-w-3xl text-sm leading-6 text-stone-600">
@@ -537,21 +537,21 @@ function WorkerPaymentsPageContent() {
             </p>
           </div>
 
-          <div className="worker-payout-embed-stage mt-6">
+          <div className="worker-payout-embed-stage mt-7">
             {embeddedSetupMessage ? (
-              <p className="mb-4 text-sm text-stone-600">{embeddedSetupMessage}</p>
+              <p className="mb-5 text-sm text-stone-600">{embeddedSetupMessage}</p>
             ) : null}
             {embeddedPayoutClientSecret ? (
               <div
                 id="worker-payout-embedded"
-                className="worker-payout-embedded min-h-[560px] sm:min-h-[620px]"
+                className="worker-payout-embedded worker-payout-host min-h-[620px] sm:min-h-[680px]"
               />
             ) : (
               <div className="worker-payout-embed-skeleton">
                 <Skeleton className="h-5 w-56" />
                 <Skeleton className="mt-4 h-12 w-full" />
-                <Skeleton className="mt-3 h-12 w-full" />
-                <Skeleton className="mt-3 h-12 w-full" />
+                <Skeleton className="mt-4 h-12 w-full" />
+                <Skeleton className="mt-4 h-12 w-full" />
               </div>
             )}
           </div>
