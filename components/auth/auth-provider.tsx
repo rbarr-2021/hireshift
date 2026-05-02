@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { registerAuthListener, supabase } from "@/lib/supabase";
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasSession, setHasSession] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [appUser, setAppUser] = useState<UserRecord | null>(null);
+  const bootstrappedRef = useRef(false);
 
   const refreshAuthState = async () => {
     const {
@@ -145,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } finally {
         if (active) {
           setLoading(false);
+          bootstrappedRef.current = true;
         }
       }
     };
@@ -161,18 +164,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setHasSession(false);
         setAuthUserId(null);
         setAppUser(null);
-        setLoading(false);
+        if (bootstrappedRef.current) {
+          setLoading(false);
+        }
         return;
       }
 
-      setLoading(true);
       setHasSession(true);
 
       try {
         await refreshAuthState();
       } finally {
-        if (active) {
+        if (active && !bootstrappedRef.current) {
           setLoading(false);
+          bootstrappedRef.current = true;
         }
       }
     });

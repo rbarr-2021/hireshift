@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   BookingRecord,
@@ -99,8 +99,11 @@ function WorkerPaymentsPageContent() {
   const [embeddedSetupMessage, setEmbeddedSetupMessage] = useState<string | null>(null);
   const [embeddedSetupError, setEmbeddedSetupError] = useState(false);
   const [embeddedSessionRequested, setEmbeddedSessionRequested] = useState(false);
+  const hasHandledStripeReturnRef = useRef(false);
+  const stripeConnectMountedRef = useRef(false);
   const stripePublishableKey =
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || "";
+  const stripeConnected = searchParams.get("stripe") === "connected";
 
   useEffect(() => {
     let active = true;
@@ -264,7 +267,7 @@ function WorkerPaymentsPageContent() {
           return accumulator;
         }, {}),
       );
-      await refreshStripeStatus(searchParams.get("stripe") === "connected");
+      await refreshStripeStatus(stripeConnected);
       setLoading(false);
     };
 
@@ -273,7 +276,7 @@ function WorkerPaymentsPageContent() {
     return () => {
       active = false;
     };
-  }, [router, searchParams, showToast]);
+  }, [router, showToast, stripeConnected]);
 
   const upcomingPayout = useMemo(
     () => getUpcomingPayout(bookings, paymentsByBookingId),
@@ -387,6 +390,14 @@ function WorkerPaymentsPageContent() {
   };
 
   useEffect(() => {
+    if (!stripeConnected || hasHandledStripeReturnRef.current) {
+      return;
+    }
+    hasHandledStripeReturnRef.current = true;
+    setEmbeddedSessionRequested(true);
+  }, [stripeConnected]);
+
+  useEffect(() => {
     if (loading || payoutAccountReady || embeddedSessionRequested) {
       return;
     }
@@ -396,6 +407,9 @@ function WorkerPaymentsPageContent() {
 
   useEffect(() => {
     if (!showEmbeddedPayoutSetup || !embeddedPayoutClientSecret || !stripePublishableKey) {
+      return;
+    }
+    if (stripeConnectMountedRef.current) {
       return;
     }
 
@@ -444,6 +458,7 @@ function WorkerPaymentsPageContent() {
         }
         container.replaceChildren();
         container.appendChild(onboarding);
+        stripeConnectMountedRef.current = true;
         setEmbeddedSetupMessage(null);
         mountedComponent = onboarding;
       } catch {
@@ -461,6 +476,7 @@ function WorkerPaymentsPageContent() {
 
     return () => {
       cancelled = true;
+      stripeConnectMountedRef.current = false;
       if (mountedComponent?.parentElement) {
         mountedComponent.parentElement.removeChild(mountedComponent);
       }
@@ -516,7 +532,7 @@ function WorkerPaymentsPageContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28 sm:pb-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -554,10 +570,10 @@ function WorkerPaymentsPageContent() {
             </p>
           ) : null}
           {!payoutAccountReady && showEmbeddedPayoutSetup ? (
-            <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+            <div className="worker-payout-embed-shell mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/35 p-3 sm:p-4">
               {embeddedSetupMessage ? <p className="text-sm text-stone-600">{embeddedSetupMessage}</p> : null}
               {embeddedPayoutClientSecret ? (
-                <div id="worker-payout-embedded" className="min-h-[320px]" />
+                <div id="worker-payout-embedded" className="worker-payout-embedded min-h-[420px] sm:min-h-[520px]" />
               ) : null}
               <div className="flex flex-col gap-3 sm:flex-row">
                 {embeddedSetupError && fallbackOnboardingUrl ? (

@@ -83,7 +83,7 @@ export function AuthGuard({
       : (!allowedRoles || allowedRoles.includes(appUser.role)) &&
         (!requireOnboarding || appUser.onboarding_complete || pathname === getRoleSetupPath(appUser.role)));
 
-  if (authLoading || !isAllowedPath) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-6">
         <div className="panel w-full max-w-md p-5 text-center sm:p-8">
@@ -97,6 +97,10 @@ export function AuthGuard({
         </div>
       </div>
     );
+  }
+
+  if (!isAllowedPath) {
+    return null;
   }
 
   return <>{children}</>;
