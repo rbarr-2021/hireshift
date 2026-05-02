@@ -534,19 +534,18 @@ function WorkerPaymentsPageContent() {
   if (!payoutAccountReady) {
     return (
       <div className="space-y-6 pb-28 sm:pb-8">
-        <section className="panel-soft mx-auto w-full max-w-[900px] p-4 sm:p-6 lg:p-8">
-          <div className="space-y-3">
+        <section className="mx-auto w-full max-w-[800px] px-4 py-4 sm:px-6 sm:py-6 lg:px-6 lg:py-6">
+          <div className="space-y-4">
             <p className="text-sm font-medium text-stone-500">Set up payouts</p>
             <h1 className="text-2xl font-semibold text-stone-900 sm:text-3xl">Set up payouts</h1>
             <p className="max-w-3xl text-sm leading-6 text-stone-600">
               Add your bank details securely. You only need to do this once.
             </p>
-            <p className="text-xs text-stone-500">Secured by Stripe</p>
           </div>
 
-          <div className="mt-5">
+          <div className="mt-6">
             {embeddedSetupMessage ? (
-              <p className="mb-3 text-sm text-stone-600">{embeddedSetupMessage}</p>
+              <p className="mb-4 text-sm text-stone-600">{embeddedSetupMessage}</p>
             ) : null}
             {embeddedPayoutClientSecret ? (
               <div
@@ -562,6 +561,7 @@ function WorkerPaymentsPageContent() {
               </div>
             )}
           </div>
+          <p className="mt-3 text-[11px] text-stone-500/80">Secured by Stripe</p>
 
           {embeddedSetupError && fallbackOnboardingUrl ? (
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">

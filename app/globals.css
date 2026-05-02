@@ -457,13 +457,11 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     width: 100% !important;
     max-width: 100% !important;
     border: 0;
-    border-radius: 1rem;
+    border-radius: 0;
     overflow: visible;
   }
 
   .worker-payout-embed-skeleton {
-    @apply w-full rounded-2xl border p-4 sm:p-5;
-    border-color: var(--border-subtle);
-    background: rgba(8, 15, 28, 0.55);
+    @apply w-full p-0;
   }
 }
