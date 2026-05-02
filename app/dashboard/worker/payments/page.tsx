@@ -294,6 +294,7 @@ function WorkerPaymentsPageContent() {
       }),
     [bookings, paymentsByBookingId],
   );
+  const hasPayoutSummaryData = Boolean(upcomingPayout || lastPaidPayout || payoutHistory.length > 0);
 
   const payoutAccountConnected = Boolean(workerProfile?.stripe_connect_account_id);
   const payoutAccountReady = isWorkerPayoutReady(workerProfile);
@@ -591,35 +592,39 @@ function WorkerPaymentsPageContent() {
             ) : null}
           </div>
         </section>
-        <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Upcoming payout</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">
-            {upcomingPayout ? formatCurrency(upcomingPayout.payment.worker_payout_gbp) : "None yet"}
-          </p>
-          <p className="mt-2 text-sm text-stone-600">
-            {upcomingPayout
-              ? `${businessesById[upcomingPayout.booking.business_id]?.name || "Business"} | ${formatPayoutStatus(upcomingPayout.payment.payout_status)}`
-              : "Your next payout will appear here once a completed shift is approved."}
-          </p>
-        </section>
-        <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Last payout</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">
-            {lastPaidPayout ? formatCurrency(lastPaidPayout.payment.worker_payout_gbp) : "None yet"}
-          </p>
-          <p className="mt-2 text-sm text-stone-600">
-            {lastPaidPayout
-              ? `${businessesById[lastPaidPayout.booking.business_id]?.name || "Business"} | paid`
-              : "Paid shifts will move here once payout is sent."}
-          </p>
-        </section>
-        <section className="panel-soft p-5">
-          <p className="text-sm font-medium text-stone-500">Tracked shifts</p>
-          <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutHistory.length}</p>
-          <p className="mt-2 text-sm text-stone-600">
-            Every paid or payout-tracked shift is listed below.
-          </p>
-        </section>
+        {hasPayoutSummaryData ? (
+          <>
+            <section className="panel-soft p-5">
+              <p className="text-sm font-medium text-stone-500">Upcoming payout</p>
+              <p className="mt-2 text-3xl font-semibold text-stone-900">
+                {upcomingPayout ? formatCurrency(upcomingPayout.payment.worker_payout_gbp) : "None yet"}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {upcomingPayout
+                  ? `${businessesById[upcomingPayout.booking.business_id]?.name || "Business"} | ${formatPayoutStatus(upcomingPayout.payment.payout_status)}`
+                  : "Your next payout will appear here once a completed shift is approved."}
+              </p>
+            </section>
+            <section className="panel-soft p-5">
+              <p className="text-sm font-medium text-stone-500">Last payout</p>
+              <p className="mt-2 text-3xl font-semibold text-stone-900">
+                {lastPaidPayout ? formatCurrency(lastPaidPayout.payment.worker_payout_gbp) : "None yet"}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {lastPaidPayout
+                  ? `${businessesById[lastPaidPayout.booking.business_id]?.name || "Business"} | paid`
+                  : "Paid shifts will move here once payout is sent."}
+              </p>
+            </section>
+            <section className="panel-soft p-5">
+              <p className="text-sm font-medium text-stone-500">Tracked shifts</p>
+              <p className="mt-2 text-3xl font-semibold text-stone-900">{payoutHistory.length}</p>
+              <p className="mt-2 text-sm text-stone-600">
+                Every paid or payout-tracked shift is listed below.
+              </p>
+            </section>
+          </>
+        ) : null}
       </div>
 
       {payoutHistory.length > 0 ? (
@@ -681,14 +686,14 @@ function WorkerPaymentsPageContent() {
             );
           })}
         </div>
-      ) : (
+      ) : hasPayoutSummaryData ? (
         <div className="mobile-empty-state">
           <h2 className="text-xl font-semibold text-stone-900">No payment activity yet</h2>
           <p className="mt-3 text-sm leading-6 text-stone-600">
             Accept shifts and complete them reliably to see payout status here.
           </p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

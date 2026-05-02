@@ -86,6 +86,8 @@ type WorkerOnboardingDraft = {
   availabilitySummary: string;
   workHistory: WorkHistoryItem[];
   availabilityEntries: WorkerAvailabilityRecord[];
+  photoUrl: string | null;
+  photoPath: string | null;
   legalAccepted: boolean;
   currentStepIndex: number;
 };
@@ -413,7 +415,7 @@ export function WorkerProfileForm({
   const [workHistory, setWorkHistory] = useState<WorkHistoryItem[]>(
     normaliseWorkHistory(undefined),
   );
-  const [expandedWorkHistoryIndex, setExpandedWorkHistoryIndex] = useState(0);
+  const [expandedWorkHistoryIndex, setExpandedWorkHistoryIndex] = useState<number | null>(null);
   const [availabilityEntries, setAvailabilityEntries] = useState<WorkerAvailabilityRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentFileState>({});
   const [existingDocuments, setExistingDocuments] = useState<
@@ -425,6 +427,8 @@ export function WorkerProfileForm({
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [showOptionalDocuments, setShowOptionalDocuments] = useState(false);
   const [draftKey, setDraftKey] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -591,6 +595,8 @@ export function WorkerProfileForm({
         setPostcode(draft?.postcode ?? "");
         setTravelRadius(draft?.travelRadius ?? "10");
         setAvailabilitySummary(draft?.availabilitySummary ?? "");
+        setPhotoUrl(draft?.photoUrl ?? null);
+        setPhotoPath(draft?.photoPath ?? null);
         setWorkHistory(normaliseWorkHistory(draft?.workHistory));
         setCurrentStepIndex(
           typeof draft?.currentStepIndex === "number"
@@ -659,6 +665,8 @@ export function WorkerProfileForm({
         availabilitySummary,
         workHistory,
         availabilityEntries,
+        photoUrl,
+        photoPath,
         legalAccepted,
         currentStepIndex,
       });
@@ -683,6 +691,8 @@ export function WorkerProfileForm({
     phone,
     postcode,
     primaryRoleId,
+    photoPath,
+    photoUrl,
     travelRadius,
     whatsAppOptIn,
     workHistory,
@@ -690,9 +700,12 @@ export function WorkerProfileForm({
   ]);
 
   useEffect(() => {
-    setExpandedWorkHistoryIndex((current) =>
-      current >= workHistory.length ? Math.max(0, workHistory.length - 1) : current,
-    );
+    setExpandedWorkHistoryIndex((current) => {
+      if (current === null) {
+        return null;
+      }
+      return current >= workHistory.length ? Math.max(0, workHistory.length - 1) : current;
+    });
   }, [workHistory.length]);
 
   const selectedAvailabilityCount = useMemo(
@@ -881,13 +894,81 @@ export function WorkerProfileForm({
     setDocuments((current) => ({ ...current, [documentType]: file }));
   };
 
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const uploadDraftPhoto = async (file: File) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error("Please log in again to upload a profile photo.");
+    }
+
+    const filePath = `${user.id}/draft-profile-${Date.now()}-${sanitiseFileName(file.name)}`;
+    console.info("[worker-profile-draft-photo] storage upload", {
+      stage: "worker-profile-assets",
+      bucket: "worker-profile-assets",
+      path: filePath,
+      authUserId: user.id,
+    });
+    const { error: uploadError } = await supabase.storage
+      .from("worker-profile-assets")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      throw createWorkerSaveError("worker-profile-assets", uploadError);
+    }
+
+    const publicUrl = supabase.storage
+      .from("worker-profile-assets")
+      .getPublicUrl(filePath).data.publicUrl;
+
+    return {
+      photoPath: filePath,
+      photoUrl: publicUrl,
+    };
+  };
+
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setPhotoFile(file);
 
-    if (file) {
-      setPhotoUrl(URL.createObjectURL(file));
+    if (!file) {
+      return;
     }
+
+    if (mode === "onboarding") {
+      setPhotoUploading(true);
+      setMessage(null);
+
+      try {
+        const uploaded = await uploadDraftPhoto(file);
+        setPhotoPath(uploaded.photoPath);
+        setPhotoUrl(uploaded.photoUrl);
+        setPhotoFile(null);
+      } catch (error) {
+        const nextMessage =
+          error instanceof Error
+            ? error.message
+            : "We could not upload that photo right now. Please try again.";
+        setMessage(nextMessage);
+        showToast({
+          title: "Photo upload unavailable",
+          description: nextMessage,
+          tone: "error",
+        });
+      } finally {
+        setPhotoUploading(false);
+      }
+      return;
+    }
+
+    setPhotoUrl(URL.createObjectURL(file));
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoFile(null);
+    setPhotoPath(null);
+    setPhotoUrl(null);
   };
 
   const focusFirstInvalidField = (stepId: WorkerProfileStepId) => {
@@ -1523,10 +1604,31 @@ export function WorkerProfileForm({
                       type="file"
                       accept="image/*"
                       onChange={handlePhotoChange}
+                      disabled={photoUploading}
                       className="sr-only"
                     />
+                    {mode === "onboarding" ? (
+                      <p className="mt-2 text-xs text-stone-500">
+                        Photo uploads are saved as draft progress on this device.
+                      </p>
+                    ) : null}
+                    {photoUrl ? (
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        className="secondary-btn mt-3 w-full px-4 sm:w-auto"
+                        disabled={photoUploading}
+                      >
+                        Remove photo
+                      </button>
+                    ) : null}
                   </div>
                 </div>
+                {photoUploading ? (
+                  <p className="md:col-span-2 text-xs text-stone-500">
+                    Uploading photo draft...
+                  </p>
+                ) : null}
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-stone-700">
@@ -1702,12 +1804,19 @@ export function WorkerProfileForm({
                   {workHistory.map((item, index) => {
                     const summary = summariseWorkHistoryItem(item, index);
                     const isExpanded = index === expandedWorkHistoryIndex;
+                    const summaryLine = [item.role.trim(), item.venue.trim()]
+                      .filter(Boolean)
+                      .join(" · ");
 
                     return (
                       <div key={`history-${index}`} className="overflow-hidden rounded-3xl border border-stone-200 bg-stone-50">
                         <button
                           type="button"
-                          onClick={() => setExpandedWorkHistoryIndex(index)}
+                          onClick={() =>
+                            setExpandedWorkHistoryIndex((current) =>
+                              current === index ? null : index,
+                            )
+                          }
                           className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
                         >
                           <div className="min-w-0">
@@ -1715,14 +1824,26 @@ export function WorkerProfileForm({
                               Experience {index + 1}
                             </p>
                             <p className="mt-2 truncate text-base font-semibold text-stone-900">
-                              {summary.title}
+                              {summaryLine || summary.title}
                             </p>
                             <p className="mt-1 truncate text-sm text-stone-600">
                               {summary.subtitle}
                             </p>
                           </div>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-stone-700">
-                            {isExpanded ? "Open" : "Edit"}
+                          <span className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-700">
+                            {isExpanded ? "Close" : "Open"}
+                            <svg
+                              viewBox="0 0 20 20"
+                              className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                isExpanded ? "rotate-180" : "rotate-0"
+                              }`}
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.9a.75.75 0 1 1 1.08 1.04l-4.25 4.46a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z"
+                                fill="currentColor"
+                              />
+                            </svg>
                           </span>
                         </button>
 
@@ -1839,57 +1960,84 @@ export function WorkerProfileForm({
                   </p>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/12 px-4 py-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="overflow-hidden rounded-3xl border border-emerald-500/30 bg-emerald-500/12">
+                    <button
+                      type="button"
+                      onClick={() => setShowOptionalDocuments((current) => !current)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+                      aria-expanded={showOptionalDocuments}
+                      aria-controls="optional-documents-content"
+                    >
                       <div>
                         <p className="text-sm font-semibold text-emerald-900">Optional documents</p>
-                        <p className="mt-1 text-sm text-emerald-900">
+                        <p className="mt-1 text-xs text-emerald-900/80">
                           You can finish setup without these and add them later.
                         </p>
                       </div>
-                      <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900">
-                        Optional
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900">
+                          Optional
+                        </span>
+                        <span
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-500/30 bg-white/80 text-emerald-900 transition-transform duration-200 ${
+                            showOptionalDocuments ? "rotate-180" : "rotate-0"
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <svg viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+                            <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.9a.75.75 0 1 1 1.08 1.04l-4.25 4.46a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                          </svg>
+                        </span>
+                      </div>
+                    </button>
+
+                    <div
+                      id="optional-documents-content"
+                      className={`grid transition-all duration-200 ease-out ${
+                        showOptionalDocuments ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                      }`}
+                    >
+                      <div className="overflow-hidden px-4 pb-4">
+                        <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                          {DOCUMENT_TYPES.map((documentType) => (
+                            <label
+                              key={documentType}
+                              htmlFor={`worker-document-${documentType}`}
+                              className="block cursor-pointer rounded-3xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-emerald-500/40 hover:bg-emerald-500/6"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-stone-900">{DOCUMENT_LABELS[documentType]}</p>
+                                  <p className="mt-1 text-xs text-stone-500">Add if you have it ready.</p>
+                                </div>
+                                {existingDocuments[documentType] ? (
+                                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">Uploaded</span>
+                                ) : (
+                                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-900">
+                                    Optional
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-4">
+                                <input
+                                  id={`worker-document-${documentType}`}
+                                  type="file"
+                                  onChange={(event) => handleDocumentChange(documentType, event)}
+                                  className="sr-only"
+                                />
+                                <div className="inline-flex items-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white">
+                                  {documents[documentType] || existingDocuments[documentType] ? "Change file" : "Add file"}
+                                </div>
+                                <p className="mt-2 text-xs text-stone-500">
+                                  {documents[documentType]?.name || existingDocuments[documentType]?.file_name || "No file selected"}
+                                </p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
-                  {DOCUMENT_TYPES.map((documentType) => (
-                    <label
-                      key={documentType}
-                      htmlFor={`worker-document-${documentType}`}
-                      className="block cursor-pointer rounded-3xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-emerald-500/40 hover:bg-emerald-500/6"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-stone-900">{DOCUMENT_LABELS[documentType]}</p>
-                          <p className="mt-1 text-xs text-stone-500">Add if you have it ready.</p>
-                        </div>
-                        {existingDocuments[documentType] ? (
-                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">Uploaded</span>
-                        ) : (
-                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-900">
-                            Optional
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-4">
-                        <input
-                          id={`worker-document-${documentType}`}
-                          type="file"
-                          onChange={(event) => handleDocumentChange(documentType, event)}
-                          className="sr-only"
-                        />
-                        <div className="inline-flex items-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white">
-                          {documents[documentType] || existingDocuments[documentType] ? "Change file" : "Add file"}
-                        </div>
-                        <p className="mt-2 text-xs text-stone-500">
-                          {documents[documentType]?.name || existingDocuments[documentType]?.file_name || "No file selected"}
-                        </p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
                 </div>
               </section>
             ) : null}
