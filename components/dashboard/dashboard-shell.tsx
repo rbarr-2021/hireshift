@@ -145,12 +145,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <p className="mt-1 text-sm capitalize text-stone-600">
               {user?.role || "Choose role"}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="status-badge status-badge--rating">Live profile</span>
-              <span className="status-badge status-badge--ready">
-                {user?.role === "business" ? "Ready to book" : "Ready for discovery"}
-              </span>
-            </div>
+            {user?.role === "business" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="status-badge status-badge--rating">Live profile</span>
+                <span className="status-badge status-badge--ready">Ready to book</span>
+              </div>
+            ) : null}
           </div>
           <nav className="mt-6 hidden space-y-2 lg:block">
             {links.map((link) => {

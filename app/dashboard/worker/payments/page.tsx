@@ -97,6 +97,8 @@ function WorkerPaymentsPageContent() {
   const [showEmbeddedPayoutSetup, setShowEmbeddedPayoutSetup] = useState(false);
   const [fallbackOnboardingUrl, setFallbackOnboardingUrl] = useState<string | null>(null);
   const [embeddedSetupMessage, setEmbeddedSetupMessage] = useState<string | null>(null);
+  const [embeddedSetupError, setEmbeddedSetupError] = useState(false);
+  const [embeddedSessionRequested, setEmbeddedSessionRequested] = useState(false);
   const stripePublishableKey =
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || "";
 
@@ -296,8 +298,11 @@ function WorkerPaymentsPageContent() {
   const payoutAccountReady = isWorkerPayoutReady(workerProfile);
   const payoutSetupStatus = getPayoutSetupStatus(workerProfile);
 
-  const handleConnectPayouts = async () => {
+  const openEmbeddedPayoutSetup = async () => {
     setConnecting(true);
+    setEmbeddedSetupError(false);
+    setEmbeddedSetupMessage("Opening secure payout setup...");
+    setShowEmbeddedPayoutSetup(true);
 
     try {
       const response = await fetchWithSession("/api/worker/payout-account/session", {
@@ -325,6 +330,7 @@ function WorkerPaymentsPageContent() {
           description: "Please log in again.",
           tone: "info",
         });
+        setShowEmbeddedPayoutSetup(false);
         setConnecting(false);
         router.push("/login?redirect=%2Fdashboard%2Fworker%2Fpayments");
         return;
@@ -336,6 +342,7 @@ function WorkerPaymentsPageContent() {
           description: "Only workers can set up payouts.",
           tone: "info",
         });
+        setShowEmbeddedPayoutSetup(false);
         setConnecting(false);
         return;
       }
@@ -348,10 +355,10 @@ function WorkerPaymentsPageContent() {
       }
 
       if (payload.mode === "embedded" && payload.clientSecret && stripePublishableKey) {
-        setEmbeddedSetupMessage("Opening secure payout setup...");
         setFallbackOnboardingUrl(payload.fallbackUrl ?? null);
         setEmbeddedPayoutClientSecret(payload.clientSecret);
         setShowEmbeddedPayoutSetup(true);
+        setEmbeddedSetupError(false);
         setConnecting(false);
         return;
       }
@@ -359,6 +366,7 @@ function WorkerPaymentsPageContent() {
       if (payload.fallbackUrl) {
         setFallbackOnboardingUrl(payload.fallbackUrl);
         setShowEmbeddedPayoutSetup(true);
+        setEmbeddedSetupError(true);
         setEmbeddedSetupMessage("Embedded setup is unavailable right now. You can continue with secure setup.");
         setConnecting(false);
         return;
@@ -367,6 +375,8 @@ function WorkerPaymentsPageContent() {
       throw new Error("Payout setup is temporarily unavailable. Please contact support.");
     } catch (error) {
       const message = "Payout setup is temporarily unavailable. Please contact support.";
+      setEmbeddedSetupError(true);
+      setEmbeddedSetupMessage(message);
       showToast({
         title: "Payout setup unavailable",
         description: message,
@@ -375,6 +385,14 @@ function WorkerPaymentsPageContent() {
       setConnecting(false);
     }
   };
+
+  useEffect(() => {
+    if (loading || payoutAccountReady || embeddedSessionRequested) {
+      return;
+    }
+    setEmbeddedSessionRequested(true);
+    void openEmbeddedPayoutSetup();
+  }, [embeddedSessionRequested, loading, payoutAccountReady]);
 
   useEffect(() => {
     if (!showEmbeddedPayoutSetup || !embeddedPayoutClientSecret || !stripePublishableKey) {
@@ -429,6 +447,7 @@ function WorkerPaymentsPageContent() {
         setEmbeddedSetupMessage(null);
         mountedComponent = onboarding;
       } catch {
+        setEmbeddedSetupError(true);
         setEmbeddedSetupMessage("Embedded setup is unavailable right now. You can continue with secure setup.");
         showToast({
           title: "Payout setup unavailable",
@@ -498,28 +517,11 @@ function WorkerPaymentsPageContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="section-label">Payments</p>
-          <h1 className="mt-3 text-2xl font-semibold text-stone-900 sm:text-3xl">
-            Earnings and payout status
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Track upcoming payouts, completed payments, and every shift that is moving through approval.
-          </p>
-        </div>
-        <Link href="/dashboard/worker" className="secondary-btn w-full px-6 sm:w-auto">
-          Back to overview
-        </Link>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-stone-500">Set up payouts</p>
-              </div>
+              <p className="text-sm font-medium text-stone-500">Set up payouts</p>
               <p className="mt-2 text-2xl font-semibold text-stone-900">
                 {payoutAccountReady ? "Payout ready" : "Set up payouts"}
               </p>
@@ -530,16 +532,6 @@ function WorkerPaymentsPageContent() {
               </p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              {!payoutAccountReady ? (
-                <button
-                  type="button"
-                  onClick={() => void handleConnectPayouts()}
-                  disabled={connecting}
-                  className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                >
-                  {connecting ? "Opening secure payout setup..." : "Set up payouts"}
-                </button>
-              ) : null}
               {payoutAccountReady ? (
                 <button
                   type="button"
@@ -568,23 +560,26 @@ function WorkerPaymentsPageContent() {
                 <div id="worker-payout-embedded" className="min-h-[320px]" />
               ) : null}
               <div className="flex flex-col gap-3 sm:flex-row">
-                {fallbackOnboardingUrl ? (
+                {embeddedSetupError && fallbackOnboardingUrl ? (
                   <a href={fallbackOnboardingUrl} className="secondary-btn w-full px-5 sm:w-auto">
                     Continue secure setup
                   </a>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEmbeddedPayoutSetup(false);
-                    setEmbeddedPayoutClientSecret(null);
-                    setEmbeddedSetupMessage(null);
-                    setFallbackOnboardingUrl(null);
-                  }}
-                  className="secondary-btn w-full px-5 sm:w-auto"
-                >
-                  Back
-                </button>
+                {embeddedSetupError ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmbeddedPayoutClientSecret(null);
+                      setFallbackOnboardingUrl(null);
+                      setEmbeddedSetupMessage(null);
+                      setEmbeddedSetupError(false);
+                      void openEmbeddedPayoutSetup();
+                    }}
+                    className="secondary-btn w-full px-5 sm:w-auto"
+                  >
+                    Retry embedded setup
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -599,7 +594,7 @@ function WorkerPaymentsPageContent() {
               {payoutSetupStatus === "payout_ready"
                 ? "Payout ready"
                 : payoutSetupStatus === "payout_pending_verification"
-                  ? "Payout verification pending"
+                  ? "Verification in progress"
                   : "Payout setup required"}
             </span>
             {refreshingStripeStatus ? (
