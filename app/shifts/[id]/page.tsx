@@ -92,6 +92,7 @@ export default function ShiftDetailPage() {
   const [taking, setTaking] = useState(false);
   const [connectingPayoutSetup, setConnectingPayoutSetup] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [showArrivalInstructions, setShowArrivalInstructions] = useState(false);
 
   const intentTake =
     typeof window !== "undefined" &&
@@ -407,24 +408,47 @@ export default function ShiftDetailPage() {
             <p><span className="font-medium text-stone-900">Spots left:</span> {getRemainingShiftPositions(listing)}</p>
           </div>
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/40 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-              Arrival & Shift Instructions
-            </p>
-            <div className="mt-3 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
-              <p><span className="font-medium text-stone-100">Meeting point:</span> {listing.meeting_point || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Ask for:</span> {listing.site_contact_name || business?.contact || "Business contact"}</p>
-              <p><span className="font-medium text-stone-100">Contact phone:</span> {listing.site_contact_phone || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Dress code:</span> {listing.dress_code || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Equipment required:</span> {listing.equipment_required || "None listed"}</p>
-              <p><span className="font-medium text-stone-100">Experience level:</span> {listing.experience_level_required || "Not specified"}</p>
-              <p className="sm:col-span-2"><span className="font-medium text-stone-100">Expected duties:</span> {listing.expected_duties || "Not provided"}</p>
-              <p className="sm:col-span-2"><span className="font-medium text-stone-100">Arrival instructions:</span> {listing.arrival_instructions || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Parking info:</span> {listing.parking_info || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Staff entrance:</span> {listing.staff_entrance_info || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Break policy:</span> {listing.break_policy || "Not provided"}</p>
-              <p><span className="font-medium text-stone-100">Meal provided:</span> {listing.meal_provided ? "Yes" : "No"}</p>
-              <p className="sm:col-span-2"><span className="font-medium text-stone-100">Safety/PPE:</span> {listing.safety_or_ppe_requirements || "Not provided"}</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowArrivalInstructions((current) => !current)}
+              className="flex w-full items-center justify-between gap-3 text-left"
+              aria-expanded={showArrivalInstructions}
+              aria-controls="arrival-shift-instructions-content"
+            >
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                  Arrival & shift instructions
+                </p>
+                <p className="mt-1 text-xs text-stone-400">View details</p>
+              </div>
+              <span
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/35 text-stone-300 transition-transform duration-200 ${
+                  showArrivalInstructions ? "rotate-180" : "rotate-0"
+                }`}
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+                  <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.9a.75.75 0 1 1 1.08 1.04l-4.25 4.46a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                </svg>
+              </span>
+            </button>
+            {showArrivalInstructions ? (
+              <div id="arrival-shift-instructions-content" className="mt-3 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+                <p><span className="font-medium text-stone-100">Meeting point:</span> {listing.meeting_point || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Ask for:</span> {listing.site_contact_name || business?.contact || "Business contact"}</p>
+                <p><span className="font-medium text-stone-100">Contact phone:</span> {listing.site_contact_phone || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Dress code:</span> {listing.dress_code || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Equipment required:</span> {listing.equipment_required || "None listed"}</p>
+                <p><span className="font-medium text-stone-100">Experience level:</span> {listing.experience_level_required || "Not specified"}</p>
+                <p className="sm:col-span-2"><span className="font-medium text-stone-100">Expected duties:</span> {listing.expected_duties || "Not provided"}</p>
+                <p className="sm:col-span-2"><span className="font-medium text-stone-100">Arrival instructions:</span> {listing.arrival_instructions || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Parking info:</span> {listing.parking_info || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Staff entrance:</span> {listing.staff_entrance_info || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Break policy:</span> {listing.break_policy || "Not provided"}</p>
+                <p><span className="font-medium text-stone-100">Meal provided:</span> {listing.meal_provided ? "Yes" : "No"}</p>
+                <p className="sm:col-span-2"><span className="font-medium text-stone-100">Safety/PPE:</span> {listing.safety_or_ppe_requirements || "Not provided"}</p>
+              </div>
+            ) : null}
           </div>
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/40 p-4 text-sm leading-7 text-stone-500">
             {listing.description || "No extra shift notes yet."}

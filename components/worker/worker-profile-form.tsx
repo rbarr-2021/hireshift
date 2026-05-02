@@ -24,7 +24,6 @@ import {
   CURRENT_TERMS_VERSION,
 } from "@/lib/legal";
 import {
-  APPROVAL_STATUSES,
   DOCUMENT_LABELS,
   DOCUMENT_TYPES,
   type ApprovalStatus,
@@ -1844,24 +1843,6 @@ export function WorkerProfileForm({
               </div>
             </div>
 
-            {!isManageAvailability ? (
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="panel-soft p-4 sm:p-5">
-                  <p className="text-sm font-medium text-stone-500">Available dates</p>
-                  <p className="mt-2 text-2xl font-semibold text-stone-900">{selectedAvailabilityCount}</p>
-                </div>
-                <div className="panel-soft p-4 sm:p-5">
-                  <p className="text-sm font-medium text-stone-500">Uploaded documents</p>
-                  <p className="mt-2 text-2xl font-semibold text-stone-900">{uploadedDocumentCount}</p>
-                </div>
-                <div className="panel-soft p-4 sm:p-5">
-                  <p className="text-sm font-medium text-stone-500">Status options</p>
-                  <p className="mt-2 text-sm leading-6 text-stone-600">
-                    {APPROVAL_STATUSES.map(approvalLabel).join(", ")}
-                  </p>
-                </div>
-              </div>
-            ) : null}
           </form>
         </div>
         <div className="mt-6 space-y-3 border-t border-white/10 pt-4 sm:hidden">
