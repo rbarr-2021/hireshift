@@ -531,6 +531,69 @@ function WorkerPaymentsPageContent() {
     );
   }
 
+  if (!payoutAccountReady) {
+    return (
+      <div className="space-y-6 pb-28 sm:pb-8">
+        <section className="panel-soft mx-auto w-full max-w-[900px] p-4 sm:p-6 lg:p-8">
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-stone-500">Set up payouts</p>
+            <h1 className="text-2xl font-semibold text-stone-900 sm:text-3xl">Set up payouts</h1>
+            <p className="max-w-3xl text-sm leading-6 text-stone-600">
+              Add your bank details securely. You only need to do this once.
+            </p>
+            <p className="text-xs text-stone-500">Secured by Stripe</p>
+          </div>
+
+          <div className="mt-5">
+            {embeddedSetupMessage ? (
+              <p className="mb-3 text-sm text-stone-600">{embeddedSetupMessage}</p>
+            ) : null}
+            {embeddedPayoutClientSecret ? (
+              <div
+                id="worker-payout-embedded"
+                className="worker-payout-embedded min-h-[560px] sm:min-h-[620px]"
+              />
+            ) : (
+              <div className="worker-payout-embed-skeleton">
+                <Skeleton className="h-5 w-56" />
+                <Skeleton className="mt-4 h-12 w-full" />
+                <Skeleton className="mt-3 h-12 w-full" />
+                <Skeleton className="mt-3 h-12 w-full" />
+              </div>
+            )}
+          </div>
+
+          {embeddedSetupError && fallbackOnboardingUrl ? (
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <a href={fallbackOnboardingUrl} className="secondary-btn w-full px-5 sm:w-auto">
+                Continue secure setup
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmbeddedPayoutClientSecret(null);
+                  setFallbackOnboardingUrl(null);
+                  setEmbeddedSetupMessage(null);
+                  setEmbeddedSetupError(false);
+                  void openEmbeddedPayoutSetup();
+                }}
+                className="secondary-btn w-full px-5 sm:w-auto"
+              >
+                Retry embedded setup
+              </button>
+            </div>
+          ) : null}
+
+          {refreshingStripeStatus ? (
+            <p className="mt-4 text-xs uppercase tracking-[0.18em] text-stone-500">
+              Refreshing status
+            </p>
+          ) : null}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-28 sm:pb-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -560,44 +623,11 @@ function WorkerPaymentsPageContent() {
               ) : null}
             </div>
           </div>
-          {!payoutAccountReady ? (
-            <p className="mt-3 text-xs text-stone-500">Secured by Stripe</p>
-          ) : null}
           {payoutAccountReady ? (
             <p className="mt-3 text-sm leading-6 text-stone-600">
               Update your bank account, personal details, or payout settings securely in Stripe.
               Stripe will open securely. When finished, you can close that tab and return to NexHyr.
             </p>
-          ) : null}
-          {!payoutAccountReady && showEmbeddedPayoutSetup ? (
-            <div className="worker-payout-embed-shell mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/35 p-3 sm:p-4">
-              {embeddedSetupMessage ? <p className="text-sm text-stone-600">{embeddedSetupMessage}</p> : null}
-              {embeddedPayoutClientSecret ? (
-                <div id="worker-payout-embedded" className="worker-payout-embedded min-h-[420px] sm:min-h-[520px]" />
-              ) : null}
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {embeddedSetupError && fallbackOnboardingUrl ? (
-                  <a href={fallbackOnboardingUrl} className="secondary-btn w-full px-5 sm:w-auto">
-                    Continue secure setup
-                  </a>
-                ) : null}
-                {embeddedSetupError ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmbeddedPayoutClientSecret(null);
-                      setFallbackOnboardingUrl(null);
-                      setEmbeddedSetupMessage(null);
-                      setEmbeddedSetupError(false);
-                      void openEmbeddedPayoutSetup();
-                    }}
-                    className="secondary-btn w-full px-5 sm:w-auto"
-                  >
-                    Retry embedded setup
-                  </button>
-                ) : null}
-              </div>
-            </div>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <span
