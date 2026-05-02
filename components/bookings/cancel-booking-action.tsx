@@ -104,7 +104,9 @@ export function CancelBookingAction({
         title: "Cancellation failed",
         description:
           error instanceof Error
-            ? error.message
+            ? error.message === "No active session available."
+              ? "Please log in again to cancel this booking."
+              : error.message
             : "We couldn't cancel this booking. Please contact support.",
         tone: "error",
       });

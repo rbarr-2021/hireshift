@@ -258,6 +258,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    message: "Message sent.",
     item: {
       ...createdMessage,
       email_notification_status: emailStatus,

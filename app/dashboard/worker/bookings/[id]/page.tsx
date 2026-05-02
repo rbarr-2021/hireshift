@@ -41,6 +41,27 @@ import {
   getWorkerTrustStatusLabel,
 } from "@/lib/booking-communication";
 
+function mapAttendanceErrorMessage(message: string) {
+  const normalised = message.toLowerCase();
+
+  if (
+    normalised.includes("check-in opens 15 minutes") ||
+    normalised.includes("check-in opens")
+  ) {
+    return "You can check in 15 minutes before your shift starts.";
+  }
+
+  if (normalised.includes("location") || normalised.includes("distance")) {
+    return "You need to be closer to the shift location to check in.";
+  }
+
+  if (normalised.includes("please log in again") || normalised.includes("unauthorized")) {
+    return "Please log in again.";
+  }
+
+  return "We couldn’t update attendance right now. Please try again.";
+}
+
 type BusinessSnapshot = {
   name: string;
   contact: string;
@@ -228,7 +249,9 @@ export default function WorkerBookingDetailPage() {
         tone: "success",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to update attendance.";
+      const message = mapAttendanceErrorMessage(
+        error instanceof Error ? error.message : "Unable to update attendance.",
+      );
       showToast({
         title: "Attendance update failed",
         description: message,

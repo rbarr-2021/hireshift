@@ -94,7 +94,7 @@ export async function POST(
   const actor = await getRouteActor(request);
 
   if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please log in again." }, { status: 401 });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -173,8 +173,7 @@ export async function POST(
       if (now < opensAt || now > closesAt) {
         return NextResponse.json(
           {
-            error:
-              "Check-in opens 15 minutes before your shift starts. Check-in closes 30 minutes after start.",
+            error: "You can check in 15 minutes before your shift starts.",
           },
           { status: 409 },
         );

@@ -28,6 +28,27 @@ import type {
 import { getPaymentStatusValue } from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
 
+function mapAttendanceErrorMessage(message: string) {
+  const normalised = message.toLowerCase();
+
+  if (
+    normalised.includes("check-in opens 15 minutes") ||
+    normalised.includes("check-in opens")
+  ) {
+    return "You can check in 15 minutes before your shift starts.";
+  }
+
+  if (normalised.includes("location") || normalised.includes("distance")) {
+    return "You need to be closer to the shift location to check in.";
+  }
+
+  if (normalised.includes("please log in again") || normalised.includes("unauthorized")) {
+    return "Please log in again.";
+  }
+
+  return "We couldn’t update attendance right now. Please try again.";
+}
+
 export default function WorkerAcceptedJobsPage() {
   const { showToast } = useToast();
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
@@ -140,8 +161,9 @@ export default function WorkerAcceptedJobsPage() {
         tone: "success",
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to update shift attendance.";
+      const message = mapAttendanceErrorMessage(
+        error instanceof Error ? error.message : "Unable to update shift attendance.",
+      );
       showToast({
         title: "Attendance update failed",
         description: message,

@@ -147,10 +147,10 @@ export function MessageCenter({ accountType }: { accountType: AccountType }) {
       setBody("");
       showToast({
         title: "Message sent",
-        description: "Message sent. Admin will review it.",
+        description: "Message sent.",
         tone: "success",
       });
-      await refreshMessages();
+      void refreshMessages();
     } catch (error) {
       showToast({
         title: "Message not sent",

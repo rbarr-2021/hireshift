@@ -52,7 +52,10 @@ export async function POST(
   const actor = await getRouteActor(request);
 
   if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Please log in again to cancel this booking." },
+      { status: 401 },
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -168,4 +171,3 @@ export async function POST(
         : "Booking cancelled. Admin can review any payment adjustments if required.",
   });
 }
-
