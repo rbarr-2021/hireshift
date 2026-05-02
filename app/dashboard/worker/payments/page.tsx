@@ -26,6 +26,21 @@ import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast-provider";
 
+type StripeConnectInstance = {
+  create: (componentName: string) => HTMLElement;
+};
+
+declare global {
+  interface Window {
+    StripeConnect?: {
+      init?: (options: {
+        publishableKey: string;
+        fetchClientSecret: () => Promise<string | undefined>;
+      }) => StripeConnectInstance;
+    };
+  }
+}
+
 type BusinessSnapshot = {
   name: string;
   location: string;
@@ -83,6 +98,10 @@ function WorkerPaymentsPageContent() {
   const [connecting, setConnecting] = useState(false);
   const [openingDashboard, setOpeningDashboard] = useState(false);
   const [refreshingStripeStatus, setRefreshingStripeStatus] = useState(false);
+  const [embeddedPayoutClientSecret, setEmbeddedPayoutClientSecret] = useState<string | null>(null);
+  const [showEmbeddedPayoutSetup, setShowEmbeddedPayoutSetup] = useState(false);
+  const stripePublishableKey =
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || "";
 
   useEffect(() => {
     let active = true;
@@ -284,18 +303,23 @@ function WorkerPaymentsPageContent() {
     setConnecting(true);
 
     try {
-      const response = await fetchWithSession("/api/worker/payout-account/onboard", {
+      const response = await fetchWithSession("/api/worker/payout-account/session", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          redirect: searchParams.get("redirect"),
+          returnTo: searchParams.get("redirect"),
         }),
       });
-      const payload = await readJsonResponse<{ error?: string; url?: string }>(
+      const payload = await readJsonResponse<{
+        error?: string;
+        mode?: "embedded" | "redirect";
+        clientSecret?: string | null;
+        fallbackUrl?: string;
+      }>(
         response,
-        "Stripe payout setup is not configured correctly yet.",
+        "Payout setup is temporarily unavailable. Please contact support.",
       );
 
       if (response.status === 401) {
@@ -319,14 +343,26 @@ function WorkerPaymentsPageContent() {
         return;
       }
 
-      if (!response.ok || !payload.url) {
+      if (!response.ok) {
         throw new Error(
           payload.error ||
             "Payout setup is temporarily unavailable. Please contact support.",
         );
       }
 
-      window.location.href = payload.url;
+      if (payload.mode === "embedded" && payload.clientSecret && stripePublishableKey) {
+        setEmbeddedPayoutClientSecret(payload.clientSecret);
+        setShowEmbeddedPayoutSetup(true);
+        setConnecting(false);
+        return;
+      }
+
+      if (payload.fallbackUrl) {
+        window.location.href = payload.fallbackUrl;
+        return;
+      }
+
+      throw new Error("Payout setup is temporarily unavailable. Please contact support.");
     } catch (error) {
       const message = "Payout setup is temporarily unavailable. Please contact support.";
       showToast({
@@ -337,6 +373,76 @@ function WorkerPaymentsPageContent() {
       setConnecting(false);
     }
   };
+
+  useEffect(() => {
+    if (!showEmbeddedPayoutSetup || !embeddedPayoutClientSecret || !stripePublishableKey) {
+      return;
+    }
+
+    let cancelled = false;
+    let mountedComponent: HTMLElement | null = null;
+
+    const loadScript = async () => {
+      const src = "https://connect-js.stripe.com/v1.0/connect.js";
+      const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+      if (existing) {
+        if (window.StripeConnect?.init) {
+          return;
+        }
+        await new Promise<void>((resolve) => {
+          existing.addEventListener("load", () => resolve(), { once: true });
+        });
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Unable to load secure payout setup."));
+        document.head.appendChild(script);
+      });
+    };
+
+    const mountEmbedded = async () => {
+      try {
+        await loadScript();
+        if (cancelled || !window.StripeConnect?.init) {
+          return;
+        }
+
+        const connect = window.StripeConnect.init({
+          publishableKey: stripePublishableKey,
+          fetchClientSecret: async () => embeddedPayoutClientSecret ?? undefined,
+        });
+
+        const onboarding = connect.create("account-onboarding");
+        const container = document.getElementById("worker-payout-embedded");
+        if (!container || cancelled) {
+          return;
+        }
+        container.replaceChildren();
+        container.appendChild(onboarding);
+        mountedComponent = onboarding;
+      } catch {
+        showToast({
+          title: "Payout setup unavailable",
+          description: "Payout setup is temporarily unavailable. Please contact support.",
+          tone: "info",
+        });
+      }
+    };
+
+    void mountEmbedded();
+
+    return () => {
+      cancelled = true;
+      if (mountedComponent?.parentElement) {
+        mountedComponent.parentElement.removeChild(mountedComponent);
+      }
+    };
+  }, [embeddedPayoutClientSecret, showEmbeddedPayoutSetup, showToast, stripePublishableKey]);
 
   const handleOpenStripeDashboard = async () => {
     setOpeningDashboard(true);
@@ -449,6 +555,26 @@ function WorkerPaymentsPageContent() {
               Update your bank account, personal details, or payout settings securely in Stripe.
               Stripe will open securely. When finished, you can close that tab and return to NexHyr.
             </p>
+          ) : null}
+          {!payoutAccountReady && showEmbeddedPayoutSetup ? (
+            <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+              <p className="text-sm text-stone-600">
+                Add bank details securely. You only need to do this once.
+              </p>
+              <div id="worker-payout-embedded" className="min-h-[320px]" />
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmbeddedPayoutSetup(false);
+                    setEmbeddedPayoutClientSecret(null);
+                  }}
+                  className="secondary-btn w-full px-5 sm:w-auto"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <span

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateBookingDurationHours } from "@/lib/bookings";
+import { getBusinessPaymentMethodStatus } from "@/lib/business-payment-method";
 import type { BookingRecord, PaymentRecord, WorkerProfileRecord } from "@/lib/models";
 import { buildBookingPricingSnapshot } from "@/lib/pricing";
 import { getRouteActor } from "@/lib/route-access";
@@ -71,6 +72,26 @@ export async function POST(
         { error: "This booking has already been paid." },
         { status: 409 },
       );
+      }
+    }
+
+    if (!needsTopUpPayment) {
+      const { data: businessProfile } = await supabaseAdmin
+        .from("business_profiles")
+        .select("*")
+        .eq("user_id", actor.appUser.id)
+        .maybeSingle();
+      const paymentMethodStatus = await getBusinessPaymentMethodStatus({
+        profile: businessProfile,
+      });
+      if (!paymentMethodStatus.paymentMethodReady) {
+        return NextResponse.json(
+          {
+            error:
+              "Payment method required before securing this shift. Add a payment method first.",
+          },
+          { status: 409 },
+        );
       }
     }
 

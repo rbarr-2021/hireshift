@@ -605,6 +605,11 @@ export type BusinessProfileRecord = {
   city: string;
   postcode: string | null;
   description: string | null;
+  stripe_customer_id: string | null;
+  stripe_default_payment_method_id: string | null;
+  stripe_payment_method_ready_at: string | null;
+  stripe_payment_method_last_error: string | null;
+  stripe_payment_method_last_synced_at: string | null;
   verification_status: ApprovalStatus;
   created_at: string;
   updated_at: string;

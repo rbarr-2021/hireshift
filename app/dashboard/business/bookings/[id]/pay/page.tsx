@@ -18,6 +18,7 @@ import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { AdminContactCard } from "@/components/support/admin-contact-card";
 import { BookingMessageBox } from "@/components/messages/booking-message-box";
+import { BusinessPaymentMethodSetup } from "@/components/payments/business-payment-method-setup";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -37,6 +38,7 @@ export default function BusinessBookingPaymentPage() {
   const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [startingCheckout, setStartingCheckout] = useState(false);
+  const [paymentMethodReady, setPaymentMethodReady] = useState(false);
   const stripePublishableKey =
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null;
 
@@ -335,6 +337,9 @@ export default function BusinessBookingPaymentPage() {
           <div className="info-banner mt-5">
             Payment secures the worker for this shift. Final pay is based on approved hours.
           </div>
+          {!isTopUpFlow ? (
+            <BusinessPaymentMethodSetup onReadyChange={setPaymentMethodReady} />
+          ) : null}
 
           {!bookingReadyForPayment && !isTopUpFlow ? (
             <div className="info-banner mt-5">
@@ -342,6 +347,10 @@ export default function BusinessBookingPaymentPage() {
             </div>
           ) : payment?.status === "captured" || payment?.status === "released" ? (
             <div className="info-banner mt-5">This booking has already been paid.</div>
+          ) : !isTopUpFlow && !paymentMethodReady ? (
+            <div className="info-banner mt-5">
+              Add a payment method to continue. You&rsquo;ll only be charged when this shift is ready to go.
+            </div>
           ) : (
             <div className="mt-5 space-y-3">
               <button
