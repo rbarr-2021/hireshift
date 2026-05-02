@@ -89,7 +89,8 @@ function WorkerPaymentsPageContent() {
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [businessesById, setBusinessesById] = useState<Record<string, BusinessSnapshot>>({});
   const [workerProfile, setWorkerProfile] = useState<WorkerProfileRecord | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [listLoaded, setListLoaded] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [openingDashboard, setOpeningDashboard] = useState(false);
   const [refreshingStripeStatus, setRefreshingStripeStatus] = useState(false);
@@ -131,25 +132,30 @@ function WorkerPaymentsPageContent() {
           return;
         }
 
-        const {
-          data: { user: refreshedUser },
-        } = await supabase.auth.getUser();
-
-        if (!refreshedUser || !active) {
-          return;
-        }
-
-        const refreshedWorkerProfileResult = await supabase
-          .from("worker_profiles")
-          .select("*")
-          .eq("user_id", refreshedUser.id)
-          .maybeSingle<WorkerProfileRecord>();
-
         if (!active) {
           return;
         }
 
-        setWorkerProfile(refreshedWorkerProfileResult.data ?? null);
+        setWorkerProfile((current) => {
+          if (!current) {
+            return current;
+          }
+
+          return {
+            ...current,
+            stripe_connect_details_submitted:
+              payload.detailsSubmitted ?? current.stripe_connect_details_submitted,
+            stripe_connect_payouts_enabled:
+              payload.payoutsEnabled ?? current.stripe_connect_payouts_enabled,
+            stripe_connect_charges_enabled:
+              payload.chargesEnabled ?? current.stripe_connect_charges_enabled,
+            stripe_onboarding_complete: Boolean(
+              (payload.payoutsEnabled ?? current.stripe_connect_payouts_enabled) &&
+                (payload.chargesEnabled ?? current.stripe_connect_charges_enabled),
+            ),
+            stripe_connect_last_synced_at: new Date().toISOString(),
+          };
+        });
 
         if (showConnectedToast) {
           const redirectTo = searchParams.get("redirect");
@@ -199,6 +205,10 @@ function WorkerPaymentsPageContent() {
       } = await supabase.auth.getUser();
 
       if (!user || !active) {
+        if (active) {
+          setProfileLoaded(true);
+          setListLoaded(true);
+        }
         return;
       }
 
@@ -267,8 +277,11 @@ function WorkerPaymentsPageContent() {
           return accumulator;
         }, {}),
       );
-      await refreshStripeStatus(stripeConnected);
-      setLoading(false);
+      setProfileLoaded(true);
+      setListLoaded(true);
+      if (stripeConnected) {
+        void refreshStripeStatus(true);
+      }
     };
 
     void loadPayments();
@@ -398,12 +411,12 @@ function WorkerPaymentsPageContent() {
   }, [stripeConnected]);
 
   useEffect(() => {
-    if (loading || payoutAccountReady || embeddedSessionRequested) {
+    if (!profileLoaded || payoutAccountReady || embeddedSessionRequested) {
       return;
     }
     setEmbeddedSessionRequested(true);
     void openEmbeddedPayoutSetup();
-  }, [embeddedSessionRequested, loading, payoutAccountReady]);
+  }, [embeddedSessionRequested, profileLoaded, payoutAccountReady]);
 
   useEffect(() => {
     if (!showEmbeddedPayoutSetup || !embeddedPayoutClientSecret || !stripePublishableKey) {
@@ -512,26 +525,7 @@ function WorkerPaymentsPageContent() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <p className="section-label">Payments</p>
-          <Skeleton className="mt-4 h-10 w-56" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="panel-soft p-5">
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="mt-4 h-10 w-32" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!payoutAccountReady) {
+  if (profileLoaded && !payoutAccountReady) {
     return (
       <div className="space-y-6 pb-32 sm:pb-10">
         <section className="mx-auto w-full max-w-[800px] px-4 py-4 sm:px-6 sm:py-6 lg:px-6 lg:py-6">
@@ -597,58 +591,67 @@ function WorkerPaymentsPageContent() {
   return (
     <div className="space-y-6 pb-28 sm:pb-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-sm font-medium text-stone-500">Set up payouts</p>
-              <p className="mt-2 text-2xl font-semibold text-stone-900">
-                {payoutAccountReady ? "Payout ready" : "Set up payouts"}
-              </p>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-                {payoutAccountReady
-                  ? "You're ready to receive payouts after approved shifts."
-                  : "Add your bank details securely. You only need to do this once."}
-              </p>
+        {!profileLoaded ? (
+          <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="mt-4 h-12 w-full" />
+            <Skeleton className="mt-3 h-12 w-full" />
+          </section>
+        ) : null}
+        {profileLoaded ? (
+          <section className="panel-soft p-5 sm:col-span-2 xl:col-span-3">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm font-medium text-stone-500">Set up payouts</p>
+                <p className="mt-2 text-2xl font-semibold text-stone-900">
+                  {payoutAccountReady ? "Payout ready" : "Set up payouts"}
+                </p>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
+                  {payoutAccountReady
+                    ? "You're ready to receive payouts after approved shifts."
+                    : "Add your bank details securely. You only need to do this once."}
+                </p>
+              </div>
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                {payoutAccountReady ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenStripeDashboard()}
+                    disabled={openingDashboard}
+                    className="secondary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    {openingDashboard ? "Opening..." : "Manage payout details"}
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              {payoutAccountReady ? (
-                <button
-                  type="button"
-                  onClick={() => void handleOpenStripeDashboard()}
-                  disabled={openingDashboard}
-                  className="secondary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                >
-                  {openingDashboard ? "Opening..." : "Manage payout details"}
-                </button>
+            {payoutAccountReady ? (
+              <p className="mt-3 text-sm leading-6 text-stone-600">
+                Update your bank account, personal details, or payout settings securely in Stripe.
+                Stripe will open securely. When finished, you can close that tab and return to NexHyr.
+              </p>
+            ) : null}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span
+                className={
+                  payoutSetupStatus === "payout_ready"
+                    ? "status-badge status-badge--ready"
+                    : "status-badge status-badge--rating"
+                }
+              >
+                {payoutSetupStatus === "payout_ready"
+                  ? "Payout ready"
+                  : payoutSetupStatus === "payout_pending_verification"
+                    ? "Verification in progress"
+                    : "Payout setup required"}
+              </span>
+              {refreshingStripeStatus ? (
+                <span className="status-badge status-badge--rating">Refreshing status</span>
               ) : null}
             </div>
-          </div>
-          {payoutAccountReady ? (
-            <p className="mt-3 text-sm leading-6 text-stone-600">
-              Update your bank account, personal details, or payout settings securely in Stripe.
-              Stripe will open securely. When finished, you can close that tab and return to NexHyr.
-            </p>
-          ) : null}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span
-              className={
-                payoutSetupStatus === "payout_ready"
-                  ? "status-badge status-badge--ready"
-                  : "status-badge status-badge--rating"
-              }
-            >
-              {payoutSetupStatus === "payout_ready"
-                ? "Payout ready"
-                : payoutSetupStatus === "payout_pending_verification"
-                  ? "Verification in progress"
-                  : "Payout setup required"}
-            </span>
-            {refreshingStripeStatus ? (
-              <span className="status-badge status-badge--rating">Refreshing status</span>
-            ) : null}
-          </div>
-        </section>
-        {hasPayoutSummaryData ? (
+          </section>
+        ) : null}
+        {listLoaded && hasPayoutSummaryData ? (
           <>
             <section className="panel-soft p-5">
               <p className="text-sm font-medium text-stone-500">Upcoming payout</p>
@@ -683,7 +686,18 @@ function WorkerPaymentsPageContent() {
         ) : null}
       </div>
 
-      {payoutHistory.length > 0 ? (
+      {!listLoaded ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="panel-soft p-5">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="mt-3 h-6 w-36" />
+          </div>
+          <div className="panel-soft p-5">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="mt-3 h-6 w-36" />
+          </div>
+        </div>
+      ) : payoutHistory.length > 0 ? (
         <div className="space-y-4">
           {payoutHistory.map((booking) => {
             const payment = paymentsByBookingId[booking.id];
