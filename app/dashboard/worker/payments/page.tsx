@@ -533,7 +533,7 @@ function WorkerPaymentsPageContent() {
 
   if (!payoutAccountReady) {
     return (
-      <div className="space-y-6 pb-28 sm:pb-8">
+      <div className="space-y-6 pb-32 sm:pb-10">
         <section className="mx-auto w-full max-w-[800px] px-4 py-4 sm:px-6 sm:py-6 lg:px-6 lg:py-6">
           <div className="space-y-4">
             <p className="text-sm font-medium text-stone-500">Set up payouts</p>
@@ -543,7 +543,7 @@ function WorkerPaymentsPageContent() {
             </p>
           </div>
 
-          <div className="mt-6">
+          <div className="worker-payout-embed-stage mt-6">
             {embeddedSetupMessage ? (
               <p className="mb-4 text-sm text-stone-600">{embeddedSetupMessage}</p>
             ) : null}
