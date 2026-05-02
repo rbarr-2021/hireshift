@@ -54,22 +54,17 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function StripeBadge() {
-  return (
-    <span
-      aria-label="Stripe"
-      className="inline-flex items-center rounded-md bg-[#635BFF] px-2 py-1 text-sm font-bold lowercase tracking-[-0.03em] text-white shadow-[0_8px_18px_rgba(99,91,255,0.28)]"
-    >
-      stripe
-    </span>
-  );
-}
-
 function getPayoutSetupStatus(workerProfile: WorkerProfileRecord | null) {
-  return workerProfile?.stripe_connect_charges_enabled &&
+  if (
+    workerProfile?.stripe_connect_charges_enabled &&
     workerProfile?.stripe_connect_payouts_enabled
-    ? "ready"
-    : "finish_setup";
+  ) {
+    return "payout_ready";
+  }
+  if (workerProfile?.stripe_connect_details_submitted) {
+    return "payout_pending_verification";
+  }
+  return "payout_setup_required";
 }
 
 async function readJsonResponse<T>(response: Response, fallbackError: string): Promise<T> {
@@ -100,6 +95,8 @@ function WorkerPaymentsPageContent() {
   const [refreshingStripeStatus, setRefreshingStripeStatus] = useState(false);
   const [embeddedPayoutClientSecret, setEmbeddedPayoutClientSecret] = useState<string | null>(null);
   const [showEmbeddedPayoutSetup, setShowEmbeddedPayoutSetup] = useState(false);
+  const [fallbackOnboardingUrl, setFallbackOnboardingUrl] = useState<string | null>(null);
+  const [embeddedSetupMessage, setEmbeddedSetupMessage] = useState<string | null>(null);
   const stripePublishableKey =
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || "";
 
@@ -296,7 +293,6 @@ function WorkerPaymentsPageContent() {
   );
   const hasPayoutSummaryData = Boolean(upcomingPayout || lastPaidPayout || payoutHistory.length > 0);
 
-  const payoutAccountConnected = Boolean(workerProfile?.stripe_connect_account_id);
   const payoutAccountReady = isWorkerPayoutReady(workerProfile);
   const payoutSetupStatus = getPayoutSetupStatus(workerProfile);
 
@@ -352,6 +348,8 @@ function WorkerPaymentsPageContent() {
       }
 
       if (payload.mode === "embedded" && payload.clientSecret && stripePublishableKey) {
+        setEmbeddedSetupMessage("Opening secure payout setup...");
+        setFallbackOnboardingUrl(payload.fallbackUrl ?? null);
         setEmbeddedPayoutClientSecret(payload.clientSecret);
         setShowEmbeddedPayoutSetup(true);
         setConnecting(false);
@@ -359,7 +357,10 @@ function WorkerPaymentsPageContent() {
       }
 
       if (payload.fallbackUrl) {
-        window.location.href = payload.fallbackUrl;
+        setFallbackOnboardingUrl(payload.fallbackUrl);
+        setShowEmbeddedPayoutSetup(true);
+        setEmbeddedSetupMessage("Embedded setup is unavailable right now. You can continue with secure setup.");
+        setConnecting(false);
         return;
       }
 
@@ -425,8 +426,10 @@ function WorkerPaymentsPageContent() {
         }
         container.replaceChildren();
         container.appendChild(onboarding);
+        setEmbeddedSetupMessage(null);
         mountedComponent = onboarding;
       } catch {
+        setEmbeddedSetupMessage("Embedded setup is unavailable right now. You can continue with secure setup.");
         showToast({
           title: "Payout setup unavailable",
           description: "Payout setup is temporarily unavailable. Please contact support.",
@@ -515,16 +518,15 @@ function WorkerPaymentsPageContent() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-stone-500">Stripe payout account</p>
-                <StripeBadge />
+                <p className="text-sm font-medium text-stone-500">Set up payouts</p>
               </div>
               <p className="mt-2 text-2xl font-semibold text-stone-900">
-                {payoutAccountReady ? "Payout setup complete" : "Finish payout setup"}
+                {payoutAccountReady ? "Payout ready" : "Set up payouts"}
               </p>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
                 {payoutAccountReady
-                  ? "You’re ready to receive payouts after approved shifts."
-                  : "You need to finish your secure Stripe setup before accepting paid shifts."}
+                  ? "You're ready to receive payouts after approved shifts."
+                  : "Add your bank details securely. You only need to do this once."}
               </p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -533,10 +535,9 @@ function WorkerPaymentsPageContent() {
                   type="button"
                   onClick={() => void handleConnectPayouts()}
                   disabled={connecting}
-                  className="primary-btn w-full gap-2 px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  className="primary-btn w-full px-6 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
-                  <StripeBadge />
-                  {connecting ? "Opening Stripe..." : "Complete payout setup"}
+                  {connecting ? "Opening secure payout setup..." : "Set up payouts"}
                 </button>
               ) : null}
               {payoutAccountReady ? (
@@ -551,6 +552,9 @@ function WorkerPaymentsPageContent() {
               ) : null}
             </div>
           </div>
+          {!payoutAccountReady ? (
+            <p className="mt-3 text-xs text-stone-500">Secured by Stripe</p>
+          ) : null}
           {payoutAccountReady ? (
             <p className="mt-3 text-sm leading-6 text-stone-600">
               Update your bank account, personal details, or payout settings securely in Stripe.
@@ -559,16 +563,23 @@ function WorkerPaymentsPageContent() {
           ) : null}
           {!payoutAccountReady && showEmbeddedPayoutSetup ? (
             <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/35 p-3">
-              <p className="text-sm text-stone-600">
-                Add bank details securely. You only need to do this once.
-              </p>
-              <div id="worker-payout-embedded" className="min-h-[320px]" />
+              {embeddedSetupMessage ? <p className="text-sm text-stone-600">{embeddedSetupMessage}</p> : null}
+              {embeddedPayoutClientSecret ? (
+                <div id="worker-payout-embedded" className="min-h-[320px]" />
+              ) : null}
               <div className="flex flex-col gap-3 sm:flex-row">
+                {fallbackOnboardingUrl ? (
+                  <a href={fallbackOnboardingUrl} className="secondary-btn w-full px-5 sm:w-auto">
+                    Continue secure setup
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => {
                     setShowEmbeddedPayoutSetup(false);
                     setEmbeddedPayoutClientSecret(null);
+                    setEmbeddedSetupMessage(null);
+                    setFallbackOnboardingUrl(null);
                   }}
                   className="secondary-btn w-full px-5 sm:w-auto"
                 >
@@ -580,12 +591,16 @@ function WorkerPaymentsPageContent() {
           <div className="mt-4 flex flex-wrap gap-2">
             <span
               className={
-                payoutSetupStatus === "ready"
+                payoutSetupStatus === "payout_ready"
                   ? "status-badge status-badge--ready"
                   : "status-badge status-badge--rating"
               }
             >
-              {payoutSetupStatus === "ready" ? "Complete" : "Incomplete"}
+              {payoutSetupStatus === "payout_ready"
+                ? "Payout ready"
+                : payoutSetupStatus === "payout_pending_verification"
+                  ? "Payout verification pending"
+                  : "Payout setup required"}
             </span>
             {refreshingStripeStatus ? (
               <span className="status-badge status-badge--rating">Refreshing status</span>
