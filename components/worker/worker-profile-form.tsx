@@ -9,6 +9,12 @@ import { AvailabilityCalendar } from "@/components/worker/availability-calendar"
 import { WorkerRolePicker } from "@/components/worker/role-picker";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { sanitiseAppRedirectPath } from "@/lib/auth-client";
+import {
+  buildOnboardingDraftKey,
+  clearOnboardingDraft,
+  readOnboardingDraft,
+  writeOnboardingDraft,
+} from "@/lib/onboarding-draft";
 import { clearPostAuthIntent, readPostAuthIntent } from "@/lib/post-auth-intent";
 import {
   CURRENT_UK_MINIMUM_HOURLY_RATE_GBP,
@@ -63,6 +69,25 @@ type SupabaseLikeError = {
   details?: string | null;
   hint?: string | null;
   code?: string;
+};
+type WorkerOnboardingDraft = {
+  fullName: string;
+  phone: string;
+  whatsAppOptIn: boolean;
+  primaryRoleId: string | null;
+  additionalRoleIds: string[];
+  jobRole: string;
+  bio: string;
+  hourlyRate: string;
+  yearsExperience: string;
+  city: string;
+  postcode: string;
+  travelRadius: string;
+  availabilitySummary: string;
+  workHistory: WorkHistoryItem[];
+  availabilityEntries: WorkerAvailabilityRecord[];
+  legalAccepted: boolean;
+  currentStepIndex: number;
 };
 
 const EMPTY_WORK_HISTORY: WorkHistoryItem = {
@@ -400,6 +425,8 @@ export function WorkerProfileForm({
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [draftKey, setDraftKey] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -479,6 +506,14 @@ export function WorkerProfileForm({
       const workerDocuments =
         (documentsResult.data as WorkerDocumentRecord[] | null) ?? [];
 
+      const nextDraftKey = buildOnboardingDraftKey({
+        form: "worker_setup",
+        userId: user.id,
+        email: appUser?.email ?? user.email ?? null,
+      });
+      setDraftKey(nextDraftKey);
+      const draft = readOnboardingDraft<WorkerOnboardingDraft>(nextDraftKey);
+
       if (roleCategoriesResult.error || rolesResult.error || workerRolesResult.error) {
         setMessage(
           roleCategoriesResult.error?.message ??
@@ -546,16 +581,42 @@ export function WorkerProfileForm({
         setWorkHistory(normaliseWorkHistory(profile.work_history));
         setApprovalStatus(profile.verification_status);
       } else {
-        setPrimaryRoleId(null);
-        setAdditionalRoleIds([]);
-        setJobRole("");
+        setPrimaryRoleId(draft?.primaryRoleId ?? null);
+        setAdditionalRoleIds(draft?.additionalRoleIds ?? []);
+        setJobRole(draft?.jobRole ?? "");
+        setBio(draft?.bio ?? "");
+        setHourlyRate(draft?.hourlyRate ?? "");
+        setYearsExperience(draft?.yearsExperience ?? "");
+        setCity(draft?.city ?? "");
+        setPostcode(draft?.postcode ?? "");
+        setTravelRadius(draft?.travelRadius ?? "10");
+        setAvailabilitySummary(draft?.availabilitySummary ?? "");
+        setWorkHistory(normaliseWorkHistory(draft?.workHistory));
+        setCurrentStepIndex(
+          typeof draft?.currentStepIndex === "number"
+            ? Math.max(0, Math.min(draft.currentStepIndex, WORKER_PROFILE_STEPS.length - 1))
+            : 0,
+        );
       }
 
       setAvailabilityEntries(
         dateAvailability.length > 0
           ? dateAvailability
-          : createFallbackAvailabilityFromWeeklySlots(user.id, availabilitySlots),
+          : draft?.availabilityEntries && draft.availabilityEntries.length > 0
+            ? draft.availabilityEntries
+            : createFallbackAvailabilityFromWeeklySlots(user.id, availabilitySlots),
       );
+      if (!profile && draft) {
+        setFullName(draft.fullName || appUser?.display_name || "");
+        setPhone(
+          draft.phone ||
+            normaliseInternationalPhoneNumber(appUser?.phone ?? "") ||
+            appUser?.phone ||
+            "",
+        );
+        setWhatsAppOptIn(Boolean(draft.whatsAppOptIn));
+        setLegalAccepted(Boolean(draft.legalAccepted));
+      }
       setExistingDocuments(
         workerDocuments.reduce<Partial<Record<DocumentType, WorkerDocumentRecord>>>(
           (accumulator, document) => {
@@ -566,6 +627,7 @@ export function WorkerProfileForm({
         ),
       );
       setLoading(false);
+      setDraftRestored(true);
     };
 
     void loadProfile();
@@ -574,6 +636,58 @@ export function WorkerProfileForm({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (mode !== "onboarding" || !draftKey || !draftRestored || loading) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      writeOnboardingDraft<WorkerOnboardingDraft>(draftKey, {
+        fullName,
+        phone,
+        whatsAppOptIn,
+        primaryRoleId,
+        additionalRoleIds,
+        jobRole,
+        bio,
+        hourlyRate,
+        yearsExperience,
+        city,
+        postcode,
+        travelRadius,
+        availabilitySummary,
+        workHistory,
+        availabilityEntries,
+        legalAccepted,
+        currentStepIndex,
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    additionalRoleIds,
+    availabilityEntries,
+    availabilitySummary,
+    bio,
+    city,
+    currentStepIndex,
+    draftKey,
+    draftRestored,
+    fullName,
+    hourlyRate,
+    jobRole,
+    legalAccepted,
+    loading,
+    mode,
+    phone,
+    postcode,
+    primaryRoleId,
+    travelRadius,
+    whatsAppOptIn,
+    workHistory,
+    yearsExperience,
+  ]);
 
   useEffect(() => {
     setExpandedWorkHistoryIndex((current) =>
@@ -1202,6 +1316,9 @@ export function WorkerProfileForm({
       await saveDocuments(user.id);
 
       await refreshAuthState();
+      if (mode === "onboarding" && draftKey) {
+        clearOnboardingDraft(draftKey);
+      }
 
       showToast({
         title:
@@ -1301,6 +1418,11 @@ export function WorkerProfileForm({
                   ? "Create your worker profile"
                   : "Manage your worker profile"}
               </h1>
+              {mode === "onboarding" ? (
+                <p className="mt-2 text-xs text-stone-500">
+                  Your progress is saved on this device.
+                </p>
+              ) : null}
               {mode === "onboarding" ? null : (
                 <p className="mt-2 max-w-3xl text-sm leading-5 text-stone-600 sm:mt-3 sm:leading-6">
                   {isManageAvailability

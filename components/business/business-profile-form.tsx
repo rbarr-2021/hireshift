@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useAuthState } from "@/components/auth/auth-provider";
 import { NexHyrLogo } from "@/components/brand/nexhyr-logo";
 import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
+import {
+  buildOnboardingDraftKey,
+  clearOnboardingDraft,
+  readOnboardingDraft,
+  writeOnboardingDraft,
+} from "@/lib/onboarding-draft";
 import { supabase } from "@/lib/supabase";
 import { normaliseInternationalPhoneNumber } from "@/lib/phone";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
@@ -36,6 +42,18 @@ type SupabaseLikeError = {
 };
 
 type BusinessDocumentFileState = Partial<Record<BusinessDocumentType, File | null>>;
+type BusinessOnboardingDraft = {
+  businessName: string;
+  sector: BusinessSector | "Other" | "";
+  otherSector: string;
+  contactName: string;
+  phone: string;
+  addressLine1: string;
+  city: string;
+  postcode: string;
+  description: string;
+  legalAccepted: boolean;
+};
 
 function sanitiseFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9.-]/g, "-").toLowerCase();
@@ -107,6 +125,8 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
   const [viewingDocumentType, setViewingDocumentType] =
     useState<BusinessDocumentType | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [draftKey, setDraftKey] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -134,6 +154,14 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       ]);
 
       if (!active) return;
+
+      const nextDraftKey = buildOnboardingDraftKey({
+        form: "business_setup",
+        userId: authUser.id,
+        email: appUser?.email ?? authUser.email ?? null,
+      });
+      setDraftKey(nextDraftKey);
+      const draft = readOnboardingDraft<BusinessOnboardingDraft>(nextDraftKey);
 
       setUser(appUser ?? null);
       setLegalAccepted(
@@ -167,8 +195,28 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
         setDescription(profile.description ?? "");
         setApprovalStatus(profile.verification_status);
       } else {
-        setContactName(appUser?.display_name ?? "");
-        setPhone(normaliseInternationalPhoneNumber(appUser?.phone ?? "") ?? appUser?.phone ?? "");
+        setBusinessName(draft?.businessName ?? "");
+        setSector(
+          draft?.sector && (BUSINESS_SECTORS.includes(draft.sector as BusinessSector) || draft.sector === "Other")
+            ? draft.sector
+            : BUSINESS_SECTORS[0],
+        );
+        setOtherSector(draft?.otherSector ?? "");
+        setContactName(draft?.contactName ?? appUser?.display_name ?? "");
+        setPhone(
+          draft?.phone ??
+            normaliseInternationalPhoneNumber(appUser?.phone ?? "") ??
+            appUser?.phone ??
+            "",
+        );
+        setAddressLine1(draft?.addressLine1 ?? "");
+        setCity(draft?.city ?? "");
+        setPostcode(draft?.postcode ?? "");
+        setDescription(draft?.description ?? "");
+      }
+
+      if (!profile && draft) {
+        setLegalAccepted(Boolean(draft.legalAccepted));
       }
 
       setExistingDocuments(
@@ -181,6 +229,7 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       );
 
       setLoading(false);
+      setDraftRestored(true);
     };
 
     void hydrateForm();
@@ -189,6 +238,44 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (mode !== "onboarding" || !draftKey || !draftRestored || loading) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      writeOnboardingDraft<BusinessOnboardingDraft>(draftKey, {
+        businessName,
+        sector: sector || "",
+        otherSector,
+        contactName,
+        phone,
+        addressLine1,
+        city,
+        postcode,
+        description,
+        legalAccepted,
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    addressLine1,
+    businessName,
+    city,
+    contactName,
+    description,
+    draftKey,
+    draftRestored,
+    legalAccepted,
+    loading,
+    mode,
+    otherSector,
+    phone,
+    postcode,
+    sector,
+  ]);
 
   const completion = useMemo(
     () =>
@@ -394,6 +481,9 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
       }
 
       await refreshAuthState();
+      if (mode === "onboarding" && draftKey) {
+        clearOnboardingDraft(draftKey);
+      }
 
       showToast({
         title: mode === "onboarding" ? "Business profile ready" : "Business profile saved",
@@ -458,6 +548,11 @@ export function BusinessProfileForm({ mode }: BusinessProfileFormProps) {
               Keep your venue details current so businesses can search workers with
               confidence and workers can understand your environment.
             </p>
+            {mode === "onboarding" ? (
+              <p className="mt-2 text-xs text-stone-500">
+                Your progress is saved on this device.
+              </p>
+            ) : null}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="panel-soft px-4 py-3">
