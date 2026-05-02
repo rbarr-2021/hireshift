@@ -44,6 +44,8 @@ type AdminBookingDetail = {
     cancelled_by_role: string | null;
     cancellation_reason: string | null;
     cancellation_note: string | null;
+    worker_checked_in_at: string | null;
+    worker_checked_out_at: string | null;
   };
   payment: {
     status: string;
@@ -257,6 +259,18 @@ export default function AdminBookingDetailPage() {
             {item.booking.cancellation_note ? (
               <p className="sm:col-span-2"><span className="font-medium text-stone-900">Cancellation note:</span> {item.booking.cancellation_note}</p>
             ) : null}
+            <p>
+              <span className="font-medium text-stone-900">Worker check-in:</span>{" "}
+              {item.booking.worker_checked_in_at
+                ? new Date(item.booking.worker_checked_in_at).toLocaleString("en-GB")
+                : "Not recorded (check-in not used for this booking)"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Worker check-out:</span>{" "}
+              {item.booking.worker_checked_out_at
+                ? new Date(item.booking.worker_checked_out_at).toLocaleString("en-GB")
+                : "Not recorded"}
+            </p>
             {item.payment?.stripe_payment_intent_id ? (
               <p className="sm:col-span-2"><span className="font-medium text-stone-900">Payment intent:</span> {item.payment.stripe_payment_intent_id}</p>
             ) : null}

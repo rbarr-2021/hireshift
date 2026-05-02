@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { CancelBookingAction } from "@/components/bookings/cancel-booking-action";
 import { AdminContactCard } from "@/components/support/admin-contact-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/toast-provider";
 import {
   WorkerBookingCard,
   WorkerBookingEmptyState,
@@ -14,12 +13,8 @@ import { loadWorkerBookingsSnapshot } from "@/components/worker/worker-bookings-
 import {
   canCancelBooking,
   formatHoursValue,
-  getCheckInWindow,
   isPastBooking,
-  isWithinCheckInWindow,
 } from "@/lib/bookings";
-import { getCurrentCoordinates } from "@/lib/geolocation";
-import { fetchWithSession } from "@/lib/route-client";
 import type {
   BookingRecord,
   PaymentRecord,
@@ -28,34 +23,11 @@ import type {
 import { getPaymentStatusValue } from "@/lib/payments";
 import { supabase } from "@/lib/supabase";
 
-function mapAttendanceErrorMessage(message: string) {
-  const normalised = message.toLowerCase();
-
-  if (
-    normalised.includes("check-in opens 15 minutes") ||
-    normalised.includes("check-in opens")
-  ) {
-    return "You can check in 15 minutes before your shift starts.";
-  }
-
-  if (normalised.includes("location") || normalised.includes("distance")) {
-    return "You need to be closer to the shift location to check in.";
-  }
-
-  if (normalised.includes("please log in again") || normalised.includes("unauthorized")) {
-    return "Please log in again.";
-  }
-
-  return "We couldn’t update attendance right now. Please try again.";
-}
-
 export default function WorkerAcceptedJobsPage() {
-  const { showToast } = useToast();
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<Record<string, PaymentRecord>>({});
   const [businessesById, setBusinessesById] = useState<Record<string, WorkerBookingBusinessSnapshot>>({});
   const [loading, setLoading] = useState(true);
-  const [actioningId, setActioningId] = useState<string | null>(null);
   const [countdownNow, setCountdownNow] = useState(() => new Date());
   const [workerPayoutReady, setWorkerPayoutReady] = useState(false);
 
@@ -109,71 +81,6 @@ export default function WorkerAcceptedJobsPage() {
     };
   }, []);
 
-  const handleAttendance = async (
-    booking: BookingRecord,
-    action: "check_in" | "check_out",
-  ) => {
-    setActioningId(booking.id);
-
-    try {
-      const coordinates = await getCurrentCoordinates();
-      const response = await fetchWithSession(`/api/bookings/${booking.id}/attendance`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          latitude: coordinates?.latitude ?? null,
-          longitude: coordinates?.longitude ?? null,
-        }),
-      });
-
-      const payload = (await response.json()) as {
-        error?: string;
-        booking?: BookingRecord | null;
-        payment?: PaymentRecord | null;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Unable to update shift attendance.");
-      }
-
-      if (payload.booking) {
-        setBookings((current) =>
-          current.map((item) => (item.id === booking.id ? payload.booking! : item)),
-        );
-      }
-
-      if (payload.payment) {
-        setPaymentsByBookingId((current) => ({
-          ...current,
-          [booking.id]: payload.payment!,
-        }));
-      }
-
-      showToast({
-        title: action === "check_in" ? "Shift started" : "Shift finished",
-        description:
-          action === "check_in"
-            ? "Your start time has been logged."
-            : "Your finish time has been logged for business confirmation.",
-        tone: "success",
-      });
-    } catch (error) {
-      const message = mapAttendanceErrorMessage(
-        error instanceof Error ? error.message : "Unable to update shift attendance.",
-      );
-      showToast({
-        title: "Attendance update failed",
-        description: message,
-        tone: "error",
-      });
-    } finally {
-      setActioningId(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -198,115 +105,67 @@ export default function WorkerAcceptedJobsPage() {
           bookings.map((booking) => {
             const payment = paymentsByBookingId[booking.id];
             const paymentSecured = getPaymentStatusValue(payment) === "paid";
-            const canCheckIn = !booking.worker_checked_in_at && paymentSecured && isWithinCheckInWindow(booking, countdownNow);
-            const canCheckOut = Boolean(booking.worker_checked_in_at && !booking.worker_checked_out_at);
-            const waitingApproval = booking.attendance_status === "pending_approval";
-            const showViewShift = !canCheckIn && !canCheckOut && !waitingApproval;
 
             return (
-            <WorkerBookingCard
-              key={booking.id}
-              booking={booking}
-              business={businessesById[booking.business_id]}
-              payment={payment}
-              workerPayoutReady={workerPayoutReady}
-              showDetailLink={false}
-              countdownNow={countdownNow}
-              actions={
-                !isPastBooking(booking) ? (
-                  <>
-                    {!paymentSecured ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        You’re confirmed once the business payment is secured.
-                      </p>
-                    ) : null}
-                    {!booking.worker_checked_in_at && !isWithinCheckInWindow(booking, countdownNow) ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        {countdownNow > getCheckInWindow(booking).closesAt
-                          ? "Check-in window has closed for this shift."
-                          : `Check-in opens at ${new Intl.DateTimeFormat("en-GB", {
-                              day: "numeric",
-                              month: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }).format(getCheckInWindow(booking).opensAt)}.`}
-                      </p>
-                    ) : null}
-                    {canCheckIn ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleAttendance(booking, "check_in")}
-                        disabled={actioningId === booking.id}
-                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                      >
-                        {actioningId === booking.id ? "Updating..." : "Check in"}
-                      </button>
-                    ) : null}
-                    {canCheckOut ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleAttendance(booking, "check_out")}
-                        disabled={actioningId === booking.id}
-                        className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                      >
-                        {actioningId === booking.id ? "Updating..." : "End shift"}
-                      </button>
-                    ) : null}
-                    {showViewShift ? (
+              <WorkerBookingCard
+                key={booking.id}
+                booking={booking}
+                business={businessesById[booking.business_id]}
+                payment={payment}
+                compact
+                workerPayoutReady={workerPayoutReady}
+                showDetailLink={false}
+                countdownNow={countdownNow}
+                actions={
+                  !isPastBooking(booking) ? (
+                    <>
+                      {!paymentSecured ? (
+                        <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                          You’re confirmed once the business payment is secured.
+                        </p>
+                      ) : (
+                        <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                          Attend your shift at the agreed time. The business will approve your hours afterwards.
+                        </p>
+                      )}
                       <a
                         href={`/dashboard/worker/bookings/${booking.id}`}
                         className="primary-btn w-full px-5 text-center sm:w-auto"
                       >
                         View shift
                       </a>
-                    ) : null}
-                    {canCancelBooking(booking, payment) ? (
-                      <CancelBookingAction
-                        bookingId={booking.id}
-                        actorRole="worker"
-                        className="secondary-btn w-full px-5 sm:w-auto"
-                        onCancelled={() => {
-                          setBookings((current) =>
-                            current.filter((item) => item.id !== booking.id),
-                          );
-                          setPaymentsByBookingId((current) => {
-                            const next = { ...current };
-                            delete next[booking.id];
-                            return next;
-                          });
-                        }}
-                      />
-                    ) : null}
-                    {booking.attendance_status === "pending_approval" ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        Awaiting business approval.
-                      </p>
-                    ) : null}
-                    {booking.arrival_confirmation_status === "worker_checked_in" ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        Checked in - awaiting arrival confirmation.
-                      </p>
-                    ) : null}
-                    {booking.arrival_confirmation_status === "business_confirmed" ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        Arrival confirmed.
-                      </p>
-                    ) : null}
-                    {booking.arrival_confirmation_status === "issue_reported" ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        Arrival issue reported. Support is reviewing.
-                      </p>
-                    ) : null}
-                    {(booking.attendance_status === "approved" || booking.attendance_status === "adjusted") ? (
-                      <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                        Hours approved
-                        {booking.business_hours_approved ? `: ${formatHoursValue(booking.business_hours_approved)}` : "."}
-                      </p>
-                    ) : null}
-                  </>
-                ) : undefined
-              }
-            />
+                      {canCancelBooking(booking, payment) ? (
+                        <CancelBookingAction
+                          bookingId={booking.id}
+                          actorRole="worker"
+                          className="secondary-btn w-full px-5 sm:w-auto"
+                          onCancelled={() => {
+                            setBookings((current) =>
+                              current.filter((item) => item.id !== booking.id),
+                            );
+                            setPaymentsByBookingId((current) => {
+                              const next = { ...current };
+                              delete next[booking.id];
+                              return next;
+                            });
+                          }}
+                        />
+                      ) : null}
+                      {booking.attendance_status === "pending_approval" ? (
+                        <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                          Awaiting business approval.
+                        </p>
+                      ) : null}
+                      {(booking.attendance_status === "approved" || booking.attendance_status === "adjusted") ? (
+                        <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                          Hours approved
+                          {booking.business_hours_approved ? `: ${formatHoursValue(booking.business_hours_approved)}` : "."}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : undefined
+                }
+              />
             );
           })
         ) : (

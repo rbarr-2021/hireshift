@@ -14,7 +14,7 @@ const workerLinks = [
   { href: "/dashboard/worker/requests", label: "Incoming Requests", mobileLabel: "Requests" },
   { href: "/dashboard/worker/jobs", label: "Accepted Jobs", mobileLabel: "Jobs" },
   { href: "/dashboard/worker/payments", label: "Payments", mobileLabel: "Pay" },
-  { href: "/shifts", label: "Browse Shifts", mobileLabel: "Shifts" },
+  { href: "/shifts", label: "View Live Jobs", mobileLabel: "Jobs" },
   { href: "/dashboard/worker/availability", label: "Availability", mobileLabel: "Avail" },
   { href: "/dashboard/worker/settings", label: "Settings", mobileLabel: "Settings" },
 ];
@@ -197,7 +197,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-gradient-to-r from-[rgba(6,11,23,0.96)] to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[rgba(6,11,23,0.96)] via-[rgba(6,11,23,0.86)] to-transparent" />
           <div className="pointer-events-none absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/10 bg-black/35 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-stone-300">
-            Swipe
+            Jobs
           </div>
           <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-2 pr-12 py-2">
           {links.map((link) => {

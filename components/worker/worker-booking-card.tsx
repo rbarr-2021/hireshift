@@ -38,6 +38,7 @@ export function WorkerBookingCard({
   showDetailLink = false,
   countdownNow,
   workerPayoutReady,
+  compact = false,
 }: {
   booking: BookingRecord;
   business?: WorkerBookingBusinessSnapshot;
@@ -46,6 +47,7 @@ export function WorkerBookingCard({
   showDetailLink?: boolean;
   countdownNow?: Date;
   workerPayoutReady?: boolean;
+  compact?: boolean;
 }) {
   const trustStatus = getWorkerTrustStatusLabel(booking, payment ?? null, countdownNow ?? new Date());
   const countdownLabel = countdownNow
@@ -98,26 +100,35 @@ export function WorkerBookingCard({
             Pay {formatCurrency(booking.hourly_rate_gbp)}/hr
           </span>
         </p>
-        <p>
-          <span className="font-medium text-stone-900">Arrival:</span>{" "}
-          {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Timing:</span>{" "}
-          {timingGuidance}
-        </p>
-        {booking.worker_checked_in_at ? (
+        {!compact ? (
+          <>
+            <p>
+              <span className="font-medium text-stone-900">Arrival:</span>{" "}
+              {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Timing:</span>{" "}
+              {timingGuidance}
+            </p>
+            {booking.worker_checked_in_at ? (
+              <p>
+                <span className="font-medium text-stone-900">Started:</span>{" "}
+                {formatAttendanceTimestamp(booking.worker_checked_in_at)}
+              </p>
+            ) : null}
+            {booking.worker_checked_out_at ? (
+              <p>
+                <span className="font-medium text-stone-900">Finished:</span>{" "}
+                {formatAttendanceTimestamp(booking.worker_checked_out_at)}
+              </p>
+            ) : null}
+          </>
+        ) : (
           <p>
-            <span className="font-medium text-stone-900">Started:</span>{" "}
-            {formatAttendanceTimestamp(booking.worker_checked_in_at)}
+            <span className="font-medium text-stone-900">Timing:</span>{" "}
+            {timingGuidance}
           </p>
-        ) : null}
-        {booking.worker_checked_out_at ? (
-          <p>
-            <span className="font-medium text-stone-900">Finished:</span>{" "}
-            {formatAttendanceTimestamp(booking.worker_checked_out_at)}
-          </p>
-        ) : null}
+        )}
       </div>
       {countdownLabel ? (
         <div className="mt-4">
@@ -127,12 +138,12 @@ export function WorkerBookingCard({
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="status-badge status-badge--ready">{nextAction}</span>
       </div>
-      {payment ? (
+      {payment && !compact ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {payoutReadinessMessage}
         </p>
       ) : null}
-      {booking.notes ? (
+      {booking.notes && !compact ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
             Arrival details

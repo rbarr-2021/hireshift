@@ -448,16 +448,19 @@ export async function POST(
     return NextResponse.json(refreshed);
   }
 
-  if (!booking.worker_checked_in_at || !booking.worker_checked_out_at) {
+  const scheduledEnd = getBookingEndDateTime(booking);
+  if (now < scheduledEnd) {
     return NextResponse.json(
-      { error: "Worker must check in and check out before attendance can be approved." },
+      { error: "Hours can be approved after the shift has ended." },
       { status: 409 },
     );
   }
 
   const claimedHours =
     booking.worker_hours_claimed ??
-    calculateHoursBetweenTimestamps(booking.worker_checked_in_at, booking.worker_checked_out_at);
+    (booking.worker_checked_in_at && booking.worker_checked_out_at
+      ? calculateHoursBetweenTimestamps(booking.worker_checked_in_at, booking.worker_checked_out_at)
+      : getEstimatedHours(booking));
 
   if (!claimedHours || claimedHours <= 0) {
     return NextResponse.json(

@@ -274,7 +274,7 @@ export default function RoleSelect() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black px-4 py-10">
-      <div className="panel w-full max-w-3xl p-5 sm:p-8">
+      <div className="panel w-full max-w-3xl p-5 pb-28 sm:p-8 sm:pb-8">
         <NexHyrLogo className="mb-5" />
         <p className="section-label">
           Choose your path
@@ -334,6 +334,7 @@ export default function RoleSelect() {
                   : "Continue to onboarding"}
           </button>
         </div>
+        <div className="h-24 md:hidden" aria-hidden />
         <div className="mobile-sticky-bar bottom-3 md:hidden">
           <button
             type="button"

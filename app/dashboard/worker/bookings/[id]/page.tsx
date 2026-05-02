@@ -13,8 +13,6 @@ import {
   formatAttendanceTimestamp,
   formatHoursValue,
   formatShiftDateTimeRange,
-  getCheckInWindow,
-  isWithinCheckInWindow,
 } from "@/lib/bookings";
 import type {
   BookingRecord,
@@ -22,7 +20,6 @@ import type {
   PaymentRecord,
   UserRecord,
 } from "@/lib/models";
-import { getCurrentCoordinates } from "@/lib/geolocation";
 import {
   formatPaymentStatus,
   formatPayoutStatus,
@@ -30,7 +27,6 @@ import {
   paymentStatusClass,
   payoutStatusClass,
 } from "@/lib/payments";
-import { fetchWithSession } from "@/lib/route-client";
 import { supabase } from "@/lib/supabase";
 import { AdminContactCard } from "@/components/support/admin-contact-card";
 import { BookingMessageBox } from "@/components/messages/booking-message-box";
@@ -40,27 +36,6 @@ import {
   getWorkerPaymentConfidenceMessage,
   getWorkerTrustStatusLabel,
 } from "@/lib/booking-communication";
-
-function mapAttendanceErrorMessage(message: string) {
-  const normalised = message.toLowerCase();
-
-  if (
-    normalised.includes("check-in opens 15 minutes") ||
-    normalised.includes("check-in opens")
-  ) {
-    return "You can check in 15 minutes before your shift starts.";
-  }
-
-  if (normalised.includes("location") || normalised.includes("distance")) {
-    return "You need to be closer to the shift location to check in.";
-  }
-
-  if (normalised.includes("please log in again") || normalised.includes("unauthorized")) {
-    return "Please log in again.";
-  }
-
-  return "We couldn’t update attendance right now. Please try again.";
-}
 
 type BusinessSnapshot = {
   name: string;
@@ -85,7 +60,6 @@ export default function WorkerBookingDetailPage() {
   const [payment, setPayment] = useState<PaymentRecord | null>(null);
   const [business, setBusiness] = useState<BusinessSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingAttendance, setUpdatingAttendance] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -206,86 +180,14 @@ export default function WorkerBookingDetailPage() {
     );
   }
 
-  const handleAttendance = async (action: "check_in" | "check_out") => {
-    setUpdatingAttendance(true);
-
-    try {
-      const coordinates = await getCurrentCoordinates();
-      const response = await fetchWithSession(`/api/bookings/${booking.id}/attendance`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          latitude: coordinates?.latitude ?? null,
-          longitude: coordinates?.longitude ?? null,
-        }),
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        booking?: BookingRecord | null;
-        payment?: PaymentRecord | null;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Unable to update attendance.");
-      }
-
-      if (payload.booking) {
-        setBooking(payload.booking);
-      }
-
-      if (payload.payment) {
-        setPayment(payload.payment);
-      }
-
-      showToast({
-        title: action === "check_in" ? "Shift started" : "Shift finished",
-        description:
-          action === "check_in"
-            ? "You’re checked in. Ask for the named contact and wait for the business to confirm your arrival."
-            : "Your finish time has been logged for business confirmation.",
-        tone: "success",
-      });
-    } catch (error) {
-      const message = mapAttendanceErrorMessage(
-        error instanceof Error ? error.message : "Unable to update attendance.",
-      );
-      showToast({
-        title: "Attendance update failed",
-        description: message,
-        tone: "error",
-      });
-    } finally {
-      setUpdatingAttendance(false);
-    }
-  };
-
   const workerPayout = payment?.worker_payout_gbp ?? booking.total_amount_gbp - booking.platform_fee_gbp;
   const paymentSecured = getPaymentStatusValue(payment) === "paid";
-  const checkInWindow = getCheckInWindow(booking);
-  const canCheckInNow = isWithinCheckInWindow(booking, now);
-  const checkInWindowMessage =
-    now > checkInWindow.closesAt
-      ? "Check-in window has closed for this shift."
-      : `Check-in opens 15 minutes before your shift starts at ${new Intl.DateTimeFormat(
-          "en-GB",
-          {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          },
-        ).format(checkInWindow.opensAt)}.`;
   const attendanceStageMessage =
     booking.attendance_status === "approved" || booking.attendance_status === "adjusted"
       ? "Hours approved"
       : booking.attendance_status === "pending_approval"
         ? "Awaiting business approval"
-        : booking.attendance_status === "checked_in"
-          ? "Shift in progress"
-          : null;
+        : null;
   const workerPayoutReady = payment
     ? payment.payout_status === "completed" ||
       payment.payout_status === "paid" ||
@@ -315,7 +217,7 @@ export default function WorkerBookingDetailPage() {
             {business?.name || "Business"} shift
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Keep this shift on track with clear check-in, approval, and payout updates.
+            Attend your shift at the agreed time. The business will approve your hours afterwards.
           </p>
         </div>
         <Link href="/dashboard/worker" className="secondary-btn w-full px-6 sm:w-auto">
@@ -378,10 +280,14 @@ export default function WorkerBookingDetailPage() {
             ) : null}
             {booking.worker_checked_in_at ? (
               <p><span className="font-medium text-stone-900">Started:</span> {formatAttendanceTimestamp(booking.worker_checked_in_at)}</p>
-            ) : null}
+            ) : (
+              <p><span className="font-medium text-stone-900">Started:</span> Not recorded</p>
+            )}
             {booking.worker_checked_out_at ? (
               <p><span className="font-medium text-stone-900">Finished:</span> {formatAttendanceTimestamp(booking.worker_checked_out_at)}</p>
-            ) : null}
+            ) : (
+              <p><span className="font-medium text-stone-900">Finished:</span> Not recorded</p>
+            )}
           </div>
 
           {booking.notes ? (
@@ -405,7 +311,11 @@ export default function WorkerBookingDetailPage() {
               <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                 Payment is not secured yet. Contact support before attending.
               </p>
-            ) : null}
+            ) : (
+              <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                Attend your shift at the agreed time. The business will approve your hours afterwards.
+              </p>
+            )}
             {payment?.payout_sent_at ? (
               <div className="flex items-center justify-between gap-4">
                 <span>Paid out</span>
@@ -425,33 +335,6 @@ export default function WorkerBookingDetailPage() {
           </div>
           {booking.status === "accepted" ? (
             <div className="mt-5 flex flex-col gap-3">
-              {!booking.worker_checked_in_at ? (
-                <>
-                  {!canCheckInNow ? (
-                    <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-                      {checkInWindowMessage}
-                    </p>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => void handleAttendance("check_in")}
-                    disabled={updatingAttendance || !canCheckInNow || !paymentSecured}
-                    className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {updatingAttendance ? "Updating..." : "Check in"}
-                  </button>
-                </>
-              ) : null}
-              {booking.worker_checked_in_at && !booking.worker_checked_out_at ? (
-                <button
-                  type="button"
-                  onClick={() => void handleAttendance("check_out")}
-                  disabled={updatingAttendance}
-                  className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {updatingAttendance ? "Updating..." : "End shift"}
-                </button>
-              ) : null}
               {booking.attendance_status === "pending_approval" ? (
                 <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
                   Awaiting business approval.

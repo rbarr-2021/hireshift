@@ -166,6 +166,10 @@ export default function BusinessDashboardPage() {
     () => bookings.filter((booking) => booking.status === "accepted" && !isPastBooking(booking)),
     [bookings],
   );
+  const completedBookings = useMemo(
+    () => bookings.filter((booking) => booking.status === "completed"),
+    [bookings],
+  );
 
   const openShiftListings = useMemo(
     () => shiftListings.filter((listing) => isLiveShiftListing(listing)),
@@ -588,6 +592,7 @@ export default function BusinessDashboardPage() {
                   booking={booking}
                   worker={workersById[booking.worker_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  compact
                 />
               ))
             ) : (
@@ -614,6 +619,7 @@ export default function BusinessDashboardPage() {
                   booking={booking}
                   worker={workersById[booking.worker_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  compact
                   actions={
                     <>
                       {!isBookingPaid(paymentsByBookingId[booking.id]) ? (
@@ -664,28 +670,35 @@ export default function BusinessDashboardPage() {
                           }}
                         />
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
-                          disabled={
-                            actioningId === booking.id ||
-                            !isBookingPaid(paymentsByBookingId[booking.id]) ||
-                            !(booking.worker_checked_out_at || isPastBooking(booking))
-                          }
-                          className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
-                        >
-                          <span className="inline-flex items-center justify-center gap-2">
-                            {actioningId === booking.id ? "Updating..." : "Approve hours"}
-                            {completedBookingIds.has(booking.id) ? (
-                              <span
-                                aria-label="Completed"
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-black"
-                              >
-                                &#10003;
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
+                        <>
+                          {!booking.worker_checked_in_at ? (
+                            <p className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+                              Worker check-in not recorded. Confirm hours based on attendance.
+                            </p>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => void handleRecordOutcome(booking.id, "approve_hours")}
+                            disabled={
+                              actioningId === booking.id ||
+                              !isBookingPaid(paymentsByBookingId[booking.id]) ||
+                              !isPastBooking(booking)
+                            }
+                            className="primary-btn w-full px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+                          >
+                            <span className="inline-flex items-center justify-center gap-2">
+                              {actioningId === booking.id ? "Updating..." : "Approve hours"}
+                              {completedBookingIds.has(booking.id) ? (
+                                <span
+                                  aria-label="Completed"
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-black"
+                                >
+                                  &#10003;
+                                </span>
+                              ) : null}
+                            </span>
+                          </button>
+                        </>
                       )}
                     </>
                   }
@@ -702,6 +715,30 @@ export default function BusinessDashboardPage() {
           </div>
         </section>
       </div>
+
+      <section className="panel-soft p-5 sm:p-6">
+        <details>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xl font-semibold text-stone-900">
+            <span>Completed and past</span>
+            <span className="status-badge">{completedBookings.length}</span>
+          </summary>
+          <div className="mt-4 space-y-3">
+            {completedBookings.length > 0 ? (
+              completedBookings.slice(0, 8).map((booking) => (
+                <BusinessBookingCard
+                  key={booking.id}
+                  booking={booking}
+                  worker={workersById[booking.worker_id]}
+                  payment={paymentsByBookingId[booking.id]}
+                  compact
+                />
+              ))
+            ) : (
+              <p className="text-sm text-stone-600">No completed bookings yet.</p>
+            )}
+          </div>
+        </details>
+      </section>
 
       <AdminContactCard
         accountType="business"

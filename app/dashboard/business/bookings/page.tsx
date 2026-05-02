@@ -161,10 +161,10 @@ export default function BusinessPastBookingsPage() {
             <span className="status-badge">{unfulfilledListings.length}</span>
           </div>
           {unfulfilledListings.map((listing) => (
-            <article key={listing.id} className="panel-soft p-5 sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <article key={listing.id} className="panel-soft p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-lg font-semibold text-stone-900">
+                  <p className="text-base font-semibold text-stone-900">
                     {listing.title || listing.role_label}
                   </p>
                   <p className="mt-1 text-sm text-stone-600">
@@ -180,19 +180,10 @@ export default function BusinessPastBookingsPage() {
                 </div>
                 <span className="status-badge">Unfilled</span>
               </div>
-              <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
-                <p>
-                  <span className="font-medium text-stone-900">Positions unfilled:</span>{" "}
-                  {getRemainingShiftPositions(listing)}
-                </p>
-                <p>
-                  <span className="font-medium text-stone-900">Posted:</span>{" "}
-                  {listing.open_positions}
-                </p>
-                <p>
-                  <span className="font-medium text-stone-900">Claimed:</span>{" "}
-                  {listing.claimed_positions}
-                </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.14em] text-stone-500">
+                <span>Unfilled: {getRemainingShiftPositions(listing)}</span>
+                <span>Posted: {listing.open_positions}</span>
+                <span>Claimed: {listing.claimed_positions}</span>
               </div>
             </article>
           ))}
@@ -207,6 +198,7 @@ export default function BusinessPastBookingsPage() {
               booking={booking}
               worker={workersById[booking.worker_id]}
               payment={paymentsByBookingId[booking.id]}
+              compact
               paymentLabel={formatPaymentStatus(paymentsByBookingId[booking.id]?.status ?? "pending")}
               paymentTone={paymentStatusClass(paymentsByBookingId[booking.id]?.status ?? "pending")}
               payoutLabel={

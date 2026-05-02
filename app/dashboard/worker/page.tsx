@@ -246,10 +246,10 @@ export default function WorkerDashboardPage() {
           </h1>
         </div>
         <Link
-          href="/dashboard/worker/availability"
+          href="/shifts"
           className="primary-btn w-full px-6 sm:w-auto"
         >
-          Update availability
+          View Live Jobs
         </Link>
       </div>
 
@@ -328,9 +328,14 @@ export default function WorkerDashboardPage() {
 
       <div className="grid gap-4">
         <section className="panel-soft p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-stone-900">Upcoming shifts</h2>
-            <span className="status-badge status-badge--rating">{upcomingShifts.length}</span>
+            <div className="flex items-center gap-2">
+              <span className="status-badge status-badge--rating">{upcomingShifts.length}</span>
+              <Link href="/dashboard/worker/availability" className="secondary-btn min-h-10 px-4 py-2 text-sm">
+                Manage availability
+              </Link>
+            </div>
           </div>
           <div className="mt-4 space-y-4">
             {upcomingShifts.length > 0 ? (
@@ -340,6 +345,7 @@ export default function WorkerDashboardPage() {
                   booking={booking}
                   business={businessesById[booking.business_id]}
                   payment={paymentsByBookingId[booking.id]}
+                  compact
                   workerPayoutReady={workerPayoutReady}
                   showDetailLink
                   countdownNow={countdownNow}

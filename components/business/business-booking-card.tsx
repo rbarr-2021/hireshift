@@ -40,6 +40,7 @@ export function BusinessBookingCard({
   paymentTone,
   payoutLabel,
   payoutTone,
+  compact = false,
 }: {
   booking: BookingRecord;
   worker?: WorkerSnapshot;
@@ -49,6 +50,7 @@ export function BusinessBookingCard({
   paymentTone?: string;
   payoutLabel?: string;
   payoutTone?: string;
+  compact?: boolean;
 }) {
   const trustStatus = getBusinessTrustStatusLabel(booking, payment ?? null);
   const nextActionLabel = getBookingNextAction({
@@ -91,64 +93,78 @@ export function BusinessBookingCard({
             Pay {formatCurrency(booking.hourly_rate_gbp)}/hr
           </span>
         </p>
-        <p>
-          <span className="font-medium text-stone-900">Total:</span>{" "}
-          {formatCurrency(booking.total_amount_gbp)}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Scheduled hours:</span>{" "}
-          {formatHoursValue(
-            booking.shift_duration_hours ??
-              calculateBookingDurationHours(
-                booking.start_time,
-                booking.end_time,
-                booking.shift_date,
-                booking.shift_end_date,
-              ),
-          ) ?? "Not set"}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Attendance:</span>{" "}
-          {formatAttendanceStatusLabel(booking.attendance_status)}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Arrival:</span>{" "}
-          {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}
-        </p>
-        <p>
-          <span className="font-medium text-stone-900">Timing:</span> {timingGuidance}
-        </p>
-        {booking.worker_hours_claimed ? (
-          <p>
-            <span className="font-medium text-stone-900">Claimed hours:</span>{" "}
-            {formatHoursValue(booking.worker_hours_claimed)}
-          </p>
-        ) : null}
-        {booking.business_hours_approved ? (
-          <p>
-            <span className="font-medium text-stone-900">Approved hours:</span>{" "}
-            {formatHoursValue(booking.business_hours_approved)}
-          </p>
-        ) : null}
-        {booking.worker_checked_in_at ? (
-          <p>
-            <span className="font-medium text-stone-900">Worker started:</span>{" "}
-            {formatAttendanceTimestamp(booking.worker_checked_in_at)}
-          </p>
-        ) : null}
-        {booking.worker_checked_out_at ? (
-          <p>
-            <span className="font-medium text-stone-900">Worker finished:</span>{" "}
-            {formatAttendanceTimestamp(booking.worker_checked_out_at)}
-          </p>
-        ) : null}
+        {!compact ? (
+          <>
+            <p>
+              <span className="font-medium text-stone-900">Total:</span>{" "}
+              {formatCurrency(booking.total_amount_gbp)}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Scheduled hours:</span>{" "}
+              {formatHoursValue(
+                booking.shift_duration_hours ??
+                  calculateBookingDurationHours(
+                    booking.start_time,
+                    booking.end_time,
+                    booking.shift_date,
+                    booking.shift_end_date,
+                  ),
+              ) ?? "Not set"}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Attendance:</span>{" "}
+              {formatAttendanceStatusLabel(booking.attendance_status)}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Arrival:</span>{" "}
+              {formatArrivalConfirmationStatusLabel(booking.arrival_confirmation_status)}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Timing:</span> {timingGuidance}
+            </p>
+            {booking.worker_hours_claimed ? (
+              <p>
+                <span className="font-medium text-stone-900">Claimed hours:</span>{" "}
+                {formatHoursValue(booking.worker_hours_claimed)}
+              </p>
+            ) : null}
+            {booking.business_hours_approved ? (
+              <p>
+                <span className="font-medium text-stone-900">Approved hours:</span>{" "}
+                {formatHoursValue(booking.business_hours_approved)}
+              </p>
+            ) : null}
+            {booking.worker_checked_in_at ? (
+              <p>
+                <span className="font-medium text-stone-900">Worker started:</span>{" "}
+                {formatAttendanceTimestamp(booking.worker_checked_in_at)}
+              </p>
+            ) : null}
+            {booking.worker_checked_out_at ? (
+              <p>
+                <span className="font-medium text-stone-900">Worker finished:</span>{" "}
+                {formatAttendanceTimestamp(booking.worker_checked_out_at)}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <p>
+              <span className="font-medium text-stone-900">Timing:</span> {timingGuidance}
+            </p>
+            <p>
+              <span className="font-medium text-stone-900">Total:</span>{" "}
+              {formatCurrency(booking.total_amount_gbp)}
+            </p>
+          </>
+        )}
       </div>
-      {booking.business_adjustment_reason ? (
+      {booking.business_adjustment_reason && !compact ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.business_adjustment_reason}
         </p>
       ) : null}
-      {booking.arrival_confirmation_note ? (
+      {booking.arrival_confirmation_note && !compact ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.arrival_confirmation_note}
         </p>
@@ -156,10 +172,12 @@ export function BusinessBookingCard({
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="status-badge status-badge--ready">{nextActionLabel}</span>
       </div>
-      <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
-        {paymentConfidence}
-      </p>
-      {booking.notes ? (
+      {!compact ? (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+          {paymentConfidence}
+        </p>
+      ) : null}
+      {booking.notes && !compact ? (
         <p className="mt-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
           {booking.notes}
         </p>

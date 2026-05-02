@@ -1,24 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BottomActionBar } from "@/components/worker/availability/bottom-action-bar";
-import { CalendarGrid } from "@/components/worker/availability/calendar-grid";
-import { MultiSelectToggle } from "@/components/worker/availability/multi-select-toggle";
-import { useSelectionStateManager } from "@/components/worker/availability/selection-state-manager";
-import type {
-  WorkerAvailabilityRecord,
-  WorkerAvailabilityStatus,
-} from "@/lib/models";
+import type { WorkerAvailabilityRecord } from "@/lib/models";
 
 type AvailabilityCalendarProps = {
   entries: WorkerAvailabilityRecord[];
   onChange: (entries: WorkerAvailabilityRecord[]) => void;
 };
-
-const DEFAULT_ALL_DAY_START = "09:00";
-const DEFAULT_ALL_DAY_END = "17:00";
-const DEFAULT_PARTIAL_START = "09:00";
-const DEFAULT_PARTIAL_END = "17:00";
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -38,11 +26,6 @@ function getDateKey(date: Date) {
 function parseDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
-}
-
-function getNextDateKey(value: string) {
-  const current = parseDateKey(value);
-  return getDateKey(new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1));
 }
 
 function formatMonthLabel(date: Date) {
@@ -66,7 +49,6 @@ function buildCalendarDays(month: Date, todayKey: string) {
   const days: Array<{
     dateKey: string;
     dayOfMonth: number;
-    weekdayLabel: string;
     inMonth: boolean;
     isToday: boolean;
   }> = [];
@@ -83,33 +65,12 @@ function buildCalendarDays(month: Date, todayKey: string) {
     days.push({
       dateKey,
       dayOfMonth: day.getDate(),
-      weekdayLabel: new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(day),
       inMonth: day.getMonth() === month.getMonth() && day.getFullYear() === month.getFullYear(),
       isToday: dateKey === todayKey,
     });
   }
 
   return days;
-}
-
-function getTimePart(value: string | null) {
-  return value ? value.slice(11, 16) : null;
-}
-
-function toLocalDateTime(dateKey: string, time: string) {
-  return `${dateKey}T${time}:00`;
-}
-
-function buildDateTimeRange(dateKey: string, startTime: string, endTime: string) {
-  const startDateTime = toLocalDateTime(dateKey, startTime);
-  const endDateKey = endTime < startTime ? getNextDateKey(dateKey) : dateKey;
-  const endDateTime = toLocalDateTime(endDateKey, endTime);
-
-  return { startDateTime, endDateTime };
-}
-
-function isZeroLength(startTime: string, endTime: string) {
-  return startTime === endTime;
 }
 
 function upsertEntry(entries: WorkerAvailabilityRecord[], nextEntry: WorkerAvailabilityRecord) {
@@ -128,26 +89,15 @@ function upsertEntry(entries: WorkerAvailabilityRecord[], nextEntry: WorkerAvail
   );
 }
 
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
 export function AvailabilityCalendar({
   entries,
   onChange,
 }: AvailabilityCalendarProps) {
   const todayKey = getDateKey(new Date());
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(new Date()));
-  const [multiSelectEnabled, setMultiSelectEnabled] = useState(false);
-  const [weekPreviewIndex, setWeekPreviewIndex] = useState<number | null>(null);
-
-  const {
-    selectedDateKeys,
-    isDragging,
-    handleDayClick,
-    startDragSelection,
-    continueDragSelection,
-    clearSelection,
-    setSelectedDateKeys,
-  } = useSelectionStateManager({
-    multiSelectEnabled,
-  });
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
 
   const entryMap = useMemo(
     () =>
@@ -163,267 +113,110 @@ export function AvailabilityCalendar({
     [todayKey, visibleMonth],
   );
 
-  const counts = useMemo(
-    () => ({
-      available: entries.filter((entry) => entry.status === "available").length,
-      partial: entries.filter((entry) => entry.status === "partial").length,
-      unavailable: entries.filter((entry) => entry.status === "unavailable").length,
-    }),
+  const availableCount = useMemo(
+    () => entries.filter((entry) => entry.status === "available").length,
     [entries],
   );
 
-  const selectedSummary = useMemo(() => {
-    if (selectedDateKeys.length === 0) {
-      return "Select one or more days to set availability.";
-    }
+  const toggleDayAvailability = (dateKey: string) => {
+    const existingEntry = entryMap[dateKey];
+    const isAvailable = existingEntry?.status === "available";
 
-    if (selectedDateKeys.length === 1) {
-      return new Intl.DateTimeFormat("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      }).format(parseDateKey(selectedDateKeys[0]));
-    }
+    const nextEntry: WorkerAvailabilityRecord = {
+      id: existingEntry?.id ?? `draft-${dateKey}`,
+      worker_id: existingEntry?.worker_id ?? "",
+      availability_date: dateKey,
+      status: isAvailable ? "unavailable" : "available",
+      start_datetime: isAvailable ? null : `${dateKey}T09:00:00`,
+      end_datetime: isAvailable ? null : `${dateKey}T17:00:00`,
+      created_at: existingEntry?.created_at ?? "",
+      updated_at: existingEntry?.updated_at ?? "",
+    };
 
-    return `${selectedDateKeys.length} days selected`;
-  }, [selectedDateKeys]);
-
-  const monthDateKeys = useMemo(
-    () => calendarDays.filter((day) => day.inMonth).map((day) => day.dateKey),
-    [calendarDays],
-  );
-
-  const weekdayDateKeys = useMemo(
-    () =>
-      calendarDays
-        .filter((day) => day.inMonth)
-        .filter((day) => {
-          const dayIndex = parseDateKey(day.dateKey).getDay();
-          return dayIndex >= 1 && dayIndex <= 5;
-        })
-        .map((day) => day.dateKey),
-    [calendarDays],
-  );
-
-  const weekendDateKeys = useMemo(
-    () =>
-      calendarDays
-        .filter((day) => day.inMonth)
-        .filter((day) => {
-          const dayIndex = parseDateKey(day.dateKey).getDay();
-          return dayIndex === 0 || dayIndex === 6;
-        })
-        .map((day) => day.dateKey),
-    [calendarDays],
-  );
-
-  const quickFillActions = [
-    {
-      key: "full-week",
-      label: "Full week",
-      onClick: () => {
-        const anchorDateKey = selectedDateKeys[selectedDateKeys.length - 1] ?? todayKey;
-        const weekStart = (() => {
-          const parsed = parseDateKey(anchorDateKey);
-          const weekday = (parsed.getDay() + 6) % 7;
-          return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() - weekday);
-        })();
-        const weekKeys = Array.from({ length: 7 }, (_, index) =>
-          getDateKey(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index)),
-        ).filter((dateKey) => monthDateKeys.includes(dateKey));
-
-        setSelectedDateKeys(weekKeys);
-      },
-    },
-    {
-      key: "weekdays",
-      label: "Weekdays",
-      onClick: () => setSelectedDateKeys(weekdayDateKeys),
-    },
-    {
-      key: "weekend",
-      label: "Weekend",
-      onClick: () => setSelectedDateKeys(weekendDateKeys),
-    },
-    {
-      key: "clear",
-      label: "Clear",
-      onClick: clearSelection,
-    },
-  ];
-
-  const applyStatusToSelectedDays = (status: WorkerAvailabilityStatus) => {
-    if (selectedDateKeys.length === 0) {
-      return;
-    }
-
-    const nextEntries = selectedDateKeys.reduce((currentEntries, dateKey) => {
-      const existingEntry = entryMap[dateKey];
-      let startDateTime: string | null = null;
-      let endDateTime: string | null = null;
-
-      if (status !== "unavailable") {
-        const fallbackStart =
-          getTimePart(existingEntry?.start_datetime ?? null) ??
-          (status === "available" ? DEFAULT_ALL_DAY_START : DEFAULT_PARTIAL_START);
-        const fallbackEnd =
-          getTimePart(existingEntry?.end_datetime ?? null) ??
-          (status === "available" ? DEFAULT_ALL_DAY_END : DEFAULT_PARTIAL_END);
-
-        if (!isZeroLength(fallbackStart, fallbackEnd)) {
-          const range = buildDateTimeRange(dateKey, fallbackStart, fallbackEnd);
-          startDateTime = range.startDateTime;
-          endDateTime = range.endDateTime;
-        }
-      }
-
-      const nextEntry: WorkerAvailabilityRecord = {
-        id: existingEntry?.id ?? `draft-${dateKey}`,
-        worker_id: existingEntry?.worker_id ?? "",
-        availability_date: dateKey,
-        status,
-        start_datetime: startDateTime,
-        end_datetime: endDateTime,
-        created_at: existingEntry?.created_at ?? "",
-        updated_at: existingEntry?.updated_at ?? "",
-      };
-
-      return upsertEntry(currentEntries, nextEntry);
-    }, entries);
-
-    onChange(nextEntries);
+    onChange(upsertEntry(entries, nextEntry));
+    setUpdatedAt(Date.now());
   };
 
+  const showUpdatedMessage = updatedAt && Date.now() - updatedAt < 1800;
+
   return (
-    <div className="space-y-5 pb-28 sm:pb-0">
-      <div className="panel-soft p-4 sm:p-6">
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-stone-500">Calendar availability</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="status-badge status-badge--ready">
-                {counts.available} available
-              </span>
-              <span className="status-badge status-badge--rating">
-                {counts.partial} partial
-              </span>
-              <span className="status-badge">{counts.unavailable} unavailable</span>
-            </div>
-            <div className="pt-1">
-              <MultiSelectToggle
-                enabled={multiSelectEnabled}
-                onToggle={() => {
-                  setMultiSelectEnabled((current) => !current);
-                }}
-              />
-              {multiSelectEnabled ? (
-                <p className="mt-2 text-sm text-[#BFD4FF]">
-                  Tap or drag across days to select multiple.
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap gap-2 xl:hidden">
-              {quickFillActions.map((action) => (
-                <button
-                  key={action.key}
-                  type="button"
-                  onClick={action.onClick}
-                  className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 text-[11px] font-semibold text-stone-200 transition hover:border-[#8B5CF6]/45 hover:bg-[rgba(139,92,246,0.22)]"
-                  aria-label={action.label}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-stone-400">
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
-                Available
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
-                Partial
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                <span className="h-2 w-2 rounded-full bg-white/40" />
-                Unavailable
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#3B82F6,#8B5CF6)]" />
-                Selected
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
-              className="secondary-btn px-4"
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const today = startOfMonth(new Date());
-                setVisibleMonth(today);
-                setSelectedDateKeys([todayKey]);
-              }}
-              className="secondary-btn px-4"
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => setVisibleMonth((current) => addMonths(current, 1))}
-              className="secondary-btn px-4"
-            >
-              Next
-            </button>
-            </div>
-            <p className="max-w-2xl text-sm leading-6 text-stone-500">
-              {selectedSummary}
-            </p>
-          </div>
+    <div className="space-y-4">
+      <div className="panel-soft p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
+            className="secondary-btn min-h-10 px-3 py-2 text-sm"
+          >
+            Prev
+          </button>
+          <h3 className="text-lg font-semibold text-stone-100">
+            {formatMonthLabel(visibleMonth)}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setVisibleMonth((current) => addMonths(current, 1))}
+            className="secondary-btn min-h-10 px-3 py-2 text-sm"
+          >
+            Next
+          </button>
         </div>
 
-        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,2.2fr)_360px] xl:gap-8">
-          <div className="min-w-0 xl:flex xl:flex-col xl:justify-center">
-            <h3 className="mb-3 text-lg font-semibold text-stone-100">
-              {formatMonthLabel(visibleMonth)}
-            </h3>
-            <CalendarGrid
-              days={calendarDays}
-              selectedDateKeys={selectedDateKeys}
-              entryMap={entryMap}
-              isDragging={isDragging}
-              weekPreviewIndex={weekPreviewIndex}
-              onWeekPreview={setWeekPreviewIndex}
-              onDayClick={handleDayClick}
-              onDragStart={startDragSelection}
-              onDragEnter={continueDragSelection}
-            />
-          </div>
-
-          <div className="hidden xl:block xl:min-w-[360px] xl:sticky xl:top-4">
-            <BottomActionBar
-              placement="desktop"
-              visible={selectedDateKeys.length > 0}
-              selectedCount={selectedDateKeys.length}
-              onApplyStatus={applyStatusToSelectedDays}
-              onClear={clearSelection}
-              quickFillActions={quickFillActions}
-            />
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="status-badge status-badge--ready">{availableCount} available days</span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-1 text-stone-400">
+            <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
+            Available
+          </span>
         </div>
       </div>
 
-      <BottomActionBar
-        placement="mobile"
-        visible={selectedDateKeys.length > 0}
-        selectedCount={selectedDateKeys.length}
-        onApplyStatus={applyStatusToSelectedDays}
-        onClear={clearSelection}
-      />
+      <div className="rounded-[1.2rem] border border-white/10 bg-black/35 p-2 sm:rounded-[1.5rem] sm:p-4">
+        <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-500 sm:gap-2">
+          {WEEKDAY_LABELS.map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </div>
+
+        <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
+          {calendarDays.map((day) => {
+            const entry = entryMap[day.dateKey];
+            const isAvailable = entry?.status === "available";
+            const isCurrentMonth = day.inMonth;
+
+            return (
+              <button
+                key={day.dateKey}
+                type="button"
+                onClick={() => toggleDayAvailability(day.dateKey)}
+                className={`relative aspect-square rounded-xl border p-1 text-left transition sm:p-2 ${
+                  day.isToday
+                    ? "border-[#8B5CF6]/70 shadow-[0_0_10px_rgba(139,92,246,0.4)]"
+                    : "border-white/10"
+                } ${
+                  isAvailable
+                    ? "bg-[rgba(59,130,246,0.2)] text-white"
+                    : "bg-black/30 text-stone-200 hover:border-[#3B82F6]/40"
+                } ${isCurrentMonth ? "" : "opacity-45"}`}
+                aria-label={`${day.dateKey} ${isAvailable ? "available" : "not available"}`}
+              >
+                <span className="text-sm font-semibold leading-none sm:text-base">{day.dayOfMonth}</span>
+                {isAvailable ? (
+                  <span className="absolute inset-x-2 bottom-1 h-1.5 rounded-full bg-[#3B82F6] sm:bottom-2" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-stone-500">
+        Tap a date once to mark available. Tap again to remove availability.
+      </p>
+
+      {showUpdatedMessage ? (
+        <p className="text-sm text-[#BFD4FF]">Availability updated.</p>
+      ) : null}
     </div>
   );
 }
